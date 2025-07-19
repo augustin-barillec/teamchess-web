@@ -1,0 +1,11 @@
+{
+  "name": "@teamchess/shared",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
