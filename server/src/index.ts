@@ -2,13 +2,14 @@ import express from 'express';
 import http from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
-import { nanoid } from 'nanoid';
 import { Chess } from 'chess.js';
+import { nanoid } from 'nanoid';
 import path from 'path';
 
 // point at the built Stockfish engine
 const stockfishPath = path.join(
   __dirname,
+  '..',
   '..',
   'node_modules',
   'stockfish',
@@ -92,12 +93,31 @@ function startClock(gameId: string) {
   }, 1000);
 }
 
-async function chooseBestMove(fen: string, candidates: string[], depth = 15): Promise<string> {
+async function chooseBestMove(fen: string, candidates: string[], depth = 1): Promise<string> {
+  console.log(`Choosing best move from candidates: ${candidates.join(', ')} at depth ${depth}`);
+
   return new Promise(resolve => {
+    console.log(`Sending position to engine: ${fen}`);
+
     engine.send(`position fen ${fen}`);
     const movesArg = candidates.join(' ');
+    console.log(`Sending moves to engine: ${movesArg}`);
+
+    let resolved = false;
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        console.warn('Engine did not return bestmove in time, picking first candidate.');
+        resolve(candidates[0]);
+      }
+    }, 10000); // 10 seconds timeout
+
     engine.send(`go depth ${depth} searchmoves ${movesArg}`, (output: string) => {
-      if (output.startsWith('bestmove')) {
+      console.log(`Engine output: ${output}`);
+
+      if (!resolved && output.startsWith('bestmove')) {
+        resolved = true;
+        clearTimeout(timeout);
         resolve(output.split(' ')[1]);
       }
     });
@@ -123,17 +143,28 @@ function broadcastPlayers(gameId: string) {
  * Attempt to finalize a turn if all remaining players have submitted their proposals.
  */
 function tryFinalizeTurn(gameId: string, state: GameState) {
+  console.log(
+    `Trying to finalize turn for game ${gameId}, move ${state.moveNumber}, side ${state.side}`,
+  );
   if (!state.started || state.ended) return;
   const activeIds = state.side === 'white' ? state.whiteIds : state.blackIds;
 
   // only keep proposals whose socket.id is still active
   const entries = Array.from(state.proposals.entries()).filter(([id]) => activeIds.has(id));
+  console.log(`Active players: ${activeIds.size}, Proposals: ${entries.length}`);
 
   if (activeIds.size > 0 && entries.length === activeIds.size) {
     const candidates = entries.map(([, lan]) => lan);
     const currentFen = state.chess.fen();
 
+    console.log(`All players have proposed moves: ${candidates.join(', ')}`);
+    console.log(`currentFen = ${currentFen}`);
+
     chooseBestMove(currentFen, candidates, 12).then(selLan => {
+      console.log(
+        `Selected move: ${selLan} for game ${gameId}, move ${state.moveNumber}, side ${state.side}`,
+      );
+
       // apply the chosen move
       const move = state.chess.move({
         from: selLan.slice(0, 2),
@@ -189,6 +220,8 @@ io.on('connection', (socket: Socket) => {
   });
 
   socket.on('join_game', ({ gameId, name }, cb) => {
+    console.log(`Socket ${socket.id} joining game ${gameId} as ${name}`);
+
     if (!io.sockets.adapter.rooms.has(gameId)) return cb({ error: 'Game not found.' });
     for (const id of io.sockets.adapter.rooms.get(gameId)!) {
       const s = io.sockets.sockets.get(id);
@@ -210,6 +243,8 @@ io.on('connection', (socket: Socket) => {
   });
 
   socket.on('join_side', ({ side }, cb) => {
+    console.log(`Socket ${socket.id} joining side ${side}`);
+
     const gameId = socket.data.gameId as string | undefined;
     if (!gameId) return cb({ success: false, error: 'Not in a game.' });
 
@@ -229,6 +264,8 @@ io.on('connection', (socket: Socket) => {
   });
 
   socket.on('start_game', cb => {
+    console.log(`Socket ${socket.id} starting game`);
+
     const gameId = socket.data.gameId as string | undefined;
     if (!gameId || gameStates.has(gameId)) return cb?.();
 
@@ -261,6 +298,8 @@ io.on('connection', (socket: Socket) => {
   });
 
   socket.on('play_move', (lan: string, cb) => {
+    console.log(`Play move lan ${lan} , cb ${cb} `);
+
     const gameId = socket.data.gameId as string | undefined;
     const state = gameStates.get(gameId!);
     if (!state || state.ended) return cb({ error: 'Game not running.' });

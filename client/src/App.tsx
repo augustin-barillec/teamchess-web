@@ -510,39 +510,20 @@ export default function App() {
                       if (side !== current.side) return false;
                       let promotion;
                       if (needsPromotion(from, to)) {
-                        console.log(`needsPromotion: ${needsPromotion}`);
                         const choice = prompt('Promote pawn to (q, r, b, n)', 'q');
                         if (!choice || !['q', 'r', 'b', 'n'].includes(choice)) {
-                          toast.error('Invalid promotion piece. Move canceled.');
+                          alert('Invalid promotion piece. Move canceled.');
                           return false;
                         }
                         promotion = choice as 'q' | 'r' | 'b' | 'n';
                       }
-                      console.log(`Move: ${from} to ${to} ${promotion ? `(${promotion})` : ''}`);
                       const m = chess.move({ from, to, promotion });
-                      console.log(`m: ${JSON.stringify(m)}`);
-
-                      if (!m) {
-                        toast.error('Invalid move. Try again.');
-                        return false;
-                      }
                       if (m) {
                         chess.undo();
                         const lan = from + to + (m.promotion || '');
-                        console.log(`lan: ${lan}`);
-                        const promise = (window as any).socket.emit(
-                          'play_move',
-                          lan,
-                          (res: any) => {
-                            if (res?.error) alert(res.error);
-                          },
-                        );
-                        toast.promise(promise, {
-                          loading: 'Playing ...',
-                          success: 'Move played successfully',
-                          error: 'Failed to play move',
+                        (window as any).socket.emit('play_move', lan, (res: any) => {
+                          if (res?.error) alert(res.error);
                         });
-
                         return true;
                       }
                       return false;
