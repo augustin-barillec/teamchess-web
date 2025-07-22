@@ -93,7 +93,7 @@ function startClock(gameId: string) {
   }, 1000);
 }
 
-async function chooseBestMove(fen: string, candidates: string[], depth = 1): Promise<string> {
+async function chooseBestMove(fen: string, candidates: string[], depth = 15): Promise<string> {
   console.log(`Choosing best move from candidates: ${candidates.join(', ')} at depth ${depth}`);
 
   return new Promise(resolve => {
