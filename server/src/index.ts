@@ -7,21 +7,8 @@ import { nanoid } from 'nanoid';
 import path from 'path';
 
 // point at the built Stockfish engine
-const stockfishPath = path.join(
-  __dirname,
-  '..',
-  '..',
-  'node_modules',
-  'stockfish',
-  'src',
-  'stockfish-nnue-16.js',
-);
-// load the engine
-const loadEngine = require('../load_engine.cjs') as (enginePath: string) => {
-  send(cmd: string, cb?: (data: string) => void, stream?: (data: string) => void): void;
-  quit(): void;
-};
-const engine = loadEngine(stockfishPath);
+var loadEngine = require('./engine/loadEngine.js');
+var engine = loadEngine(path.join(__dirname, 'engine', 'stockfish-17.js'));
 
 // UCI handshake & readiness
 engine.send('uci', (data: string) => {
