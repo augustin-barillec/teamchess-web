@@ -3,3 +3,101 @@
 @source "../.flowbite-react/class-list.json";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+.clock {
+  background: #9e683c;
+  background-image: url(https://res.cloudinary.com/pendragon/image/upload/v1668802136/wood-background-pattern_uphehb.jpg);
+  box-shadow: 10px 10px 19px -3px rgba(0, 0, 0, 0.75);
+  -webkit-box-shadow: 10px 10px 19px -3px rgba(0, 0, 0, 0.75);
+  -moz-box-shadow: 10px 10px 19px -3px rgba(0, 0, 0, 0.75);
+  width: 550px;
+  height: 300px;
+  border-top: 8px solid rgba(255, 255, 255, 0.2);
+  border-left: 8px solid rgba(70, 36, 17, 0.6);
+  border-right: 8px solid rgba(70, 36, 17, 0.6);
+  border-bottom: 2px solid rgba(70, 36, 17, 0.6);
+  border-top-left-radius: 50px;
+  border-top-right-radius: 50px;
+}
+
+.clock h1 {
+  text-align: center;
+  font-family: 'Lobster', cursive;
+  color: #462411;
+  font-size: 60px;
+}
+
+hr {
+  height: 0;
+  border: transparent;
+  border-top: 2px solid rgba(70, 36, 17, 0.6);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 10px;
+}
+
+.timers {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.timers h2 {
+  margin-top: 20px;
+
+  text-align: center;
+  color: #462411;
+  font-size: 30px;
+  font-weight: bold;
+}
+
+.display {
+  width: 200px;
+  height: 75px;
+  background: white;
+  margin-top: 40px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  border-top: 2px solid #c1c1c1;
+  border-right: 2px solid #c1c1c1;
+  border-bottom: 2px solid #fff;
+  border-left: 2px solid #fff;
+  background-color: #fff;
+  box-shadow: inset 0px 0px 10px #030303, inset 0px -35px 1px rgba(150, 150, 150, 0.2);
+}
+
+#black-time,
+#white-time {
+  display: block;
+  text-align: center;
+  font-size: 45px;
+  font-weight: bold;
+}
+#set-black-time,
+#set-white-time {
+  display: block;
+  text-align: center;
+  font-weight: bold;
+  font-size: 25px;
+  margin-top: 7px;
+}
+
+.clock-base {
+  margin-top: 80px;
+  margin-left: -30px;
+  height: 45px;
+  width: 600px;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  border-top: 5px solid rgba(255, 255, 255, 0.2);
+  border-left: 2px solid rgba(70, 36, 17, 0.5);
+  border-right: 2px solid rgba(70, 36, 17, 0.5);
+  border-bottom: 1px solid rgba(70, 36, 17, 0.5);
+  background: #9e683c;
+  background-image: url(http://blogrope.com/wp-content/uploads/2013/06/003-wood-melamine-subttle-pattern-background-pat.jpg);
+}
+.clock-base:last-of-type {
+  margin-top: -10px;
+  margin-left: -50px;
+  width: 630px;
+  height: 35px;
+}

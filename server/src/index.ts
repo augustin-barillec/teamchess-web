@@ -118,10 +118,12 @@ function broadcastPlayers(gameId: string) {
   const clients = io.sockets.adapter.rooms.get(gameId) || new Set<string>();
   for (const id of clients) {
     const s = io.sockets.sockets.get(id);
+    console.log(`Socket ${id} in game ${gameId}:`, s?.data);
+
     if (!s?.data.name) continue;
-    if (s.data.side === 'white') whitePlayers.push(s.data.name);
-    else if (s.data.side === 'black') blackPlayers.push(s.data.name);
-    else spectators.push(s.data.name);
+    if (s.data.side === 'white') whitePlayers.push([s.data.name, s.data.avatar].join(':'));
+    else if (s.data.side === 'black') blackPlayers.push([s.data.name, s.data.avatar].join(':'));
+    else spectators.push([s.data.name, s.data.avatar].join(':'));
   }
   io.in(gameId).emit('players', { spectators, whitePlayers, blackPlayers });
 }
@@ -198,15 +200,15 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
 }
 
 io.on('connection', (socket: Socket) => {
-  socket.on('create_game', ({ name }, cb) => {
+  socket.on('create_game', ({ name, avatar }, cb) => {
     const gameId = nanoid(6);
     socket.join(gameId);
-    socket.data = { name, gameId, side: 'spectator' };
+    socket.data = { name, avatar, gameId, side: 'spectator' };
     cb({ gameId });
     broadcastPlayers(gameId);
   });
 
-  socket.on('join_game', ({ gameId, name }, cb) => {
+  socket.on('join_game', ({ gameId, name, avatar }, cb) => {
     console.log(`Socket ${socket.id} joining game ${gameId} as ${name}`);
 
     if (!io.sockets.adapter.rooms.has(gameId)) return cb({ error: 'Game not found.' });
@@ -215,7 +217,7 @@ io.on('connection', (socket: Socket) => {
       if (s?.data.name === name) return cb({ error: 'Name already taken.' });
     }
     socket.join(gameId);
-    socket.data = { name, gameId, side: 'spectator' };
+    socket.data = { name, avatar, gameId, side: 'spectator' };
     cb({ gameId });
     broadcastPlayers(gameId);
     const state = gameStates.get(gameId);

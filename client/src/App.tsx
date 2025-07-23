@@ -8,12 +8,10 @@ import { DarkThemeToggle } from 'flowbite-react';
 import {
   Button,
   Drawer,
-  DrawerHeader,
   DrawerItems,
   Sidebar,
   SidebarItem,
   SidebarItemGroup,
-  SidebarItems,
   TextInput,
   Label,
   Table,
@@ -22,9 +20,36 @@ import {
   TableHead,
   TableHeadCell,
   TableRow,
+  Timeline,
+  TimelineBody,
+  TimelineContent,
+  TimelineItem,
+  TimelinePoint,
+  TimelineTitle,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  Dropdown,
+  DropdownDivider,
+  DropdownItem,
+  Avatar,
+  AvatarGroup,
 } from 'flowbite-react';
 
-import { Avatar } from 'flowbite-react';
+import { HiCalendar } from 'react-icons/hi';
+const avatars = [
+  'dog.png',
+  'giraffe.png',
+  'man_2.png',
+  'man.png',
+  'panda.png',
+  'profile.png',
+  'rabbit.png',
+  'user.png',
+  'woman_2.png',
+  'woman.png',
+];
 
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
@@ -45,20 +70,20 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
 // helper for FAN
 // helper for FAN
 const pieceToFigurineWhite: Record<string, string> = {
-  K: '♔',
-  Q: '♕',
-  R: '♖',
-  B: '♗',
-  N: '♘',
-  P: '♙',
+  K: '♔ [King]',
+  Q: '♕ [Queen]',
+  R: '♖ [Rook]',
+  B: '♗ [Bishop]',
+  N: '♘ [Knight]',
+  P: '♙ [Pawn]',
 };
 const pieceToFigurineBlack: Record<string, string> = {
-  K: '♚',
-  Q: '♛',
-  R: '♜',
-  B: '♝',
-  N: '♞',
-  P: '♟',
+  K: '♚ [King]',
+  Q: '♛ [Queen]',
+  R: '♜ [Rook]',
+  B: '♝ [Bishop]',
+  N: '♞ [Knight]',
+  P: '♟ [Pawn]',
 };
 
 function sanToFan(san: string, side: 'white' | 'black'): string {
@@ -67,7 +92,27 @@ function sanToFan(san: string, side: 'white' | 'black'): string {
 }
 
 export default function App() {
+  const [randomAvatar, setRandomAvatar] = useState<[{ name: string; avatar: string }]>([
+    {
+      name: 'Anonymous',
+      avatar: '',
+    },
+  ]);
+  const getRandomAvatar = (name: string) => {
+    const randomIndex = Math.floor(Math.random() * avatars.length);
+    const user = { name: name, avatar: avatars[randomIndex] };
+    avatar = avatars[randomIndex];
+
+    const checkAvatarExistence = randomAvatar.some(({ name }) => user.name === name);
+    if (checkAvatarExistence) {
+      return;
+    }
+    randomAvatar.push(user);
+    setRandomAvatar(randomAvatar);
+  };
+
   const [name, setName] = useState('');
+  var [avatar, setAvatar] = useState('');
   const [showJoin, setShowJoin] = useState(false);
   const [gameId, setGameId] = useState('');
   const [joined, setJoined] = useState(false);
@@ -92,6 +137,7 @@ export default function App() {
   const [chess] = useState(new Chess());
   const [position, setPosition] = useState(chess.fen());
   const [clocks, setClocks] = useState({ whiteTime: 0, blackTime: 0 });
+  const [openModal, setOpenModal] = useState(true);
 
   useEffect(() => {
     const socket = io();
@@ -174,15 +220,18 @@ export default function App() {
   }, [chess]);
 
   const createGame = () => {
+    getRandomAvatar(name);
     if (!name.trim()) return toast.error('Enter your name.');
-    (window as any).socket.emit('create_game', { name }, ({ gameId }: any) => {
+
+    (window as any).socket.emit('create_game', { name, avatar }, ({ gameId }: any) => {
       setGameId(gameId);
       setJoined(true);
     });
   };
   const joinGame = () => {
+    getRandomAvatar(name);
     if (!name.trim() || !gameId.trim()) return toast.error('Enter name & game ID.');
-    (window as any).socket.emit('join_game', { gameId, name }, (res: any) => {
+    (window as any).socket.emit('join_game', { gameId, name, avatar }, (res: any) => {
       if (res.error) toast.error(res.error);
       else setJoined(true);
     });
@@ -222,15 +271,15 @@ export default function App() {
   const handleClose = () => setIsOpen(false);
 
   return (
-    <main className="flex min-h-screen flex-col bg-white dark:bg-gray-900">
+    <main className="flex min-h-screen flex-col  bg-sky-700 dark:bg-gray-900">
       <Toaster position="top-right" containerStyle={{ top: 100 }} />
-      <nav className="fixed top-0 z-50 w-full bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+      <nav className="fixed top-0 z-50 w-full bg-sky-500 border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
         <div className="px-3 py-3 lg:px-5 lg:pl-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center justify-start rtl:justify-end">
               <Button
                 onClick={() => setIsOpen(isOpen => !isOpen)}
-                className="inline-flex items-center p-2 text-sm text-gray-500 rounded-lg  hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600"
+                className="bg-slate-600 dark:bg-slate-500 text-white hover:bg-slate-700 dark:hover:bg-slate-600 focus:ring-4 focus:ring-slate-300 dark:focus:ring-slate-600 rounded-lg p-2 me-2"
                 data-drawer-target="drawer-navigation"
                 data-drawer-show="drawer-navigation"
                 aria-controls="drawer-navigation"
@@ -280,21 +329,79 @@ export default function App() {
               <DarkThemeToggle />
               <div className="flex items-center ms-3">
                 <div>
-                  <Button
-                    className="flex text-sm bg-gray-800 rounded-full focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
-                    aria-expanded="false"
-                    data-dropdown-toggle="dropdown-user"
+                  <Dropdown
+                    label=""
+                    dismissOnClick={false}
+                    renderTrigger={() => (
+                      <div className="flex flex-wrap gap-2">
+                        <AvatarGroup>
+                          {players.blackPlayers.map(n =>
+                            n ? (
+                              <div>
+                                {
+                                  <Avatar
+                                    img={'/avatars/' + n.substring(n.indexOf(':') + 1)}
+                                    alt={n.substring(0, n.indexOf(':'))}
+                                    title={n.substring(0, n.indexOf(':'))}
+                                    rounded
+                                    stacked
+                                    status="online"
+                                  />
+                                }
+                              </div>
+                            ) : (
+                              ''
+                            ),
+                          )}
+                          {players.whitePlayers.map(n =>
+                            n ? (
+                              <div>
+                                {
+                                  <Avatar
+                                    img={'/avatars/' + n.substring(n.indexOf(':') + 1)}
+                                    alt={n.substring(0, n.indexOf(':'))}
+                                    rounded
+                                    stacked
+                                    status="online"
+                                  />
+                                }
+                              </div>
+                            ) : (
+                              ''
+                            ),
+                          )}
+                          {players.spectators.map(n =>
+                            n ? (
+                              <div>
+                                {
+                                  <Avatar
+                                    img={'/avatars/' + n.substring(n.indexOf(':') + 1)}
+                                    alt={n.substring(0, n.indexOf(':'))}
+                                    rounded
+                                    stacked
+                                    status="online"
+                                  />
+                                }
+                              </div>
+                            ) : (
+                              ''
+                            ),
+                          )}
+                        </AvatarGroup>
+                      </div>
+                    )}
                   >
                     <span className="sr-only">Open user menu</span>
-                    <img
-                      className="w-8 h-8 rounded-full"
-                      src="https://flowbite.com/docs/images/people/profile-picture-5.jpg"
-                      alt="user photo"
-                    />
-                  </Button>
+
+                    <DropdownItem>Dashboard</DropdownItem>
+                    <DropdownItem>Settings</DropdownItem>
+                    <DropdownItem>Earnings</DropdownItem>
+                    <DropdownDivider />
+                    <DropdownItem>Separated link</DropdownItem>
+                  </Dropdown>
                 </div>
                 <div
-                  className="z-50 hidden my-4 text-base list-none bg-white divide-y divide-gray-100 rounded-sm shadow-sm dark:bg-gray-700 dark:divide-gray-600"
+                  className="z-50 hidden my-4 text-base list-none bg-white divide-y divide-gray-100 rounded-sm  dark:bg-gray-700 dark:divide-gray-600"
                   id="dropdown-user"
                 >
                   <div className="px-4 py-3" role="none">
@@ -362,10 +469,7 @@ export default function App() {
           <Sidebar>
             <SidebarItemGroup>
               <SidebarItem href="/">
-                <a
-                  href="#"
-                  className="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group"
-                >
+                <p className="flex items-center text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 w-full group">
                   <svg
                     className="w-5 h-5 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
                     aria-hidden="true"
@@ -377,13 +481,10 @@ export default function App() {
                     <path d="M12.5 0c-.157 0-.311.01-.565.027A1 1 0 0 0 11 1.02V10h8.975a1 1 0 0 0 1-.935c.013-.188.028-.374.028-.565A8.51 8.51 0 0 0 12.5 0Z" />
                   </svg>
                   <span className="ms-3">Dashboard</span>
-                </a>
+                </p>
               </SidebarItem>
               <SidebarItem href="/about">
-                <a
-                  href="#"
-                  className="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group"
-                >
+                <p className="flex items-center text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 w-full group">
                   <svg
                     className="shrink-0 w-5 h-5 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
                     aria-hidden="true"
@@ -394,7 +495,7 @@ export default function App() {
                     <path d="M14 2a3.963 3.963 0 0 0-1.4.267 6.439 6.439 0 0 1-1.331 6.638A4 4 0 1 0 14 2Zm1 9h-1.264A6.957 6.957 0 0 1 15 15v2a2.97 2.97 0 0 1-.184 1H19a1 1 0 0 0 1-1v-1a5.006 5.006 0 0 0-5-5ZM6.5 9a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9ZM8 10H5a5.006 5.006 0 0 0-5 5v2a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-2a5.006 5.006 0 0 0-5-5Z" />
                   </svg>
                   <span className="flex-1 ms-3 whitespace-nowrap">Users</span>
-                </a>
+                </p>
               </SidebarItem>
               <SidebarItem href="/contact">Contact</SidebarItem>
             </SidebarItemGroup>
@@ -402,7 +503,7 @@ export default function App() {
         </DrawerItems>
       </Drawer>
 
-      <div className="flex flex-col items-center justify-center flex-1 p-4">
+      <div className="flex-1 p-4 mt-25 bg-sky-700 dark:bg-gray-900">
         {!joined ? (
           <form className="flex flex-col items-center gap-4">
             <div>
@@ -432,15 +533,18 @@ export default function App() {
             )}
           </form>
         ) : (
-          <div className="flex flex-col items-center gap-4">
-            <div className="flex row-start-20 gap-4">
-              <Label>Game ID</Label>
-              <TextInput
-                placeholder="Game ID"
-                value={gameId}
-                readOnly
-                onFocus={e => e.currentTarget.select()}
-              />
+          <div className="items-center gap-4 p-4 rounded-lg">
+            <div className="grid grid-cols-3 gap-4 bg-slate-300 dark:bg-slate-500 p-4 m-4 rounded-lg">
+              <div className="grid grid-cols-3 gap-4 items-center justify-center">
+                <Label className="text-right mt-3 mr-20">Game ID</Label>
+                <TextInput
+                  className="w-full"
+                  placeholder="Game ID"
+                  value={gameId}
+                  readOnly
+                  onFocus={e => e.currentTarget.select()}
+                />
+              </div>
               <Button
                 onClick={async () => {
                   const promise = navigator.clipboard.writeText(gameId);
@@ -455,54 +559,135 @@ export default function App() {
               </Button>
 
               <Button onClick={exitGame}>Exit Game</Button>
-            </div>
 
-            {!gameStarted &&
-              !gameOver &&
-              players.whitePlayers.length > 0 &&
-              players.blackPlayers.length > 0 && <Button onClick={startGame}>Start Game</Button>}
-
-            {!gameOver && side === 'spectator' && (
-              <div className="flex row-start-20 gap-4">
-                <Button onClick={() => joinSide('white')}>Join White</Button>
-                <Button onClick={() => joinSide('black')}>Join Black</Button>
+              <div className="grid grid-cols-2 gap-4 items-center justify-center">
+                {!gameOver && side === 'spectator' && (
+                  <div className="flex flex-col items-center">
+                    <Button onClick={() => joinSide('white')}>Join White</Button>
+                  </div>
+                )}
+                {!gameOver && side === 'spectator' && (
+                  <div className="flex flex-col items-center">
+                    <Button onClick={() => joinSide('black')}>Join Black</Button>
+                  </div>
+                )}
+                {!gameStarted &&
+                  !gameOver &&
+                  players.whitePlayers.length > 0 &&
+                  players.blackPlayers.length > 0 && (
+                    <div className="flex flex-col items-center col-span-2 justify-center w-full">
+                      <Button className="w-1/3" onClick={startGame}>
+                        Start Game
+                      </Button>
+                    </div>
+                  )}
               </div>
-            )}
 
-            <Table className="border border-gray-400">
-              <TableHead>
-                <TableRow>
-                  <TableHeadCell>Spectators</TableHeadCell>
-                  <TableHeadCell>White</TableHeadCell>
-                  <TableHeadCell>Black</TableHeadCell>
-                </TableRow>
-              </TableHead>
-              <TableBody className="divide-y">
-                <TableRow className="bg-white dark:border-gray-700 dark:bg-gray-800">
-                  <TableCell>
-                    {players.spectators.map(n => (
-                      <p key={n}>{n === name ? <strong>{n}</strong> : n}</p>
-                    ))}
-                  </TableCell>
-                  <TableCell>
-                    {players.whitePlayers.map(n => (
-                      <p key={n}>{n === name ? <strong>{n}</strong> : n}</p>
-                    ))}
-                  </TableCell>
-                  <TableCell>
-                    {players.blackPlayers.map(n => (
-                      <p key={n}>{n === name ? <strong>{n}</strong> : n}</p>
-                    ))}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-
+              <div className="grid rounded-lg col-span-2 p-4">
+                <Table className="">
+                  <TableHead>
+                    <TableRow className="text-center bg-gray-200 dark:bg-gray-700">
+                      <TableHeadCell>Spectators</TableHeadCell>
+                      <TableHeadCell>White</TableHeadCell>
+                      <TableHeadCell>Black</TableHeadCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody className="divide-y">
+                    <TableRow className="bg-white dark:border-gray-700 dark:bg-gray-800">
+                      <TableCell>
+                        {players.spectators.map(n => (
+                          <div className="flex justify-center items-center gap-4" key={n}>
+                            <Avatar
+                              img={'/avatars/' + n.substring(n.indexOf(':') + 1)}
+                              alt={n.substring(0, n.indexOf(':'))}
+                              title={n.substring(0, n.indexOf(':'))}
+                              rounded
+                              stacked
+                              status="online"
+                            />
+                            {n.substring(0, n.indexOf(':'))}
+                          </div>
+                        ))}
+                      </TableCell>
+                      <TableCell>
+                        {players.whitePlayers.map(n => (
+                          <div className="flex justify-center items-center gap-4" key={n}>
+                            <Avatar
+                              img={'/avatars/' + n.substring(n.indexOf(':') + 1)}
+                              alt={n.substring(0, n.indexOf(':'))}
+                              title={n.substring(0, n.indexOf(':'))}
+                              rounded
+                              stacked
+                              status="online"
+                            />
+                            {n.substring(0, n.indexOf(':'))}
+                          </div>
+                        ))}
+                      </TableCell>
+                      <TableCell>
+                        {players.blackPlayers.map(n => (
+                          <div className="flex justify-center items-center gap-4" key={n}>
+                            <Avatar
+                              img={'/avatars/' + n.substring(n.indexOf(':') + 1)}
+                              alt={n.substring(0, n.indexOf(':'))}
+                              title={n.substring(0, n.indexOf(':'))}
+                              rounded
+                              stacked
+                              status="online"
+                            />
+                            {n.substring(0, n.indexOf(':'))}
+                          </div>
+                        ))}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
             {/* Board + side timers */}
             {(gameStarted || gameOver) && (
-              <div>
-                <div>
+              <div
+                id="game"
+                className="p-4 m-4 rounded-lg grid grid-cols-4 gap-4 bg-slate-300 dark:bg-slate-500"
+              >
+                {/* Timers */}
+                <div
+                  id="timers"
+                  className="grid gap-4 mt-4 p-4 rounded-lg  items-center justify-center"
+                >
+                  <div className="clock justify-center items-center">
+                    <div className="timers">
+                      {[
+                        {
+                          side: 'white' as const,
+                          time: clocks.whiteTime,
+                        },
+                        {
+                          side: 'black' as const,
+                          time: clocks.blackTime,
+                        },
+                      ].map(t => {
+                        return (
+                          <div className={t.side}>
+                            <h2>{t.side.toUpperCase()}</h2>
+                            <div className="display">
+                              <span id={t.side + '-time'}>
+                                {' '}
+                                {String(Math.floor(t.time / 60)).padStart(2, '0')}:
+                                {String(t.time % 60).padStart(2, '0')}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="clock-base"></div>
+                    <div className="clock-base"></div>
+                  </div>
+                </div>
+                <div id="board" className="grid col-span-2 gap-4 mt-4 items-center justify-center">
                   <Chessboard
+                    boardWidth={window.innerWidth < 1200 ? 600 : 1000}
                     position={position}
                     boardOrientation={orientation}
                     onPieceDrop={(from, to) => {
@@ -512,7 +697,7 @@ export default function App() {
                       if (needsPromotion(from, to)) {
                         const choice = prompt('Promote pawn to (q, r, b, n)', 'q');
                         if (!choice || !['q', 'r', 'b', 'n'].includes(choice)) {
-                          alert('Invalid promotion piece. Move canceled.');
+                          toast.error('Invalid promotion piece. Move canceled.');
                           return false;
                         }
                         promotion = choice as 'q' | 'r' | 'b' | 'n';
@@ -522,7 +707,7 @@ export default function App() {
                         chess.undo();
                         const lan = from + to + (m.promotion || '');
                         (window as any).socket.emit('play_move', lan, (res: any) => {
-                          if (res?.error) alert(res.error);
+                          if (res?.error) toast.error(res.error);
                         });
                         return true;
                       }
@@ -530,76 +715,73 @@ export default function App() {
                     }}
                   />
                 </div>
-
-                {/* Timers */}
-                <div>
-                  {[
-                    {
-                      side: 'white' as const,
-                      time: clocks.whiteTime,
-                    },
-                    {
-                      side: 'black' as const,
-                      time: clocks.blackTime,
-                    },
-                  ].map(t => {
-                    const active = current?.side === t.side && !gameOver;
-                    return (
-                      <div
-                        key={t.side}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: 6,
-                          background: active ? '#3a5f0b' : '#333',
-                          color: '#fff',
-                          fontWeight: active ? 'bold' : 'normal',
-                          textAlign: 'center',
-                        }}
-                      >
-                        {String(Math.floor(t.time / 60)).padStart(2, '0')}:
-                        {String(t.time % 60).padStart(2, '0')}
-                      </div>
-                    );
-                  })}
+                <div className="grid gap-4 mt-4 p-10 rounded-lg max-h-11/12 overflow-y-scroll">
+                  <Timeline className="mt-4 text-md">
+                    {[...turns].reverse().map(t =>
+                      t.proposals.map(p => {
+                        const isSelected = t.selection?.lan === p.lan;
+                        const fan = p.san ? sanToFan(p.san, t.side) : '';
+                        return (
+                          <TimelineItem>
+                            <TimelinePoint icon={HiCalendar} />
+                            <TimelineContent>
+                              <TimelineTitle>
+                                Move {t.moveNumber} ({t.side}) : {p.name}
+                              </TimelineTitle>
+                              {isSelected && (
+                                <TimelineBody>
+                                  <p className="text-gray-500 dark:text-gray-400 font-size:20px">
+                                    Selected move :{' '}
+                                    {isSelected ? (
+                                      <strong>
+                                        {p.lan.substring(0, 2).toUpperCase()} to{' '}
+                                        {p.lan.substring(2, 4).toUpperCase()}
+                                      </strong>
+                                    ) : (
+                                      p.lan
+                                    )}
+                                  </p>
+                                  <p className="text-gray-500 dark:text-gray-400">
+                                    Piece moved :{' '}
+                                    <span className="text-lg">
+                                      {t.moveNumber !== 1 && t.moveNumber !== 2 && fan
+                                        ? ' ' + fan.substring(0, fan.length - 2).toUpperCase()
+                                        : 'dont know'}
+                                    </span>
+                                  </p>
+                                </TimelineBody>
+                              )}
+                            </TimelineContent>
+                          </TimelineItem>
+                        );
+                      }),
+                    )}
+                  </Timeline>
                 </div>
               </div>
             )}
 
             {gameOver && (
-              <div style={{ marginTop: 20, fontSize: '1.2em' }}>
-                <p>
-                  {endReason && reasonMessages[endReason]
-                    ? reasonMessages[endReason](winner)
-                    : `🎉 Game over! ${
-                        winner ? winner[0].toUpperCase() + winner.slice(1) + ' wins!' : ''
-                      }`}
-                </p>
-              </div>
+              <p>
+                <Button hidden={true} onClick={() => setOpenModal(true)} />{' '}
+                {/* Hidden button to trigger modal */}
+                <Modal dismissible show={openModal} onClose={() => setOpenModal(false)}>
+                  <ModalHeader>It's done !</ModalHeader>
+                  <ModalBody>
+                    <div className="flex justify-center items-center mb-4 text-emerald-700 dark:text-emerald-500 text-2xl">
+                      {endReason && reasonMessages[endReason]
+                        ? reasonMessages[endReason](winner)
+                        : `🎉 Game over! ${
+                            winner ? winner[0].toUpperCase() + winner.slice(1) + ' wins!' : ''
+                          }`}
+                    </div>
+                  </ModalBody>
+                  <ModalFooter>
+                    <Button onClick={() => setOpenModal(false)}>Close</Button>
+                  </ModalFooter>
+                </Modal>
+              </p>
             )}
-
-            <div style={{ marginTop: 40 }}>
-              {[...turns].reverse().map(t => (
-                <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: 15 }}>
-                  <strong>
-                    Move {t.moveNumber} ({t.side})
-                  </strong>
-
-                  <ul>
-                    {t.proposals.map(p => {
-                      const isSelected = t.selection?.lan === p.lan;
-                      const fan = p.san ? sanToFan(p.san, t.side) : '';
-                      return (
-                        <li key={`${t.side}-${t.moveNumber}-${p.name}`}>
-                          {p.name === name ? <strong>{p.name}</strong> : p.name}:{' '}
-                          {isSelected ? <strong>{p.lan}</strong> : p.lan}
-                          {fan && ` (${fan})`}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </div>
           </div>
         )}
       </div>
