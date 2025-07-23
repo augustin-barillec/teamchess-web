@@ -18,6 +18,14 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Timeout]: winner => `⏱️ Time! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
 };
 
+function getEndMessage(reason: EndReason | null, winner: 'white' | 'black' | null) {
+  if (reason && reasonMessages[reason]) {
+    return reasonMessages[reason](winner);
+  }
+  const name = winner ? winner[0].toUpperCase() + winner.slice(1) : 'Nobody';
+  return `🎉 Game over! ${name} wins!`;
+}
+
 // helper for FAN
 const pieceToFigurineWhite: Record<string, string> = {
   K: '♔',
@@ -149,6 +157,7 @@ export default function App() {
       setGameOver(true);
       setWinner(winner);
       setEndReason(reason);
+      alert(getEndMessage(reason, winner));
     });
 
     (window as any).socket = socket;
@@ -217,6 +226,8 @@ export default function App() {
 
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
+
+  const endMsg = getEndMessage(endReason, winner);
 
   return (
     <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
@@ -425,11 +436,7 @@ export default function App() {
 
           {gameOver && (
             <div style={{ marginTop: 20, fontSize: '1.2em' }}>
-              <p>
-                {endReason && reasonMessages[endReason]
-                  ? reasonMessages[endReason](winner)
-                  : `🎉 Game over! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`}
-              </p>
+              <p>{endMsg}</p>
             </div>
           )}
 
