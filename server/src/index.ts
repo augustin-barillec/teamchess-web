@@ -190,6 +190,33 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
   }
 }
 
+function removePlayerFromSideAndProposals(socket: Socket, gameId: string, state: GameState) {
+  // 1) remove from any side sets
+  state.whiteIds.delete(socket.id);
+  state.blackIds.delete(socket.id);
+
+  // 2) drop any pending proposal
+  state.proposals.delete(socket.id);
+
+  // 3) broadcast its removal
+  io.in(gameId).emit('proposal_removed', {
+    moveNumber: state.moveNumber,
+    side: state.side,
+    name: socket.data.name,
+  });
+
+  // 4) try finalizing the turn
+  tryFinalizeTurn(gameId, state);
+
+  // 5) if one side now has zero players, end the game
+  const w = state.whiteIds.size;
+  const b = state.blackIds.size;
+  if ((w === 0 && b > 0) || (b === 0 && w > 0)) {
+    const winner = w > 0 ? 'white' : 'black';
+    endGame(gameId, 'timeout or disconnect', winner);
+  }
+}
+
 io.on('connection', (socket: Socket) => {
   socket.on('create_game', ({ name }, cb) => {
     const gameId = nanoid(6);
@@ -229,40 +256,18 @@ io.on('connection', (socket: Socket) => {
 
     const state = gameStates.get(gameId);
     if (state && state.started && !state.ended) {
-      // remove from their old side
+      // remove from previous side, add to new if a team
       if (prevSide === 'white') state.whiteIds.delete(socket.id);
       if (prevSide === 'black') state.blackIds.delete(socket.id);
-
-      // add to new side (if white/black)
       if (side === 'white') state.whiteIds.add(socket.id);
       if (side === 'black') state.blackIds.add(socket.id);
 
-      // special: if they joined spectators, revoke them completely
+      // if joining spectators, treat like a mini-exit
       if (side === 'spectator') {
-        // 1) drop any pending proposal
-        state.proposals.delete(socket.id);
-
-        // 2) notify everyone that this player's proposal is removed
-        io.in(gameId).emit('proposal_removed', {
-          moveNumber: state.moveNumber,
-          side: state.side,
-          name: socket.data.name,
-        });
-
-        // 3) attempt to finalize the turn in case they were blocking it
-        tryFinalizeTurn(gameId, state);
-
-        // 4) if one side is now empty, end the game as in exit_game
-        const w = state.whiteIds.size;
-        const b = state.blackIds.size;
-        if ((w === 0 && b > 0) || (b === 0 && w > 0)) {
-          const winner = w > 0 ? 'white' : 'black';
-          endGame(gameId, 'timeout or disconnect', winner);
-        }
+        removePlayerFromSideAndProposals(socket, gameId, state);
       }
     }
 
-    // broadcast updated players (incl. the new spectator)
     broadcastPlayers(gameId);
     cb({ success: true });
   });
@@ -356,20 +361,7 @@ io.on('connection', (socket: Socket) => {
     if (state?.timerInterval) clearInterval(state.timerInterval);
 
     if (state) {
-      state.whiteIds.delete(socket.id);
-      state.blackIds.delete(socket.id);
-      // remove any pending proposal from the leaving player
-      state.proposals.delete(socket.id);
-
-      // tell all clients to drop this player’s proposal for the current turn
-      io.in(gameId).emit('proposal_removed', {
-        moveNumber: state.moveNumber,
-        side: state.side,
-        name: socket.data.name,
-      });
-
-      // attempt to finalize with only active players’ proposals
-      tryFinalizeTurn(gameId, state);
+      removePlayerFromSideAndProposals(socket, gameId, state);
     }
 
     socket.leave(gameId);
