@@ -349,7 +349,7 @@ io.on('connection', (socket: Socket) => {
     delete socket.data.side;
     broadcastPlayers(gameId);
 
-    if (state) {
+    if (state && !state.ended) {
       const w = state.whiteIds.size;
       const b = state.blackIds.size;
       if ((w === 0 && b > 0) || (b === 0 && w > 0)) {
