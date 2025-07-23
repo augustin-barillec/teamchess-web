@@ -67,6 +67,8 @@ export default function App() {
   const [chess] = useState(new Chess());
   const [position, setPosition] = useState(chess.fen());
   const [clocks, setClocks] = useState({ whiteTime: 0, blackTime: 0 });
+  // track the last move that got played
+  const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
 
   useEffect(() => {
     const socket = io();
@@ -78,6 +80,7 @@ export default function App() {
       setWinner(null);
       setEndReason(null);
       setTurns([{ moveNumber, side, proposals: [] }]);
+      setLastMoveSquares(null);
     });
     socket.on('clock_update', ({ whiteTime, blackTime }) => setClocks({ whiteTime, blackTime }));
     socket.on('position_update', ({ fen }) => {
@@ -107,6 +110,12 @@ export default function App() {
             : t,
         ),
       );
+      // remember the last move squares
+      chess.load(sel.fen);
+      const from = sel.lan.slice(0, 2);
+      const to = sel.lan.slice(2, 4);
+      setLastMoveSquares({ from, to });
+      // now actually update the board
       chess.load(sel.fen);
       setPosition(sel.fen);
     });
@@ -191,6 +200,7 @@ export default function App() {
     chess.reset();
     setPosition(chess.fen());
     setClocks({ whiteTime: 0, blackTime: 0 });
+    setLastMoveSquares(null);
   };
 
   function needsPromotion(from: string, to: string) {
@@ -324,6 +334,15 @@ export default function App() {
                 <Chessboard
                   position={position}
                   boardOrientation={orientation}
+                  // highlight the origin & target of the last move
+                  customSquareStyles={
+                    lastMoveSquares
+                      ? {
+                          [lastMoveSquares.from]: { backgroundColor: 'rgba(245,246,110,0.75)' },
+                          [lastMoveSquares.to]: { backgroundColor: 'rgba(245,246,110,0.75)' },
+                        }
+                      : {}
+                  }
                   onPieceDrop={(from, to) => {
                     if (gameOver) return false;
                     if (side !== current.side) return false;
