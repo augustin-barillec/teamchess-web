@@ -143,6 +143,17 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
       if (!move) return;
       const fen = state.chess.fen();
 
+      if (state.side === 'white') {
+        state.whiteTime += 3;
+      } else {
+        state.blackTime += 3;
+      }
+      // immediately broadcast the updated clocks
+      io.in(gameId).emit('clock_update', {
+        whiteTime: state.whiteTime,
+        blackTime: state.blackTime,
+      });
+
       const [selId] = entries.find(([, v]) => v === selLan)!;
       const selName = io.sockets.sockets.get(selId)!.data.name;
 
