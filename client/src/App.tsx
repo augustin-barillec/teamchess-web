@@ -19,7 +19,6 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
 };
 
 // helper for FAN
-// helper for FAN
 const pieceToFigurineWhite: Record<string, string> = {
   K: '♔',
   Q: '♕',
@@ -398,7 +397,7 @@ export default function App() {
                 </strong>
 
                 <ul>
-                  {t.proposals.map(p => {
+                  {[...t.proposals].reverse().map(p => {
                     const isSelected = t.selection?.lan === p.lan;
                     const fan = p.san ? sanToFan(p.san, t.side) : '';
                     return (
