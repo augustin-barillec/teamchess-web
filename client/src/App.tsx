@@ -167,6 +167,17 @@ export default function App() {
       if (res.error) alert(res.error);
       else setSide(s);
     });
+  const autoAssign = () => {
+    const whiteCount = players.whitePlayers.length;
+    const blackCount = players.blackPlayers.length;
+    let chosen: 'white' | 'black';
+
+    if (whiteCount < blackCount) chosen = 'white';
+    else if (blackCount < whiteCount) chosen = 'black';
+    else chosen = Math.random() < 0.5 ? 'white' : 'black';
+
+    joinSide(chosen);
+  };
   const startGame = () => (window as any).socket.emit('start_game');
   const exitGame = () => {
     (window as any).socket.emit('exit_game');
@@ -264,6 +275,9 @@ export default function App() {
 
           {!gameOver && side === 'spectator' && (
             <div style={{ marginTop: 10 }}>
+              <button onClick={autoAssign} style={{ marginLeft: 5 }}>
+                Auto Assign
+              </button>
               <button onClick={() => joinSide('white')}>Join White</button>
               <button onClick={() => joinSide('black')} style={{ marginLeft: 5 }}>
                 Join Black
