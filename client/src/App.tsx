@@ -87,7 +87,7 @@ export default function App() {
       chess.load(fen);
       setPosition(fen);
     });
-    socket.on('move_submitted', (m: Proposal & { san?: string }) =>
+    socket.on('move_submitted', (m: Proposal) =>
       setTurns(ts =>
         ts.map(t =>
           t.moveNumber === m.moveNumber && t.side === m.side

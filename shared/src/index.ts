@@ -10,6 +10,7 @@ export type Proposal = {
   side: 'white' | 'black';
   name: string;
   lan: string;
+  san?: string;
 };
 export type Selection = Proposal & { fen: string };
 
