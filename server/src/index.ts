@@ -229,12 +229,40 @@ io.on('connection', (socket: Socket) => {
 
     const state = gameStates.get(gameId);
     if (state && state.started && !state.ended) {
+      // remove from their old side
       if (prevSide === 'white') state.whiteIds.delete(socket.id);
       if (prevSide === 'black') state.blackIds.delete(socket.id);
+
+      // add to new side (if white/black)
       if (side === 'white') state.whiteIds.add(socket.id);
       if (side === 'black') state.blackIds.add(socket.id);
+
+      // special: if they joined spectators, revoke them completely
+      if (side === 'spectator') {
+        // 1) drop any pending proposal
+        state.proposals.delete(socket.id);
+
+        // 2) notify everyone that this player's proposal is removed
+        io.in(gameId).emit('proposal_removed', {
+          moveNumber: state.moveNumber,
+          side: state.side,
+          name: socket.data.name,
+        });
+
+        // 3) attempt to finalize the turn in case they were blocking it
+        tryFinalizeTurn(gameId, state);
+
+        // 4) if one side is now empty, end the game as in exit_game
+        const w = state.whiteIds.size;
+        const b = state.blackIds.size;
+        if ((w === 0 && b > 0) || (b === 0 && w > 0)) {
+          const winner = w > 0 ? 'white' : 'black';
+          endGame(gameId, 'timeout or disconnect', winner);
+        }
+      }
     }
 
+    // broadcast updated players (incl. the new spectator)
     broadcastPlayers(gameId);
     cb({ success: true });
   });

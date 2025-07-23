@@ -202,6 +202,11 @@ export default function App() {
     setClocks({ whiteTime: 0, blackTime: 0 });
     setLastMoveSquares(null);
   };
+  const joinSpectators = () =>
+    (window as any).socket.emit('join_side', { side: 'spectator' }, (res: any) => {
+      if (res.error) alert(res.error);
+      else setSide('spectator');
+    });
 
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
@@ -292,6 +297,12 @@ export default function App() {
               <button onClick={() => joinSide('black')} style={{ marginLeft: 5 }}>
                 Join Black
               </button>
+            </div>
+          )}
+
+          {!gameOver && side !== 'spectator' && (
+            <div style={{ marginTop: 10 }}>
+              <button onClick={joinSpectators}>Join Spectators</button>
             </div>
           )}
 
