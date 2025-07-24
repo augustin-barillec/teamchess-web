@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { io } from 'socket.io-client';
 import { Chess } from 'chess.js';
@@ -69,6 +69,41 @@ export default function App() {
   const [clocks, setClocks] = useState({ whiteTime: 0, blackTime: 0 });
   // track the last move that got played
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
+  // compute lost material for each side, sorted by type
+  const { lostWhitePieces, lostBlackPieces } = useMemo(() => {
+    const initial: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1 };
+    const currWhite: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
+    const currBlack: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
+    chess
+      .board()
+      .flat()
+      .forEach(piece => {
+        if (piece) {
+          const type = piece.type.toUpperCase();
+          if (piece.color === 'w') currWhite[type]++;
+          else currBlack[type]++;
+        }
+      });
+    const lostW: { type: string; figurine: string }[] = [];
+    const lostB: { type: string; figurine: string }[] = [];
+    Object.entries(initial).forEach(([type, count]) => {
+      const wCount = currWhite[type] || 0;
+      const bCount = currBlack[type] || 0;
+      for (let i = 0; i < count - wCount; i++) {
+        lostW.push({ type, figurine: pieceToFigurineWhite[type] });
+      }
+      for (let i = 0; i < count - bCount; i++) {
+        lostB.push({ type, figurine: pieceToFigurineBlack[type] });
+      }
+    });
+    const order = ['P', 'N', 'B', 'R', 'Q', 'K'];
+    lostW.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+    lostB.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+    return {
+      lostWhitePieces: lostW.map(p => p.figurine),
+      lostBlackPieces: lostB.map(p => p.figurine),
+    };
+  }, [position]);
 
   useEffect(() => {
     const socket = io();
@@ -414,6 +449,13 @@ export default function App() {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {(gameStarted || gameOver) && (
+            <div style={{ marginTop: 10, fontSize: '2rem' }}>
+              <div>{lostWhitePieces.join(' ')}</div>
+              <div>{lostBlackPieces.join(' ')}</div>
             </div>
           )}
 
