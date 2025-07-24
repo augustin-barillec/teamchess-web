@@ -150,8 +150,6 @@ export default function App() {
       const from = sel.lan.slice(0, 2);
       const to = sel.lan.slice(2, 4);
       setLastMoveSquares({ from, to });
-      // now actually update the board
-      chess.load(sel.fen);
       setPosition(sel.fen);
     });
     socket.on('turn_change', ({ moveNumber, side }: GameInfo) =>
