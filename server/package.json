@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "build": "tsc"
+    "build": "tsc && mkdir -p dist/engine && cp -r src/engine/* dist/engine"
   },
   "dependencies": {
     "@teamchess/shared": "1.0.0",
