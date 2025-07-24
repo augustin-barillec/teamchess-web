@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { io } from 'socket.io-client';
 import { Chess } from 'chess.js';
-import { Chessboard } from 'react-chessboard';
+import { Chessboard, PieceDropHandlerArgs } from 'react-chessboard';
 import { Players, GameInfo, Proposal, Selection, EndReason } from '@teamchess/shared';
 
 const reasonMessages: Record<string, (winner: string | null) => string> = {
@@ -213,6 +213,46 @@ export default function App() {
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
 
+  const boardOptions = {
+    position,
+    boardOrientation: orientation,
+    squareStyles: lastMoveSquares
+      ? {
+          [lastMoveSquares.from]: { backgroundColor: 'rgba(245,246,110,0.75)' },
+          [lastMoveSquares.to]: { backgroundColor: 'rgba(245,246,110,0.75)' },
+        }
+      : {},
+    boardWidth: 600,
+    onPieceDrop: ({ sourceSquare, targetSquare }: PieceDropHandlerArgs) => {
+      const from = sourceSquare;
+      const to = targetSquare;
+
+      if (gameOver) return false;
+      if (side !== current.side) return false;
+
+      let promotion: 'q' | 'r' | 'b' | 'n' | undefined;
+      if (needsPromotion(from, to)) {
+        const choice = prompt('Promote pawn to (q, r, b, n)', 'q');
+        if (!choice || !['q', 'r', 'b', 'n'].includes(choice)) {
+          alert('Invalid promotion piece. Move canceled.');
+          return false;
+        }
+        promotion = choice as 'q' | 'r' | 'b' | 'n';
+      }
+
+      const m = chess.move({ from, to, promotion });
+      if (m) {
+        chess.undo();
+        const lan = from + to + (m.promotion || '');
+        (window as any).socket.emit('play_move', lan, (res: any) => {
+          if (res?.error) alert(res.error);
+        });
+        return true;
+      }
+      return false;
+    },
+  };
+
   return (
     <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
       <Toaster position="bottom-right" />
@@ -330,43 +370,8 @@ export default function App() {
           {/* Board + side timers */}
           {(gameStarted || gameOver) && (
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: 20 }}>
-              <div style={{ position: 'relative' }}>
-                <Chessboard
-                  position={position}
-                  boardOrientation={orientation}
-                  // highlight the origin & target of the last move
-                  customSquareStyles={
-                    lastMoveSquares
-                      ? {
-                          [lastMoveSquares.from]: { backgroundColor: 'rgba(245,246,110,0.75)' },
-                          [lastMoveSquares.to]: { backgroundColor: 'rgba(245,246,110,0.75)' },
-                        }
-                      : {}
-                  }
-                  onPieceDrop={(from, to) => {
-                    if (gameOver) return false;
-                    if (side !== current.side) return false;
-                    let promotion;
-                    if (needsPromotion(from, to)) {
-                      const choice = prompt('Promote pawn to (q, r, b, n)', 'q');
-                      if (!choice || !['q', 'r', 'b', 'n'].includes(choice)) {
-                        alert('Invalid promotion piece. Move canceled.');
-                        return false;
-                      }
-                      promotion = choice as 'q' | 'r' | 'b' | 'n';
-                    }
-                    const m = chess.move({ from, to, promotion });
-                    if (m) {
-                      chess.undo();
-                      const lan = from + to + (m.promotion || '');
-                      (window as any).socket.emit('play_move', lan, (res: any) => {
-                        if (res?.error) alert(res.error);
-                      });
-                      return true;
-                    }
-                    return false;
-                  }}
-                />
+              <div style={{ flexShrink: 0, width: boardOptions.boardWidth }}>
+                <Chessboard options={boardOptions} />
               </div>
 
               {/* Timers */}
