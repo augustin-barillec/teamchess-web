@@ -70,7 +70,7 @@ export default function App() {
   // track the last move that got played
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
   // compute lost material for each side, sorted by type
-  const { lostWhitePieces, lostBlackPieces } = useMemo(() => {
+  const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1 };
     const currWhite: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
     const currBlack: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
@@ -99,9 +99,26 @@ export default function App() {
     const order = ['P', 'N', 'B', 'R', 'Q', 'K'];
     lostW.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     lostB.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+    // piece values:
+    const values: Record<string, number> = {
+      P: 1,
+      N: 3,
+      B: 3,
+      R: 5,
+      Q: 9,
+      K: 0,
+    };
+
+    // numeric totals of lost material
+    const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
+    const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
+
+    // positive = White is up; negative = Black is up
+    const materialBalance = blackLostValue - whiteLostValue;
     return {
       lostWhitePieces: lostW.map(p => p.figurine),
       lostBlackPieces: lostB.map(p => p.figurine),
+      materialBalance,
     };
   }, [position]);
 
@@ -463,8 +480,24 @@ export default function App() {
 
           {(gameStarted || gameOver) && (
             <div style={{ marginTop: 10, fontSize: '2rem' }}>
-              <div>{lostWhitePieces.join(' ')}</div>
-              <div>{lostBlackPieces.join(' ')}</div>
+              <div>
+                {lostWhitePieces.join(' ')}
+                {materialBalance > 0 && (
+                  // White is leading by materialBalance
+                  <span style={{ marginLeft: '0.5rem', fontSize: '0.75em' }}>
+                    +{materialBalance}
+                  </span>
+                )}
+              </div>
+              <div>
+                {lostBlackPieces.join(' ')}
+                {materialBalance < 0 && (
+                  // Black is leading by −materialBalance
+                  <span style={{ marginLeft: '0.5rem', fontSize: '0.75em' }}>
+                    +{-materialBalance}
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
