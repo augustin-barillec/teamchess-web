@@ -300,27 +300,6 @@ io.on('connection', (socket: Socket) => {
     cb({});
   });
 
-  socket.on('resign', () => {
-    const gameId = socket.data.gameId as string | undefined;
-    const state = gameStates.get(gameId!);
-    if (!state || state.ended) return;
-    const loser = socket.data.side as Side;
-    const winner = loser === 'white' ? 'black' : 'white';
-    endGame(gameId!, 'resignation', winner);
-  });
-
-  socket.on('offer_draw', () => {
-    const gameId = socket.data.gameId as string | undefined;
-    if (!gameId) return;
-    io.in(gameId).emit('draw_offered', { name: socket.data.name });
-  });
-
-  socket.on('accept_draw', () => {
-    const gameId = socket.data.gameId as string | undefined;
-    if (!gameId) return;
-    endGame(gameId!, 'draw by agreement');
-  });
-
   function leave() {
     const gameId = socket.data.gameId as string | undefined;
     if (!gameId) return;
