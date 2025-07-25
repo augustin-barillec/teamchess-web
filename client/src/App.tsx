@@ -286,6 +286,8 @@ export default function App() {
     },
   };
 
+  const hasPlayed = (playerName: string) => current?.proposals.some(p => p.name === playerName);
+
   return (
     <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
       <Toaster position="bottom-right" />
@@ -382,19 +384,28 @@ export default function App() {
                 ))}
               </ul>
             </div>
+            {/* White */}
             <div>
               <h3>White</h3>
               <ul>
                 {players.whitePlayers.map(n => (
-                  <li key={n}>{n === name ? <strong>{n}</strong> : n}</li>
+                  <li key={n} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {n === name ? <strong>{n}</strong> : n}
+                    {hasPlayed(n) && <span aria-label="played">✔️</span>}
+                  </li>
                 ))}
               </ul>
             </div>
+
+            {/* Black */}
             <div>
               <h3>Black</h3>
               <ul>
                 {players.blackPlayers.map(n => (
-                  <li key={n}>{n === name ? <strong>{n}</strong> : n}</li>
+                  <li key={n} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {n === name ? <strong>{n}</strong> : n}
+                    {hasPlayed(n) && <span aria-label="played">✔️</span>}
+                  </li>
                 ))}
               </ul>
             </div>
