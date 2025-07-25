@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { io } from 'socket.io-client';
 import { Chess } from 'chess.js';
@@ -121,6 +121,13 @@ export default function App() {
       materialBalance,
     };
   }, [position]);
+
+  const movesRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (movesRef.current) {
+      movesRef.current.scrollTop = movesRef.current.scrollHeight;
+    }
+  }, [turns]);
 
   useEffect(() => {
     const socket = io();
@@ -524,23 +531,31 @@ export default function App() {
               </p>
             </div>
           )}
-
-          <div style={{ marginTop: 40 }}>
-            {[...turns].reverse().map(t => (
-              <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: 15 }}>
+          <div
+            ref={movesRef}
+            style={{
+              marginTop: 20,
+              height: '160px', // fits ~4 turns comfortably; adjust if your font/padding change
+              overflowY: 'auto',
+              border: '1px solid #ccc',
+              padding: '8px',
+              background: '#fafafa',
+            }}
+          >
+            {turns.slice(-4).map(t => (
+              <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
                 <strong>
                   Move {t.moveNumber} ({t.side})
                 </strong>
-
-                <ul>
-                  {[...t.proposals].reverse().map(p => {
-                    const isSelected = t.selection?.lan === p.lan;
+                <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
+                  {t.proposals.map(p => {
+                    const isSel = t.selection?.lan === p.lan;
                     const fan = p.san ? sanToFan(p.san, t.side) : '';
                     return (
                       <li key={`${t.side}-${t.moveNumber}-${p.name}`}>
                         {p.name === name ? <strong>{p.name}</strong> : p.name}:{' '}
-                        {isSelected ? <strong>{p.lan}</strong> : p.lan}
-                        {fan && ` (${fan})`}
+                        {isSel ? <strong>{p.lan}</strong> : p.lan}
+                        {fan && ` (${fan})`}
                       </li>
                     );
                   })}
