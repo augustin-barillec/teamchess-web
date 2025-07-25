@@ -144,9 +144,9 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
       const fen = state.chess.fen();
 
       if (state.side === 'white') {
-        state.whiteTime += 3;
+        state.whiteTime += 5;
       } else {
-        state.blackTime += 3;
+        state.blackTime += 5;
       }
       // immediately broadcast the updated clocks
       io.in(gameId).emit('clock_update', {
