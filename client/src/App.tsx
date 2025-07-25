@@ -538,7 +538,7 @@ export default function App() {
                 <span
                   style={{
                     display: 'inline-block',
-                    minWidth: '2ch', // reserve two character‑widths
+                    minWidth: '3ch',
                     marginRight: '0.5rem',
                     fontSize: '0.75em',
                     textAlign: 'right',
@@ -555,7 +555,7 @@ export default function App() {
                 <span
                   style={{
                     display: 'inline-block',
-                    minWidth: '2ch',
+                    minWidth: '3ch',
                     marginRight: '0.5rem',
                     fontSize: '0.75em',
                     textAlign: 'right',
