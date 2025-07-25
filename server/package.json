@@ -1,5 +1,5 @@
 {
-  "name": "socket-server-ts",
+  "name": "teamchess-server",
   "version": "1.0.0",
   "type": "commonjs",
   "scripts": {

@@ -1,5 +1,5 @@
 {
-  "name": "my-react-app",
+  "name": "teamchess-client",
   "version": "0.1.0",
   "scripts": {
     "dev": "vite",
