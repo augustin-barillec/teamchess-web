@@ -477,26 +477,40 @@ export default function App() {
               </div>
             </div>
           )}
-
           {(gameStarted || gameOver) && (
             <div style={{ marginTop: 10, fontSize: '2rem' }}>
-              <div>
-                {lostWhitePieces.join(' ')}
-                {materialBalance > 0 && (
-                  // White is leading by materialBalance
-                  <span style={{ marginLeft: '0.5rem', fontSize: '0.75em' }}>
-                    +{materialBalance}
-                  </span>
-                )}
+              {/* White’s lost‐pieces row */}
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    minWidth: '2ch', // reserve two character‑widths
+                    marginRight: '0.5rem',
+                    fontSize: '0.75em',
+                    textAlign: 'right',
+                    visibility: materialBalance === 0 ? 'hidden' : 'visible',
+                  }}
+                >
+                  {materialBalance > 0 ? `+${materialBalance}` : ''}
+                </span>
+                <span>{lostWhitePieces.join(' ')}</span>
               </div>
-              <div>
-                {lostBlackPieces.join(' ')}
-                {materialBalance < 0 && (
-                  // Black is leading by −materialBalance
-                  <span style={{ marginLeft: '0.5rem', fontSize: '0.75em' }}>
-                    +{-materialBalance}
-                  </span>
-                )}
+
+              {/* Black’s lost‐pieces row */}
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    minWidth: '2ch',
+                    marginRight: '0.5rem',
+                    fontSize: '0.75em',
+                    textAlign: 'right',
+                    visibility: materialBalance === 0 ? 'hidden' : 'visible',
+                  }}
+                >
+                  {materialBalance < 0 ? `+${-materialBalance}` : ''}
+                </span>
+                <span>{lostBlackPieces.join(' ')}</span>
               </div>
             </div>
           )}
