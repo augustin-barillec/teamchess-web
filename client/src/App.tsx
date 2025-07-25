@@ -436,98 +436,100 @@ export default function App() {
           </div>
 
           {/* Board + Timers + Move List */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center', // center everything vertically
-              gap: '1.5rem',
-              marginTop: 20,
-            }}
-          >
-            {/* 1) Chessboard + clocks wrapper */}
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              {/* Board */}
-              <div style={{ flexShrink: 0, width: boardOptions.boardWidth }}>
-                <Chessboard options={boardOptions} />
-              </div>
-
-              {/* Clocks */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: orientation === 'white' ? 'column-reverse' : 'column',
-                  justifyContent: 'center', // center clocks within the board height
-                  gap: '1rem',
-                  fontFamily: 'monospace',
-                  fontSize: '2rem',
-                  minWidth: 140,
-                  height: boardOptions.boardWidth, // match board height
-                }}
-              >
-                {/* white clock */}
-                <div
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 6,
-                    background: current?.side === 'white' && !gameOver ? '#3a5f0b' : '#333',
-                    color: '#fff',
-                    fontWeight: current?.side === 'white' && !gameOver ? 'bold' : 'normal',
-                    textAlign: 'center',
-                  }}
-                >
-                  {String(Math.floor(clocks.whiteTime / 60)).padStart(2, '0')}:
-                  {String(clocks.whiteTime % 60).padStart(2, '0')}
-                </div>
-                {/* black clock */}
-                <div
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 6,
-                    background: current?.side === 'black' && !gameOver ? '#3a5f0b' : '#333',
-                    color: '#fff',
-                    fontWeight: current?.side === 'black' && !gameOver ? 'bold' : 'normal',
-                    textAlign: 'center',
-                  }}
-                >
-                  {String(Math.floor(clocks.blackTime / 60)).padStart(2, '0')}:
-                  {String(clocks.blackTime % 60).padStart(2, '0')}
-                </div>
-              </div>
-            </div>
-
+          {(gameStarted || gameOver) && (
             <div
-              ref={movesRef}
               style={{
-                width: 180, // was 120, now 1.5× larger
-                height: boardOptions.boardWidth * 0.5, // was *0.75, now *0.25 (0.75–0.5)
-                overflowY: 'auto',
-                border: '1px solid #ccc',
-                padding: '8px',
-                background: '#fafafa',
+                display: 'flex',
+                alignItems: 'center', // center everything vertically
+                gap: '1.5rem',
+                marginTop: 20,
               }}
             >
-              {turns.map(t => (
-                <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
-                  <strong>
-                    Move {t.moveNumber} ({t.side})
-                  </strong>
-                  <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
-                    {t.proposals.map(p => {
-                      const isSel = t.selection?.lan === p.lan;
-                      const fan = p.san ? sanToFan(p.san, t.side) : '';
-                      return (
-                        <li key={`${t.side}-${t.moveNumber}-${p.name}`}>
-                          {p.name === name ? <strong>{p.name}</strong> : p.name}:{' '}
-                          {isSel ? <strong>{p.lan}</strong> : p.lan}
-                          {fan && ` (${fan})`}
-                        </li>
-                      );
-                    })}
-                  </ul>
+              {/* 1) Chessboard + clocks wrapper */}
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                {/* Board */}
+                <div style={{ flexShrink: 0, width: boardOptions.boardWidth }}>
+                  <Chessboard options={boardOptions} />
                 </div>
-              ))}
+
+                {/* Clocks */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: orientation === 'white' ? 'column-reverse' : 'column',
+                    justifyContent: 'center', // center clocks within the board height
+                    gap: '1rem',
+                    fontFamily: 'monospace',
+                    fontSize: '2rem',
+                    minWidth: 140,
+                    height: boardOptions.boardWidth, // match board height
+                  }}
+                >
+                  {/* white clock */}
+                  <div
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      background: current?.side === 'white' && !gameOver ? '#3a5f0b' : '#333',
+                      color: '#fff',
+                      fontWeight: current?.side === 'white' && !gameOver ? 'bold' : 'normal',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {String(Math.floor(clocks.whiteTime / 60)).padStart(2, '0')}:
+                    {String(clocks.whiteTime % 60).padStart(2, '0')}
+                  </div>
+                  {/* black clock */}
+                  <div
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      background: current?.side === 'black' && !gameOver ? '#3a5f0b' : '#333',
+                      color: '#fff',
+                      fontWeight: current?.side === 'black' && !gameOver ? 'bold' : 'normal',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {String(Math.floor(clocks.blackTime / 60)).padStart(2, '0')}:
+                    {String(clocks.blackTime % 60).padStart(2, '0')}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                ref={movesRef}
+                style={{
+                  width: 180, // was 120, now 1.5× larger
+                  height: boardOptions.boardWidth * 0.5, // was *0.75, now *0.25 (0.75–0.5)
+                  overflowY: 'auto',
+                  border: '1px solid #ccc',
+                  padding: '8px',
+                  background: '#fafafa',
+                }}
+              >
+                {turns.map(t => (
+                  <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
+                    <strong>
+                      Move {t.moveNumber} ({t.side})
+                    </strong>
+                    <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
+                      {t.proposals.map(p => {
+                        const isSel = t.selection?.lan === p.lan;
+                        const fan = p.san ? sanToFan(p.san, t.side) : '';
+                        return (
+                          <li key={`${t.side}-${t.moveNumber}-${p.name}`}>
+                            {p.name === name ? <strong>{p.name}</strong> : p.name}:{' '}
+                            {isSel ? <strong>{p.lan}</strong> : p.lan}
+                            {fan && ` (${fan})`}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {(gameStarted || gameOver) && (
             <div style={{ marginTop: 10, fontSize: '2rem' }}>
