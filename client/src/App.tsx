@@ -314,7 +314,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
-      <Toaster position="bottom-right" />
+      <Toaster position="top-right" />
       <h1>TeamChess</h1>
 
       {!joined ? (
