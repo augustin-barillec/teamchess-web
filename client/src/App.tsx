@@ -228,7 +228,7 @@ export default function App() {
       else setJoined(true);
     });
   };
-  const joinSide = (s: 'white' | 'black') =>
+  const joinSide = (s: 'white' | 'black' | 'spectator') =>
     (window as any).socket.emit('join_side', { side: s }, (res: any) => {
       if (res.error) alert(res.error);
       else setSide(s);
@@ -244,6 +244,8 @@ export default function App() {
 
     joinSide(chosen);
   };
+  // leave current team and rejoin spectators
+  const joinSpectator = () => joinSide('spectator');
   const startGame = () => (window as any).socket.emit('start_game');
   const exitGame = () => {
     (window as any).socket.emit('exit_game');
@@ -391,6 +393,12 @@ export default function App() {
               <button onClick={() => joinSide('black')} style={{ marginLeft: 5 }}>
                 Join Black
               </button>
+            </div>
+          )}
+
+          {!gameOver && (side === 'white' || side === 'black') && (
+            <div style={{ marginTop: 10 }}>
+              <button onClick={joinSpectator}>Join Spectators</button>
             </div>
           )}
 

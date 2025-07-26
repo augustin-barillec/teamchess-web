@@ -235,6 +235,20 @@ io.on('connection', (socket: Socket) => {
       if (side === 'black') state.blackIds.add(socket.id);
     }
 
+    if (state && state.started && !state.ended && side === 'spectator') {
+      // if this player had already submitted a proposal this turn
+      if (state.proposals.has(socket.id)) {
+        state.proposals.delete(socket.id);
+        // inform all clients to drop the proposal
+        io.in(gameId).emit('proposal_removed', {
+          moveNumber: state.moveNumber,
+          side: prevSide,
+          name: socket.data.name,
+        });
+      }
+      tryFinalizeTurn(gameId, state);
+    }
+
     broadcastPlayers(gameId);
     cb({ success: true });
   });
