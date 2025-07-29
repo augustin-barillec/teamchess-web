@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import { Chess } from 'chess.js';
 import { Chessboard, PieceDropHandlerArgs } from 'react-chessboard';
 import { Players, GameInfo, Proposal, Selection, EndReason } from '@teamchess/shared';
@@ -42,6 +42,8 @@ function sanToFan(san: string, side: 'white' | 'black'): string {
 }
 
 export default function App() {
+  const [socket, setSocket] = useState<Socket>();
+  const [myId, setMyId] = useState<string>('');
   const [name, setName] = useState('');
   const [showJoin, setShowJoin] = useState(false);
   const [gameId, setGameId] = useState('');
@@ -60,8 +62,8 @@ export default function App() {
     {
       moveNumber: number;
       side: 'white' | 'black';
-      proposals: { name: string; lan: string; san?: string }[];
-      selection?: { name: string; lan: string; san?: string; fen: string };
+      proposals: Proposal[]; // ← use Proposal (with id,name,lan,san)
+      selection?: Selection;
     }[]
   >([]);
   const [chess] = useState(new Chess());
@@ -131,6 +133,9 @@ export default function App() {
 
   useEffect(() => {
     const socket = io();
+    setSocket(socket);
+    // socket.id is only valid after the initial “connect” event fires:
+    socket.on('connect', () => setMyId(socket.id));
 
     socket.on('players', (p: Players) => setPlayers(p));
     socket.on('game_started', ({ moveNumber, side }: GameInfo) => {
@@ -150,25 +155,18 @@ export default function App() {
       setTurns(ts =>
         ts.map(t =>
           t.moveNumber === m.moveNumber && t.side === m.side
-            ? {
-                ...t,
-                proposals: [...t.proposals, { name: m.name, lan: m.lan, san: m.san }],
-              }
+            ? { ...t, proposals: [...t.proposals, m] }
             : t,
         ),
       ),
     );
-    socket.on('move_selected', (sel: Selection & { san?: string }) => {
+    socket.on('move_selected', (sel: Selection) => {
       setTurns(ts =>
         ts.map(t =>
-          t.moveNumber === sel.moveNumber && t.side === sel.side
-            ? {
-                ...t,
-                selection: { name: sel.name, lan: sel.lan, san: sel.san, fen: sel.fen },
-              }
-            : t,
+          t.moveNumber === sel.moveNumber && t.side === sel.side ? { ...t, selection: sel } : t,
         ),
       );
+
       // remember the last move squares
       chess.load(sel.fen);
       const from = sel.lan.slice(0, 2);
@@ -179,29 +177,18 @@ export default function App() {
     socket.on('turn_change', ({ moveNumber, side }: GameInfo) =>
       setTurns(ts => [...ts, { moveNumber, side, proposals: [] }]),
     );
-    socket.on(
-      'proposal_removed',
-      ({
-        moveNumber,
-        side,
-        name,
-      }: {
-        moveNumber: number;
-        side: 'white' | 'black';
-        name: string;
-      }) => {
-        setTurns(ts =>
-          ts.map(t =>
-            t.moveNumber === moveNumber && t.side === side
-              ? {
-                  ...t,
-                  proposals: t.proposals.filter(p => p.name !== name),
-                }
-              : t,
-          ),
-        );
-      },
-    );
+    socket.on('proposal_removed', ({ moveNumber, side, id }) => {
+      setTurns(ts =>
+        ts.map(t =>
+          t.moveNumber === moveNumber && t.side === side
+            ? {
+                ...t,
+                proposals: t.proposals.filter(p => p.id !== id),
+              }
+            : t,
+        ),
+      );
+    });
     socket.on('game_over', ({ reason, winner }) => {
       setGameOver(true);
       setWinner(winner);
@@ -312,7 +299,7 @@ export default function App() {
     },
   };
 
-  const hasPlayed = (playerName: string) => current?.proposals.some(p => p.name === playerName);
+  const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
 
   return (
     <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
@@ -411,8 +398,8 @@ export default function App() {
             <div>
               <h3>Spectators</h3>
               <ul>
-                {players.spectators.map(n => (
-                  <li key={n}>{n === name ? <strong>{n}</strong> : n}</li>
+                {players.spectators.map(p => (
+                  <li key={p.id}>{p.id === myId ? <strong>{p.name}</strong> : p.name}</li>
                 ))}
               </ul>
             </div>
@@ -420,10 +407,10 @@ export default function App() {
             <div>
               <h3>White</h3>
               <ul>
-                {players.whitePlayers.map(n => (
-                  <li key={n} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {n === name ? <strong>{n}</strong> : n}
-                    {hasPlayed(n) && <span aria-label="played">✔️</span>}
+                {players.whitePlayers.map(p => (
+                  <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {p.id === myId ? <strong>{p.name}</strong> : p.name}
+                    {hasPlayed(p.id) && <span>✔️</span>}
                   </li>
                 ))}
               </ul>
@@ -433,10 +420,10 @@ export default function App() {
             <div>
               <h3>Black</h3>
               <ul>
-                {players.blackPlayers.map(n => (
-                  <li key={n} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {n === name ? <strong>{n}</strong> : n}
-                    {hasPlayed(n) && <span aria-label="played">✔️</span>}
+                {players.blackPlayers.map(p => (
+                  <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {p.id === myId ? <strong>{p.name}</strong> : p.name}
+                    {hasPlayed(p.id) && <span>✔️</span>}
                   </li>
                 ))}
               </ul>
@@ -525,8 +512,8 @@ export default function App() {
                         const isSel = t.selection?.lan === p.lan;
                         const fan = p.san ? sanToFan(p.san, t.side) : '';
                         return (
-                          <li key={`${t.side}-${t.moveNumber}-${p.name}`}>
-                            {p.name === name ? <strong>{p.name}</strong> : p.name}:{' '}
+                          <li key={p.id}>
+                            {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
                             {isSel ? <strong>{p.lan}</strong> : p.lan}
                             {fan && ` (${fan})`}
                           </li>

@@ -5,6 +5,7 @@ import cors from 'cors';
 import { nanoid } from 'nanoid';
 import { Chess } from 'chess.js';
 import path from 'path';
+import { Player } from '@teamchess/shared';
 
 // point at the built Stockfish engine
 const stockfishPath = path.join(
@@ -105,17 +106,20 @@ async function chooseBestMove(fen: string, candidates: string[], depth = 15): Pr
 }
 
 function broadcastPlayers(gameId: string) {
-  const spectators: string[] = [];
-  const whitePlayers: string[] = [];
-  const blackPlayers: string[] = [];
+  const spectators: Player[] = [];
+  const whitePlayers: Player[] = [];
+  const blackPlayers: Player[] = [];
   const clients = io.sockets.adapter.rooms.get(gameId) || new Set<string>();
-  for (const id of clients) {
-    const s = io.sockets.sockets.get(id);
+
+  for (const socketId of clients) {
+    const s = io.sockets.sockets.get(socketId);
     if (!s?.data.name) continue;
-    if (s.data.side === 'white') whitePlayers.push(s.data.name);
-    else if (s.data.side === 'black') blackPlayers.push(s.data.name);
-    else spectators.push(s.data.name);
+    const p: Player = { id: socketId, name: s.data.name };
+    if (s.data.side === 'white') whitePlayers.push(p);
+    else if (s.data.side === 'black') blackPlayers.push(p);
+    else spectators.push(p);
   }
+
   io.in(gameId).emit('players', { spectators, whitePlayers, blackPlayers });
 }
 
@@ -158,9 +162,10 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
       const selName = io.sockets.sockets.get(selId)!.data.name;
 
       io.in(gameId).emit('move_selected', {
+        id: selId, // new: the socket.id of the chooser
+        name: selName,
         moveNumber: state.moveNumber,
         side: state.side,
-        name: selName,
         lan: selLan,
         san: move.san,
         fen,
@@ -203,7 +208,6 @@ io.on('connection', (socket: Socket) => {
     if (!io.sockets.adapter.rooms.has(gameId)) return cb({ error: 'Game not found.' });
     for (const id of io.sockets.adapter.rooms.get(gameId)!) {
       const s = io.sockets.sockets.get(id);
-      if (s?.data.name === name) return cb({ error: 'Name already taken.' });
     }
     socket.join(gameId);
     socket.data = { name, gameId, side: 'spectator' };
@@ -252,7 +256,7 @@ io.on('connection', (socket: Socket) => {
         io.in(gameId).emit('proposal_removed', {
           moveNumber: state.moveNumber,
           side: prevSide,
-          name: socket.data.name,
+          id: socket.id,
         });
       }
       tryFinalizeTurn(gameId, state);
@@ -311,12 +315,13 @@ io.on('connection', (socket: Socket) => {
     state.chess.undo();
 
     state.proposals.set(socket.id, lan);
-    io.in(gameId!).emit('move_submitted', {
+    io.in(gameId).emit('move_submitted', {
+      id: socket.id, // new
+      name: socket.data.name,
       moveNumber: state.moveNumber,
       side: state.side,
-      name: socket.data.name,
       lan,
-      san: move.san, // send SAN directly
+      san: move.san,
     });
 
     tryFinalizeTurn(gameId!, state);
@@ -339,7 +344,7 @@ io.on('connection', (socket: Socket) => {
       io.in(gameId).emit('proposal_removed', {
         moveNumber: state.moveNumber,
         side: state.side,
-        name: socket.data.name,
+        id: socket.id,
       });
 
       // attempt to finalize with only active players’ proposals

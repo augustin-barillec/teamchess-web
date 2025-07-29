@@ -1,14 +1,20 @@
+export interface Player {
+  id: string;
+  name: string;
+}
+
 export type Players = {
-  spectators: string[];
-  whitePlayers: string[];
-  blackPlayers: string[];
+  spectators: Player[];
+  whitePlayers: Player[];
+  blackPlayers: Player[];
 };
 
 export type GameInfo = { moveNumber: number; side: 'white' | 'black' };
 export type Proposal = {
+  id: string; // socket.id of who proposed
+  name: string; // their DISPLAY name
   moveNumber: number;
   side: 'white' | 'black';
-  name: string;
   lan: string;
   san?: string;
 };
