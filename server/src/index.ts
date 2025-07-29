@@ -233,6 +233,15 @@ io.on('connection', (socket: Socket) => {
       if (prevSide === 'black') state.blackIds.delete(socket.id);
       if (side === 'white') state.whiteIds.add(socket.id);
       if (side === 'black') state.blackIds.add(socket.id);
+      if (side === 'spectator') {
+        const wCount = state.whiteIds.size;
+        const bCount = state.blackIds.size;
+        if ((wCount === 0 && bCount > 0) || (bCount === 0 && wCount > 0)) {
+          // remaining side wins
+          const winner = wCount > 0 ? 'white' : 'black';
+          endGame(gameId, 'timeout or disconnect', winner);
+        }
+      }
     }
 
     if (state && state.started && !state.ended && side === 'spectator') {
