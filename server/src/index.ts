@@ -225,7 +225,6 @@ function leave(this: Socket) {
   const gameId = socket.data.gameId as string | undefined;
   if (!gameId) return;
   const state = gameStates.get(gameId);
-  if (state?.timerInterval) clearInterval(state.timerInterval);
 
   if (state) {
     removePlayerFromSide(state, socket.id, socket.data.side as Seat);
