@@ -38,13 +38,13 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
-type Side = 'white' | 'black';
-
+type Seat = 'white' | 'black' | 'spectator';
+type PlayerSide = 'white' | 'black';
 interface GameState {
   whiteIds: Set<string>;
   blackIds: Set<string>;
   moveNumber: number;
-  side: Side;
+  side: PlayerSide;
   proposals: Map<string, string>;
   whiteTime: number;
   blackTime: number;
@@ -195,6 +195,54 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
   }
 }
 
+function endIfOneSided(gameId: string, state: GameState) {
+  const wCount = state.whiteIds.size;
+  const bCount = state.blackIds.size;
+  if ((wCount === 0 && bCount > 0) || (bCount === 0 && wCount > 0)) {
+    const winner: PlayerSide = wCount > 0 ? 'white' : 'black';
+    endGame(gameId, 'timeout or disconnect', winner);
+  }
+}
+
+function removePlayerFromSide(state: GameState, socketId: string, side: Seat) {
+  if (side === 'white') state.whiteIds.delete(socketId);
+  if (side === 'black') state.blackIds.delete(socketId);
+}
+
+function cleanupProposal(socket: Socket, state: GameState) {
+  const { moveNumber, side } = state;
+  state.proposals.delete(socket.id);
+  io.in(socket.data.gameId).emit('proposal_removed', {
+    moveNumber,
+    side,
+    id: socket.id,
+  });
+  tryFinalizeTurn(socket.data.gameId, state);
+}
+
+function leave(this: Socket) {
+  const socket = this;
+  const gameId = socket.data.gameId as string | undefined;
+  if (!gameId) return;
+  const state = gameStates.get(gameId);
+  if (state?.timerInterval) clearInterval(state.timerInterval);
+
+  if (state) {
+    removePlayerFromSide(state, socket.id, socket.data.side as Seat);
+    cleanupProposal(socket, state);
+    endIfOneSided(gameId, state);
+  }
+
+  socket.leave(gameId);
+  delete socket.data.gameId;
+  delete socket.data.side;
+  broadcastPlayers(gameId);
+
+  if (!io.sockets.adapter.rooms.has(gameId)) {
+    gameStates.delete(gameId);
+  }
+}
+
 io.on('connection', (socket: Socket) => {
   socket.on('create_game', ({ name }, cb) => {
     const gameId = nanoid(6);
@@ -206,9 +254,6 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('join_game', ({ gameId, name }, cb) => {
     if (!io.sockets.adapter.rooms.has(gameId)) return cb({ error: 'Game not found.' });
-    for (const id of io.sockets.adapter.rooms.get(gameId)!) {
-      const s = io.sockets.sockets.get(id);
-    }
     socket.join(gameId);
     socket.data = { name, gameId, side: 'spectator' };
     cb({ gameId });
@@ -228,38 +273,21 @@ io.on('connection', (socket: Socket) => {
     const gameId = socket.data.gameId as string | undefined;
     if (!gameId) return cb({ success: false, error: 'Not in a game.' });
 
-    const prevSide = socket.data.side as Side;
+    const prevSide = socket.data.side as Seat;
     socket.data.side = side;
 
     const state = gameStates.get(gameId);
     if (state && state.started && !state.ended) {
-      if (prevSide === 'white') state.whiteIds.delete(socket.id);
-      if (prevSide === 'black') state.blackIds.delete(socket.id);
+      // update side sets
+      removePlayerFromSide(state, socket.id, prevSide);
       if (side === 'white') state.whiteIds.add(socket.id);
       if (side === 'black') state.blackIds.add(socket.id);
-      if (side === 'spectator') {
-        const wCount = state.whiteIds.size;
-        const bCount = state.blackIds.size;
-        if ((wCount === 0 && bCount > 0) || (bCount === 0 && wCount > 0)) {
-          // remaining side wins
-          const winner = wCount > 0 ? 'white' : 'black';
-          endGame(gameId, 'timeout or disconnect', winner);
-        }
-      }
-    }
+      endIfOneSided(gameId, state);
 
-    if (state && state.started && !state.ended && side === 'spectator') {
-      // if this player had already submitted a proposal this turn
-      if (state.proposals.has(socket.id)) {
-        state.proposals.delete(socket.id);
-        // inform all clients to drop the proposal
-        io.in(gameId).emit('proposal_removed', {
-          moveNumber: state.moveNumber,
-          side: prevSide,
-          id: socket.id,
-        });
+      // if moved to spectator, clean up proposal
+      if (side === 'spectator') {
+        cleanupProposal(socket, state);
       }
-      tryFinalizeTurn(gameId, state);
     }
 
     broadcastPlayers(gameId);
@@ -316,7 +344,7 @@ io.on('connection', (socket: Socket) => {
 
     state.proposals.set(socket.id, lan);
     io.in(gameId).emit('move_submitted', {
-      id: socket.id, // new
+      id: socket.id,
       name: socket.data.name,
       moveNumber: state.moveNumber,
       side: state.side,
@@ -327,48 +355,6 @@ io.on('connection', (socket: Socket) => {
     tryFinalizeTurn(gameId!, state);
     cb({});
   });
-
-  function leave() {
-    const gameId = socket.data.gameId as string | undefined;
-    if (!gameId) return;
-    const state = gameStates.get(gameId);
-    if (state?.timerInterval) clearInterval(state.timerInterval);
-
-    if (state) {
-      state.whiteIds.delete(socket.id);
-      state.blackIds.delete(socket.id);
-      // remove any pending proposal from the leaving player
-      state.proposals.delete(socket.id);
-
-      // tell all clients to drop this player’s proposal for the current turn
-      io.in(gameId).emit('proposal_removed', {
-        moveNumber: state.moveNumber,
-        side: state.side,
-        id: socket.id,
-      });
-
-      // attempt to finalize with only active players’ proposals
-      tryFinalizeTurn(gameId, state);
-    }
-
-    socket.leave(gameId);
-    delete socket.data.gameId;
-    delete socket.data.side;
-    broadcastPlayers(gameId);
-
-    if (state && !state.ended) {
-      const w = state.whiteIds.size;
-      const b = state.blackIds.size;
-      if ((w === 0 && b > 0) || (b === 0 && w > 0)) {
-        const winner = w > 0 ? 'white' : 'black';
-        endGame(gameId, 'timeout or disconnect', winner);
-      }
-    }
-
-    if (!io.sockets.adapter.rooms.has(gameId)) {
-      gameStates.delete(gameId);
-    }
-  }
 
   socket.on('exit_game', leave);
   socket.on('disconnect', leave);
