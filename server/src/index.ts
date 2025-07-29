@@ -21,16 +21,6 @@ const loadEngine = require('../load_engine.cjs') as (enginePath: string) => {
   send(cmd: string, cb?: (data: string) => void, stream?: (data: string) => void): void;
   quit(): void;
 };
-const engine = loadEngine(stockfishPath);
-
-// UCI handshake & readiness
-engine.send('uci', (data: string) => {
-  if (data.startsWith('uciok')) {
-    engine.send('isready', (rd: string) => {
-      if (rd === 'readyok') console.log('Stockfish ready!');
-    });
-  }
-});
 
 const app = express();
 app.use(cors());
@@ -49,6 +39,7 @@ interface GameState {
   whiteTime: number;
   blackTime: number;
   timerInterval?: NodeJS.Timeout;
+  engine: ReturnType<typeof loadEngine>;
   chess: Chess;
   started: boolean;
   ended: boolean;
@@ -63,6 +54,7 @@ function endGame(gameId: string, reason: string, winner: string | null = null) {
   const state = gameStates.get(gameId);
   if (!state) return;
   if (state.timerInterval) clearInterval(state.timerInterval);
+  state.engine.quit();
   state.ended = true;
   state.endReason = reason;
   state.endWinner = winner;
@@ -93,7 +85,12 @@ function startClock(gameId: string) {
   }, 1000);
 }
 
-async function chooseBestMove(fen: string, candidates: string[], depth = 15): Promise<string> {
+async function chooseBestMove(
+  engine: ReturnType<typeof loadEngine>,
+  fen: string,
+  candidates: string[],
+  depth = 15,
+): Promise<string> {
   return new Promise(resolve => {
     engine.send(`position fen ${fen}`);
     const movesArg = candidates.join(' ');
@@ -137,7 +134,7 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
     const candidates = entries.map(([, lan]) => lan);
     const currentFen = state.chess.fen();
 
-    chooseBestMove(currentFen, candidates, 12).then(selLan => {
+    chooseBestMove(state.engine, currentFen, candidates, 12).then(selLan => {
       // apply the chosen move
       const move = state.chess.move({
         from: selLan.slice(0, 2),
@@ -296,6 +293,16 @@ io.on('connection', (socket: Socket) => {
   socket.on('start_game', cb => {
     const gameId = socket.data.gameId as string | undefined;
     if (!gameId || gameStates.has(gameId)) return cb?.();
+    const engine = loadEngine(stockfishPath);
+
+    // UCI handshake & readiness
+    engine.send('uci', (data: string) => {
+      if (data.startsWith('uciok')) {
+        engine.send('isready', (rd: string) => {
+          if (rd === 'readyok') console.log('Stockfish ready!');
+        });
+      }
+    });
 
     const whites = new Set<string>();
     const blacks = new Set<string>();
@@ -314,6 +321,7 @@ io.on('connection', (socket: Socket) => {
       proposals: new Map(),
       whiteTime: 600,
       blackTime: 600,
+      engine,
       chess,
       started: true,
       ended: false,
