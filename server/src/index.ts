@@ -134,10 +134,15 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
   const entries = Array.from(state.proposals.entries()).filter(([id]) => activeIds.has(id));
 
   if (activeIds.size > 0 && entries.length === activeIds.size) {
+    if (state.timerInterval) {
+      clearInterval(state.timerInterval);
+      state.timerInterval = undefined;
+    }
+
     const candidates = entries.map(([, lan]) => lan);
     const currentFen = state.chess.fen();
 
-    chooseBestMove(state.engine, currentFen, candidates, 12).then(selLan => {
+    chooseBestMove(state.engine, currentFen, candidates, 15).then(selLan => {
       const from = selLan.slice(0, 2);
       const to = selLan.slice(2, 4);
       const params: any = { from, to };
