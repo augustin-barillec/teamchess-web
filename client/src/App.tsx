@@ -150,6 +150,9 @@ export default function App() {
     socket.on('settings_updated', ({ multiPv }: { multiPv: number }) => {
       setMultiPv(multiPv);
     });
+    socket.on('funky_message', ({ message }: { message: string }) => {
+      toast(message, { icon: '🤖', duration: 5000 });
+    });
     socket.on('move_submitted', (m: Proposal) =>
       setTurns(ts =>
         ts.map(t =>

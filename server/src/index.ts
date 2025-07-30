@@ -40,12 +40,17 @@ const io = new Server(server, { cors: { origin: '*' } });
 
 type Side = 'white' | 'black';
 
+interface PlayerStats {
+  bestMoveStreak: number;
+  badMoveStreak: number;
+}
+
 interface GameState {
   whiteIds: Set<string>;
   blackIds: Set<string>;
   moveNumber: number;
   side: Side;
-  proposals: Map<string, string>;
+  proposals: Map<string, string>; // Map<socketId, lan>
   whiteTime: number;
   blackTime: number;
   timerInterval?: NodeJS.Timeout;
@@ -56,6 +61,8 @@ interface GameState {
   endWinner?: string | null;
   // Game settings
   multiPv: number;
+  // Player stats
+  playerStats: Map<string, PlayerStats>; // Map<playerName, stats>
   // For background analysis
   analysisResults: Map<string, { score: number; rank: number }>;
   analysisStopper?: () => void;
@@ -68,14 +75,12 @@ function startThinking(gameId: string) {
   const state = gameStates.get(gameId);
   if (!state || state.ended) return;
 
-  // Stop any previous thinking process
   if (state.analysisStopper) {
     state.analysisStopper();
   }
 
   state.analysisResults.clear();
 
-  // Ask Stockfish for the top N moves based on game settings
   engine.send(`setoption name MultiPV value ${state.multiPv}`);
   engine.send(`position fen ${state.chess.fen()}`);
 
@@ -87,30 +92,40 @@ function startThinking(gameId: string) {
     }
     state.analysisStopper = undefined;
     console.log(`[${gameId}] Stopped thinking.`);
+
+    // Check for mate hint after analysis is done, regardless of team size
+    const activeIds = state.side === 'white' ? state.whiteIds : state.blackIds;
+    const entries = Array.from(state.proposals.entries()).filter(([id]) => activeIds.has(id));
+    if (entries.length < activeIds.size) {
+      const bestAnalysisMove = Array.from(state.analysisResults.values()).find(r => r.rank === 1);
+      if (bestAnalysisMove && bestAnalysisMove.score > 90000 && Math.random() < 0.2) {
+        const mateIn = 100000 - bestAnalysisMove.score;
+        if (mateIn <= 10) {
+          const sideName = state.side.charAt(0).toUpperCase() + state.side.slice(1);
+          io.in(gameId).emit('funky_message', {
+            message: `Hint for ${sideName}: A mate in ${mateIn} is possible!`,
+          });
+        }
+      }
+    }
   };
   state.analysisStopper = stopper;
 
-  // Set a 10s timeout to stop it
   state.analysisTimeout = setTimeout(stopper, 10000);
   console.log(`[${gameId}] Started thinking with MultiPV ${state.multiPv}...`);
 
-  // Start analysis and stream results
   engine.send(
     'go infinite',
-    () => { }, // onDone callback (not used here)
+    () => { },
     (data: string) => {
-      // onStream callback, processes each line from stockfish
       if (data.startsWith('info') && data.includes('multipv')) {
-        // *** FIX: Use a single, more robust regex to parse the line ***
         const infoRegex = /multipv (\d+).*?score (cp|mate) (-?\d+).*?pv (\S+)/;
         const match = data.match(infoRegex);
-
         if (match) {
           const rank = parseInt(match[1], 10);
           const scoreType = match[2];
           let score = parseInt(match[3], 10);
           const move = match[4];
-
           if (scoreType === 'mate') {
             score = (score > 0 ? 100000 : -100000) - score;
           }
@@ -125,11 +140,7 @@ function startThinking(gameId: string) {
 function endGame(gameId: string, reason: string, winner: string | null = null) {
   const state = gameStates.get(gameId);
   if (!state) return;
-
-  if (state.analysisStopper) {
-    state.analysisStopper();
-  }
-
+  if (state.analysisStopper) state.analysisStopper();
   if (state.timerInterval) clearInterval(state.timerInterval);
   state.ended = true;
   state.endReason = reason;
@@ -141,19 +152,11 @@ function startClock(gameId: string) {
   const state = gameStates.get(gameId);
   if (!state || state.ended) return;
   if (state.timerInterval) clearInterval(state.timerInterval);
-
-  io.in(gameId).emit('clock_update', {
-    whiteTime: state.whiteTime,
-    blackTime: state.blackTime,
-  });
-
+  io.in(gameId).emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
   state.timerInterval = setInterval(() => {
     if (state.side === 'white') state.whiteTime--;
     else state.blackTime--;
-    io.in(gameId).emit('clock_update', {
-      whiteTime: state.whiteTime,
-      blackTime: state.blackTime,
-    });
+    io.in(gameId).emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
     if (state.whiteTime <= 0 || state.blackTime <= 0) {
       const winner = state.side === 'white' ? 'black' : 'white';
       endGame(gameId, 'timeout', winner);
@@ -176,31 +179,21 @@ function broadcastPlayers(gameId: string) {
   io.in(gameId).emit('players', { spectators, whitePlayers, blackPlayers });
 }
 
-/**
- * Attempt to finalize a turn if all remaining players have submitted their proposals.
- */
 async function tryFinalizeTurn(gameId: string, state: GameState) {
   if (!state.started || state.ended) return;
   const activeIds = state.side === 'white' ? state.whiteIds : state.blackIds;
-
-  // only keep proposals whose socket.id is still active
   const entries = Array.from(state.proposals.entries()).filter(([id]) => activeIds.has(id));
 
   if (activeIds.size > 0 && entries.length === activeIds.size) {
-    // All players have moved, stop background analysis
-    if (state.analysisStopper) {
-      state.analysisStopper();
-    }
+    if (state.analysisStopper) state.analysisStopper();
 
     const candidates = entries.map(([, lan]) => lan);
-    let bestMove = candidates[0]; // Default to the first proposal
-    let bestEval = -Infinity; // Always start at -Infinity
+    let bestMove = candidates[0];
+    let bestEval = -Infinity;
 
     console.log(`[${gameId}] --- Choosing best move for ${state.side} ---`);
-    // Use the pre-calculated analysis to find the best move among candidates
     for (const lan of candidates) {
       const analysis = state.analysisResults.get(lan);
-      // Punish moves not found in the top N analysis with a very bad score
       const score = analysis ? analysis.score : -99999;
 
       if (analysis) {
@@ -213,70 +206,109 @@ async function tryFinalizeTurn(gameId: string, state: GameState) {
         );
       }
 
-      // Always maximize the score, for both White and Black.
       if (score > bestEval) {
         bestEval = score;
         bestMove = lan;
       }
     }
-
-    console.log(`[${gameId}] Best move chosen: ${bestMove} with score ${bestEval}`);
-    console.log(`[${gameId}] --- End of move selection ---`);
-
     const selLan = bestMove;
-
-    // apply the chosen move
-    const move = state.chess.move({
-      from: selLan.slice(0, 2),
-      to: selLan.slice(2, 4),
-      promotion: selLan[4],
-    });
-    if (!move) return;
-    const fen = state.chess.fen();
-
-    if (state.side === 'white') {
-      state.whiteTime += 5;
-    } else {
-      state.blackTime += 5;
-    }
-    // immediately broadcast the updated clocks
-    io.in(gameId).emit('clock_update', {
-      whiteTime: state.whiteTime,
-      blackTime: state.blackTime,
-    });
+    console.log(`[${gameId}] Best move chosen: ${selLan} with score ${bestEval}`);
+    console.log(`[${gameId}] --- End of move selection ---`);
 
     const [selId] = entries.find(([, v]) => v === selLan)!;
     const selName = io.sockets.sockets.get(selId)!.data.name;
 
-    io.in(gameId).emit('move_selected', {
-      moveNumber: state.moveNumber,
-      side: state.side,
-      name: selName,
-      lan: selLan,
-      san: move.san,
-      fen,
-    });
+    // --- Funky Message Logic ---
+    const goodMoves = new Set<string>();
+    state.analysisResults.forEach((_v, k) => goodMoves.add(k));
 
-    // end-of-game conditions
-    if (state.chess.isCheckmate()) {
-      endGame(gameId, 'checkmate', state.side);
-    } else if (state.chess.isStalemate()) {
-      endGame(gameId, 'stalemate');
-    } else if (state.chess.isThreefoldRepetition()) {
-      endGame(gameId, 'threefold repetition');
-    } else if (state.chess.isInsufficientMaterial()) {
-      endGame(gameId, 'insufficient material');
-    } else if (state.chess.isDraw()) {
-      endGame(gameId, 'draw by rule');
-    } else {
-      // prepare next turn
+    if (activeIds.size >= 2) {
+      const goodProposals = entries.filter(([, lan]) => goodMoves.has(lan));
+      const sideName = state.side.charAt(0).toUpperCase() + state.side.slice(1);
+
+      if (goodProposals.length === 0) {
+        io.in(gameId).emit('funky_message', {
+          message: `The ${sideName} team is having a tough time...`,
+        });
+      } else if (goodProposals.length === 1) {
+        const [heroId] = goodProposals[0];
+        const heroName = io.sockets.sockets.get(heroId)!.data.name;
+        io.in(gameId).emit('funky_message', {
+          message: `${sideName} team, say thanks to ${heroName}, the only one who found a decent move!`,
+        });
+      }
+
+      const bestAnalysisMove = Array.from(state.analysisResults.entries()).find(
+        ([, v]) => v.rank === 1,
+      );
+      if (
+        bestAnalysisMove &&
+        selLan === bestAnalysisMove[0] &&
+        state.moveNumber > 10 &&
+        entries.filter(([, lan]) => lan === selLan).length === 1
+      ) {
+        io.in(gameId).emit('funky_message', {
+          message: `Congrats to ${selName}, they found the computer's best move!`,
+        });
+      }
+    }
+
+    // *** FIX: New, more robust streak update logic ***
+    activeIds.forEach(id => {
+      const name = io.sockets.sockets.get(id)!.data.name;
+      const stats = state.playerStats.get(name)!;
+      const proposedMove = state.proposals.get(id)!;
+
+      if (id === selId) {
+        // This player made the best move for the team
+        stats.bestMoveStreak++;
+        stats.badMoveStreak = 0;
+        if (activeIds.size >= 2 && [3, 5, 10].includes(stats.bestMoveStreak)) {
+          io.in(gameId).emit('funky_message', {
+            message: `${name} is on fire! That's ${stats.bestMoveStreak} consecutive best moves for the team!`,
+          });
+        }
+      } else {
+        // This player did NOT make the best move for the team
+        stats.bestMoveStreak = 0;
+        if (!goodMoves.has(proposedMove)) {
+          stats.badMoveStreak++;
+          if (activeIds.size >= 3 && stats.badMoveStreak === 3) {
+            io.in(gameId).emit('funky_message', {
+              message: `Watch out ${name}, that's 3 questionable moves in a row...`,
+            });
+          }
+        } else {
+          stats.badMoveStreak = 0;
+        }
+      }
+      state.playerStats.set(name, stats);
+    });
+    // --- End of Funky Message Logic ---
+
+    const move = state.chess.move({ from: selLan.slice(0, 2), to: selLan.slice(2, 4), promotion: selLan[4] });
+    if (!move) return;
+    const fen = state.chess.fen();
+
+    if (state.side === 'white') state.whiteTime += 5;
+    else state.blackTime += 5;
+    io.in(gameId).emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
+
+    io.in(gameId).emit('move_selected', { moveNumber: state.moveNumber, side: state.side, name: selName, lan: selLan, san: move.san, fen });
+
+    if (state.chess.isCheckmate()) endGame(gameId, 'checkmate', state.side);
+    else if (state.chess.isStalemate()) endGame(gameId, 'stalemate');
+    else if (state.chess.isThreefoldRepetition()) endGame(gameId, 'threefold repetition');
+    else if (state.chess.isInsufficientMaterial()) endGame(gameId, 'insufficient material');
+    else if (state.chess.isDraw()) endGame(gameId, 'draw by rule');
+    else {
       state.proposals.clear();
       state.side = state.side === 'white' ? 'black' : 'white';
       state.moveNumber++;
       io.in(gameId).emit('turn_change', { moveNumber: state.moveNumber, side: state.side });
       io.in(gameId).emit('position_update', { fen });
       startClock(gameId);
-      startThinking(gameId); // Start thinking for the next turn
+      startThinking(gameId);
     }
   }
 }
@@ -287,7 +319,6 @@ io.on('connection', (socket: Socket) => {
     socket.join(gameId);
     socket.data = { name, gameId, side: 'spectator' };
     gameStates.set(gameId, {
-      // Initial state for a new game lobby
       whiteIds: new Set(),
       blackIds: new Set(),
       moveNumber: 1,
@@ -298,9 +329,12 @@ io.on('connection', (socket: Socket) => {
       chess: new Chess(),
       started: false,
       ended: false,
-      multiPv: 15, // Default setting
+      multiPv: 15,
+      playerStats: new Map(),
       analysisResults: new Map(),
     });
+    const stats = gameStates.get(gameId)!.playerStats;
+    stats.set(name, { bestMoveStreak: 0, badMoveStreak: 0 });
     cb({ gameId });
     broadcastPlayers(gameId);
   });
@@ -314,13 +348,11 @@ io.on('connection', (socket: Socket) => {
     socket.join(gameId);
     socket.data = { name, gameId, side: 'spectator' };
     cb({ gameId });
-    broadcastPlayers(gameId);
     const state = gameStates.get(gameId);
     if (!state) return;
-
-    // Send settings to joining player regardless of game state
+    state.playerStats.set(name, { bestMoveStreak: 0, badMoveStreak: 0 });
+    broadcastPlayers(gameId);
     socket.emit('settings_updated', { multiPv: state.multiPv });
-
     if (state.started) {
       socket.emit('position_update', { fen: state.chess.fen() });
       socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
@@ -335,10 +367,8 @@ io.on('connection', (socket: Socket) => {
   socket.on('join_side', ({ side }, cb) => {
     const gameId = socket.data.gameId as string | undefined;
     if (!gameId) return cb({ success: false, error: 'Not in a game.' });
-
     const prevSide = socket.data.side as Side;
     socket.data.side = side;
-
     const state = gameStates.get(gameId);
     if (state && state.started && !state.ended) {
       if (prevSide === 'white') state.whiteIds.delete(socket.id);
@@ -349,27 +379,18 @@ io.on('connection', (socket: Socket) => {
         const wCount = state.whiteIds.size;
         const bCount = state.blackIds.size;
         if ((wCount === 0 && bCount > 0) || (bCount === 0 && wCount > 0)) {
-          // remaining side wins
           const winner = wCount > 0 ? 'white' : 'black';
           endGame(gameId, 'timeout or disconnect', winner);
         }
       }
     }
-
     if (state && state.started && !state.ended && side === 'spectator') {
-      // if this player had already submitted a proposal this turn
       if (state.proposals.has(socket.id)) {
         state.proposals.delete(socket.id);
-        // inform all clients to drop the proposal
-        io.in(gameId).emit('proposal_removed', {
-          moveNumber: state.moveNumber,
-          side: prevSide,
-          name: socket.data.name,
-        });
+        io.in(gameId).emit('proposal_removed', { moveNumber: state.moveNumber, side: prevSide, name: socket.data.name });
       }
       tryFinalizeTurn(gameId, state);
     }
-
     broadcastPlayers(gameId);
     cb({ success: true });
   });
@@ -379,7 +400,6 @@ io.on('connection', (socket: Socket) => {
     if (!gameId) return cb?.();
     const state = gameStates.get(gameId);
     if (!state || state.started) return cb?.();
-
     const whites = new Set<string>();
     const blacks = new Set<string>();
     for (const id of io.sockets.adapter.rooms.get(gameId)!) {
@@ -387,13 +407,10 @@ io.on('connection', (socket: Socket) => {
       if (s?.data.side === 'white') whites.add(id);
       else if (s?.data.side === 'black') blacks.add(id);
     }
-
-    // Update the existing state instead of creating a new one
     state.whiteIds = whites;
     state.blackIds = blacks;
     state.started = true;
     state.multiPv = multiPv || 15;
-
     io.in(gameId).emit('game_started', { moveNumber: 1, side: 'white' });
     io.in(gameId).emit('position_update', { fen: state.chess.fen() });
     startClock(gameId);
@@ -405,14 +422,9 @@ io.on('connection', (socket: Socket) => {
     const gameId = socket.data.gameId as string | undefined;
     if (!gameId) return;
     const state = gameStates.get(gameId);
-    // Only allow changes before the game has started
     if (!state || state.started) return;
-
-    // Validate and update the state
     const newMultiPv = Math.max(1, Math.min(50, multiPv || 15));
     state.multiPv = newMultiPv;
-
-    // *** FIX: Broadcast the change to ALL clients in the room to ensure sync ***
     io.in(gameId).emit('settings_updated', { multiPv: newMultiPv });
   });
 
@@ -420,27 +432,17 @@ io.on('connection', (socket: Socket) => {
     const gameId = socket.data.gameId as string | undefined;
     const state = gameStates.get(gameId!);
     if (!state || state.ended) return cb({ error: 'Game not running.' });
-
     const active = state.side === 'white' ? state.whiteIds : state.blackIds;
     if (!active.has(socket.id)) return cb({ error: 'Not your turn.' });
     if (state.proposals.has(socket.id)) return cb({ error: 'Already moved.' });
-
     const from = lan.slice(0, 2);
     const to = lan.slice(2, 4);
     const promo = lan[4];
     const move = state.chess.move({ from, to, promotion: promo });
     if (!move) return cb({ error: 'Illegal move.' });
     state.chess.undo();
-
     state.proposals.set(socket.id, lan);
-    io.in(gameId!).emit('move_submitted', {
-      moveNumber: state.moveNumber,
-      side: state.side,
-      name: socket.data.name,
-      lan,
-      san: move.san, // send SAN directly
-    });
-
+    io.in(gameId!).emit('move_submitted', { moveNumber: state.moveNumber, side: state.side, name: socket.data.name, lan, san: move.san });
     tryFinalizeTurn(gameId!, state);
     cb({});
   });
@@ -449,30 +451,19 @@ io.on('connection', (socket: Socket) => {
     const gameId = socket.data.gameId as string | undefined;
     if (!gameId) return;
     const state = gameStates.get(gameId);
-    if (state?.timerInterval) clearInterval(state.timerInterval);
-
     if (state) {
+      if (state.timerInterval) clearInterval(state.timerInterval);
       state.whiteIds.delete(socket.id);
       state.blackIds.delete(socket.id);
-      // remove any pending proposal from the leaving player
       state.proposals.delete(socket.id);
-
-      // tell all clients to drop this player’s proposal for the current turn
-      io.in(gameId).emit('proposal_removed', {
-        moveNumber: state.moveNumber,
-        side: state.side,
-        name: socket.data.name,
-      });
-
-      // attempt to finalize with only active players’ proposals
+      state.playerStats.delete(socket.data.name);
+      io.in(gameId).emit('proposal_removed', { moveNumber: state.moveNumber, side: state.side, name: socket.data.name });
       tryFinalizeTurn(gameId, state);
     }
-
     socket.leave(gameId);
     delete socket.data.gameId;
     delete socket.data.side;
     broadcastPlayers(gameId);
-
     if (state && !state.ended) {
       const w = state.whiteIds.size;
       const b = state.blackIds.size;
@@ -481,11 +472,8 @@ io.on('connection', (socket: Socket) => {
         endGame(gameId, 'timeout or disconnect', winner);
       }
     }
-
-    if (!io.sockets.adapter.rooms.has(gameId)) {
-      if (state?.analysisStopper) {
-        state.analysisStopper();
-      }
+    if (state && !io.sockets.adapter.rooms.has(gameId)) {
+      if (state.analysisStopper) state.analysisStopper();
       gameStates.delete(gameId);
     }
   }
