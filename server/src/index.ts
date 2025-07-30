@@ -90,6 +90,9 @@ async function chooseBestMove(
   depth = 15,
   timeoutMs = 5000,
 ) {
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
   return new Promise<string>(resolve => {
     let done = false;
     engine.send(`position fen ${fen}`);
