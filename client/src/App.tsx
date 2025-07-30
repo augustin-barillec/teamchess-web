@@ -56,6 +56,7 @@ export default function App() {
   const [gameOver, setGameOver] = useState(false);
   const [winner, setWinner] = useState<'white' | 'black' | null>(null);
   const [endReason, setEndReason] = useState<string | null>(null);
+  const [multiPv, setMultiPv] = useState(15); // State for MultiPV setting
   const [turns, setTurns] = useState<
     {
       moveNumber: number;
@@ -146,14 +147,17 @@ export default function App() {
       chess.load(fen);
       setPosition(fen);
     });
+    socket.on('settings_updated', ({ multiPv }: { multiPv: number }) => {
+      setMultiPv(multiPv);
+    });
     socket.on('move_submitted', (m: Proposal) =>
       setTurns(ts =>
         ts.map(t =>
           t.moveNumber === m.moveNumber && t.side === m.side
             ? {
-                ...t,
-                proposals: [...t.proposals, { name: m.name, lan: m.lan, san: m.san }],
-              }
+              ...t,
+              proposals: [...t.proposals, { name: m.name, lan: m.lan, san: m.san }],
+            }
             : t,
         ),
       ),
@@ -163,9 +167,9 @@ export default function App() {
         ts.map(t =>
           t.moveNumber === sel.moveNumber && t.side === sel.side
             ? {
-                ...t,
-                selection: { name: sel.name, lan: sel.lan, san: sel.san, fen: sel.fen },
-              }
+              ...t,
+              selection: { name: sel.name, lan: sel.lan, san: sel.san, fen: sel.fen },
+            }
             : t,
         ),
       );
@@ -194,9 +198,9 @@ export default function App() {
           ts.map(t =>
             t.moveNumber === moveNumber && t.side === side
               ? {
-                  ...t,
-                  proposals: t.proposals.filter(p => p.name !== name),
-                }
+                ...t,
+                proposals: t.proposals.filter(p => p.name !== name),
+              }
               : t,
           ),
         );
@@ -246,7 +250,9 @@ export default function App() {
   };
   // leave current team and rejoin spectators
   const joinSpectator = () => joinSide('spectator');
-  const startGame = () => (window as any).socket.emit('start_game');
+  const startGame = () => {
+    (window as any).socket.emit('start_game', { multiPv });
+  };
   const exitGame = () => {
     (window as any).socket.emit('exit_game');
     setJoined(false);
@@ -260,6 +266,12 @@ export default function App() {
     setPosition(chess.fen());
     setClocks({ whiteTime: 0, blackTime: 0 });
     setLastMoveSquares(null);
+  };
+
+  const handleMultiPvChange = (newValue: number) => {
+    const clampedValue = Math.max(1, Math.min(50, newValue || 1));
+    setMultiPv(clampedValue);
+    (window as any).socket.emit('change_settings', { multiPv: clampedValue });
   };
 
   function needsPromotion(from: string, to: string) {
@@ -277,9 +289,9 @@ export default function App() {
     boardOrientation: orientation,
     squareStyles: lastMoveSquares
       ? {
-          [lastMoveSquares.from]: { backgroundColor: 'rgba(245,246,110,0.75)' },
-          [lastMoveSquares.to]: { backgroundColor: 'rgba(245,246,110,0.75)' },
-        }
+        [lastMoveSquares.from]: { backgroundColor: 'rgba(245,246,110,0.75)' },
+        [lastMoveSquares.to]: { backgroundColor: 'rgba(245,246,110,0.75)' },
+      }
       : {},
     boardWidth: 600,
     onPieceDrop: ({ sourceSquare, targetSquare }: PieceDropHandlerArgs) => {
@@ -379,10 +391,27 @@ export default function App() {
             <button onClick={exitGame}>Exit Game</button>
           </p>
 
-          {!gameStarted &&
-            !gameOver &&
-            players.whitePlayers.length > 0 &&
-            players.blackPlayers.length > 0 && <button onClick={startGame}>Start Game</button>}
+          {!gameStarted && !gameOver && (
+            <div>
+              <div style={{ marginTop: '1rem' }}>
+                <label htmlFor="multipv">Engine moves to consider:</label>
+                <input
+                  type="number"
+                  id="multipv"
+                  value={multiPv}
+                  onChange={e => handleMultiPvChange(parseInt(e.target.value, 10))}
+                  min="1"
+                  max="50"
+                  style={{ marginLeft: '0.5rem', width: '50px' }}
+                />
+              </div>
+              {players.whitePlayers.length > 0 && players.blackPlayers.length > 0 && (
+                <button onClick={startGame} style={{ marginTop: '1rem' }}>
+                  Start Game
+                </button>
+              )}
+            </div>
+          )}
 
           {!gameOver && side === 'spectator' && (
             <div style={{ marginTop: 10 }}>

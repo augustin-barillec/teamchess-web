@@ -54,6 +54,8 @@ interface GameState {
   ended: boolean;
   endReason?: string;
   endWinner?: string | null;
+  // Game settings
+  multiPv: number;
   // For background analysis
   analysisResults: Map<string, { score: number; rank: number }>;
   analysisStopper?: () => void;
@@ -73,8 +75,8 @@ function startThinking(gameId: string) {
 
   state.analysisResults.clear();
 
-  // Ask Stockfish for the top 10 moves
-  engine.send('setoption name MultiPV value 10');
+  // Ask Stockfish for the top N moves based on game settings
+  engine.send(`setoption name MultiPV value ${state.multiPv}`);
   engine.send(`position fen ${state.chess.fen()}`);
 
   const stopper = () => {
@@ -90,7 +92,7 @@ function startThinking(gameId: string) {
 
   // Set a 10s timeout to stop it
   state.analysisTimeout = setTimeout(stopper, 10000);
-  console.log(`[${gameId}] Started thinking with MultiPV...`);
+  console.log(`[${gameId}] Started thinking with MultiPV ${state.multiPv}...`);
 
   // Start analysis and stream results
   engine.send(
@@ -99,32 +101,19 @@ function startThinking(gameId: string) {
     (data: string) => {
       // onStream callback, processes each line from stockfish
       if (data.startsWith('info') && data.includes('multipv')) {
-        const tokens = data.split(' ');
-        let score: number | undefined;
-        let rank: number | undefined;
-        let move: string | undefined;
+        // *** FIX: Use a single, more robust regex to parse the line ***
+        const infoRegex = /multipv (\d+).*?score (cp|mate) (-?\d+).*?pv (\S+)/;
+        const match = data.match(infoRegex);
 
-        for (let i = 0; i < tokens.length; i++) {
-          if (tokens[i] === 'multipv' && tokens[i + 1]) {
-            rank = parseInt(tokens[i + 1], 10);
-          }
-          // Handle both 'cp' (centipawn) and 'mate' scores
-          if (tokens[i] === 'score' && tokens[i + 1] && tokens[i + 2]) {
-            if (tokens[i + 1] === 'cp') {
-              score = parseInt(tokens[i + 2], 10);
-            } else if (tokens[i + 1] === 'mate') {
-              const mateIn = parseInt(tokens[i + 2], 10);
-              // Convert mate score to a large number, prioritizing faster mates
-              score = (mateIn > 0 ? 100000 : -100000) - mateIn;
-            }
-          }
-          if (tokens[i] === 'pv' && tokens[i + 1]) {
-            move = tokens[i + 1];
-          }
-        }
+        if (match) {
+          const rank = parseInt(match[1], 10);
+          const scoreType = match[2];
+          let score = parseInt(match[3], 10);
+          const move = match[4];
 
-        if (score !== undefined && rank !== undefined && move !== undefined) {
-          // Use the 'move' as the key, not the 'rank'.
+          if (scoreType === 'mate') {
+            score = (score > 0 ? 100000 : -100000) - score;
+          }
           state.analysisResults.set(move, { score, rank });
         }
       }
@@ -205,14 +194,14 @@ async function tryFinalizeTurn(gameId: string, state: GameState) {
 
     const candidates = entries.map(([, lan]) => lan);
     let bestMove = candidates[0]; // Default to the first proposal
-    let bestEval = state.side === 'white' ? -Infinity : Infinity;
+    let bestEval = -Infinity; // Always start at -Infinity
 
     console.log(`[${gameId}] --- Choosing best move for ${state.side} ---`);
     // Use the pre-calculated analysis to find the best move among candidates
     for (const lan of candidates) {
       const analysis = state.analysisResults.get(lan);
-      // Punish moves not found in the top 10 analysis with a very bad score
-      const score = analysis ? analysis.score : state.side === 'white' ? -99999 : 99999;
+      // Punish moves not found in the top N analysis with a very bad score
+      const score = analysis ? analysis.score : -99999;
 
       if (analysis) {
         console.log(
@@ -220,14 +209,12 @@ async function tryFinalizeTurn(gameId: string, state: GameState) {
         );
       } else {
         console.log(
-          `[${gameId}] Candidate ${lan}: Not in top 10 analysis. Assigned default score.`,
+          `[${gameId}] Candidate ${lan}: Not in top ${state.multiPv} analysis. Assigned default score.`,
         );
       }
 
-      if (state.side === 'white' && score > bestEval) {
-        bestEval = score;
-        bestMove = lan;
-      } else if (state.side === 'black' && score < bestEval) {
+      // Always maximize the score, for both White and Black.
+      if (score > bestEval) {
         bestEval = score;
         bestMove = lan;
       }
@@ -299,6 +286,21 @@ io.on('connection', (socket: Socket) => {
     const gameId = nanoid(6);
     socket.join(gameId);
     socket.data = { name, gameId, side: 'spectator' };
+    gameStates.set(gameId, {
+      // Initial state for a new game lobby
+      whiteIds: new Set(),
+      blackIds: new Set(),
+      moveNumber: 1,
+      side: 'white',
+      proposals: new Map(),
+      whiteTime: 600,
+      blackTime: 600,
+      chess: new Chess(),
+      started: false,
+      ended: false,
+      multiPv: 15, // Default setting
+      analysisResults: new Map(),
+    });
     cb({ gameId });
     broadcastPlayers(gameId);
   });
@@ -314,13 +316,19 @@ io.on('connection', (socket: Socket) => {
     cb({ gameId });
     broadcastPlayers(gameId);
     const state = gameStates.get(gameId);
-    if (!state || !state.started) return;
-    socket.emit('position_update', { fen: state.chess.fen() });
-    socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
-    if (state.ended) {
-      socket.emit('game_over', { reason: state.endReason, winner: state.endWinner });
-    } else {
-      socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
+    if (!state) return;
+
+    // Send settings to joining player regardless of game state
+    socket.emit('settings_updated', { multiPv: state.multiPv });
+
+    if (state.started) {
+      socket.emit('position_update', { fen: state.chess.fen() });
+      socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
+      if (state.ended) {
+        socket.emit('game_over', { reason: state.endReason, winner: state.endWinner });
+      } else {
+        socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
+      }
     }
   });
 
@@ -366,9 +374,11 @@ io.on('connection', (socket: Socket) => {
     cb({ success: true });
   });
 
-  socket.on('start_game', cb => {
+  socket.on('start_game', ({ multiPv }, cb) => {
     const gameId = socket.data.gameId as string | undefined;
-    if (!gameId || gameStates.has(gameId)) return cb?.();
+    if (!gameId) return cb?.();
+    const state = gameStates.get(gameId);
+    if (!state || state.started) return cb?.();
 
     const whites = new Set<string>();
     const blacks = new Set<string>();
@@ -378,26 +388,32 @@ io.on('connection', (socket: Socket) => {
       else if (s?.data.side === 'black') blacks.add(id);
     }
 
-    const chess = new Chess();
-    gameStates.set(gameId, {
-      whiteIds: whites,
-      blackIds: blacks,
-      moveNumber: 1,
-      side: 'white',
-      proposals: new Map(),
-      whiteTime: 600,
-      blackTime: 600,
-      chess,
-      started: true,
-      ended: false,
-      analysisResults: new Map(),
-    });
+    // Update the existing state instead of creating a new one
+    state.whiteIds = whites;
+    state.blackIds = blacks;
+    state.started = true;
+    state.multiPv = multiPv || 15;
 
     io.in(gameId).emit('game_started', { moveNumber: 1, side: 'white' });
-    io.in(gameId).emit('position_update', { fen: chess.fen() });
+    io.in(gameId).emit('position_update', { fen: state.chess.fen() });
     startClock(gameId);
     startThinking(gameId);
     cb?.();
+  });
+
+  socket.on('change_settings', ({ multiPv }) => {
+    const gameId = socket.data.gameId as string | undefined;
+    if (!gameId) return;
+    const state = gameStates.get(gameId);
+    // Only allow changes before the game has started
+    if (!state || state.started) return;
+
+    // Validate and update the state
+    const newMultiPv = Math.max(1, Math.min(50, multiPv || 15));
+    state.multiPv = newMultiPv;
+
+    // *** FIX: Broadcast the change to ALL clients in the room to ensure sync ***
+    io.in(gameId).emit('settings_updated', { multiPv: newMultiPv });
   });
 
   socket.on('play_move', (lan: string, cb) => {
