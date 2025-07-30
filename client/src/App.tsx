@@ -202,6 +202,15 @@ export default function App() {
   }, [chess]);
 
   const createGame = () => {
+    setGameStarted(false);
+    setGameOver(false);
+    setWinner(null);
+    setEndReason(null);
+    setTurns([]);
+    chess.reset();
+    setPosition(chess.fen());
+    setClocks({ whiteTime: 0, blackTime: 0 });
+    setLastMoveSquares(null);
     if (!name.trim()) return alert('Enter your name.');
     (window as any).socket.emit('create_game', { name }, ({ gameId }: any) => {
       setGameId(gameId);
@@ -209,6 +218,15 @@ export default function App() {
     });
   };
   const joinGame = () => {
+    setGameStarted(false);
+    setGameOver(false);
+    setWinner(null);
+    setEndReason(null);
+    setTurns([]);
+    chess.reset();
+    setPosition(chess.fen());
+    setClocks({ whiteTime: 0, blackTime: 0 });
+    setLastMoveSquares(null);
     if (!name.trim() || !gameId.trim()) return alert('Enter name & game ID.');
     (window as any).socket.emit('join_game', { gameId, name }, (res: any) => {
       if (res.error) alert(res.error);

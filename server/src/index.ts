@@ -7,7 +7,7 @@ import { Chess } from 'chess.js';
 import path from 'path';
 import { Player } from '@teamchess/shared';
 
-// point at the built Stockfish engine
+// path to the built Stockfish engine
 const stockfishPath = path.join(
   __dirname,
   '..',
@@ -24,7 +24,6 @@ const loadEngine = require('../load_engine.cjs') as (enginePath: string) => {
 
 const app = express();
 app.use(cors());
-
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
@@ -49,7 +48,6 @@ interface GameState {
 
 const gameStates = new Map<string, GameState>();
 
-// helpers
 function endGame(gameId: string, reason: string, winner: string | null = null) {
   const state = gameStates.get(gameId);
   if (!state) return;
@@ -90,15 +88,26 @@ async function chooseBestMove(
   fen: string,
   candidates: string[],
   depth = 15,
-): Promise<string> {
-  return new Promise(resolve => {
+  timeoutMs = 5000,
+) {
+  return new Promise<string>(resolve => {
+    let done = false;
     engine.send(`position fen ${fen}`);
-    const movesArg = candidates.join(' ');
-    engine.send(`go depth ${depth} searchmoves ${movesArg}`, (output: string) => {
+    engine.send(`go depth ${depth} searchmoves ${candidates.join(' ')}`, (output: string) => {
+      if (done) return;
       if (output.startsWith('bestmove')) {
+        done = true;
         resolve(output.split(' ')[1]);
       }
     });
+    setTimeout(() => {
+      if (!done) {
+        done = true;
+        const moves = new Chess(fen).moves({ verbose: true });
+        const random = moves[Math.floor(Math.random() * moves.length)];
+        resolve(random.lan || random.san);
+      }
+    }, timeoutMs);
   });
 }
 
@@ -116,18 +125,12 @@ function broadcastPlayers(gameId: string) {
     else if (s.data.side === 'black') blackPlayers.push(p);
     else spectators.push(p);
   }
-
   io.in(gameId).emit('players', { spectators, whitePlayers, blackPlayers });
 }
 
-/**
- * Attempt to finalize a turn if all remaining players have submitted their proposals.
- */
 function tryFinalizeTurn(gameId: string, state: GameState) {
   if (!state.started || state.ended) return;
   const activeIds = state.side === 'white' ? state.whiteIds : state.blackIds;
-
-  // only keep proposals whose socket.id is still active
   const entries = Array.from(state.proposals.entries()).filter(([id]) => activeIds.has(id));
 
   if (activeIds.size > 0 && entries.length === activeIds.size) {
@@ -135,21 +138,18 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
     const currentFen = state.chess.fen();
 
     chooseBestMove(state.engine, currentFen, candidates, 12).then(selLan => {
-      // apply the chosen move
-      const move = state.chess.move({
-        from: selLan.slice(0, 2),
-        to: selLan.slice(2, 4),
-        promotion: selLan[4],
-      });
+      const from = selLan.slice(0, 2);
+      const to = selLan.slice(2, 4);
+      const params: any = { from, to };
+      if (selLan.length === 5) params.promotion = selLan[4];
+
+      const move = state.chess.move(params);
       if (!move) return;
       const fen = state.chess.fen();
 
-      if (state.side === 'white') {
-        state.whiteTime += 5;
-      } else {
-        state.blackTime += 5;
-      }
-      // immediately broadcast the updated clocks
+      if (state.side === 'white') state.whiteTime += 5;
+      else state.blackTime += 5;
+
       io.in(gameId).emit('clock_update', {
         whiteTime: state.whiteTime,
         blackTime: state.blackTime,
@@ -159,7 +159,7 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
       const selName = io.sockets.sockets.get(selId)!.data.name;
 
       io.in(gameId).emit('move_selected', {
-        id: selId, // new: the socket.id of the chooser
+        id: selId,
         name: selName,
         moveNumber: state.moveNumber,
         side: state.side,
@@ -168,19 +168,14 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
         fen,
       });
 
-      // end-of-game conditions
-      if (state.chess.isCheckmate()) {
-        endGame(gameId, 'checkmate', state.side);
-      } else if (state.chess.isStalemate()) {
-        endGame(gameId, 'stalemate');
-      } else if (state.chess.isThreefoldRepetition()) {
-        endGame(gameId, 'threefold repetition');
-      } else if (state.chess.isInsufficientMaterial()) {
-        endGame(gameId, 'insufficient material');
-      } else if (state.chess.isDraw()) {
-        endGame(gameId, 'draw by rule');
+      if (state.chess.isGameOver()) {
+        const reason = state.chess.isCheckmate()
+          ? 'checkmate'
+          : state.chess.isDraw()
+            ? 'draw'
+            : 'terminated';
+        endGame(gameId, reason, state.chess.isCheckmate() ? state.side : null);
       } else {
-        // prepare next turn
         state.proposals.clear();
         state.side = state.side === 'white' ? 'black' : 'white';
         state.moveNumber++;
@@ -203,15 +198,14 @@ function endIfOneSided(gameId: string, state: GameState) {
 
 function removePlayerFromSide(state: GameState, socketId: string, side: Seat) {
   if (side === 'white') state.whiteIds.delete(socketId);
-  if (side === 'black') state.blackIds.delete(socketId);
+  else if (side === 'black') state.blackIds.delete(socketId);
 }
 
 function cleanupProposal(socket: Socket, state: GameState) {
-  const { moveNumber, side } = state;
   state.proposals.delete(socket.id);
   io.in(socket.data.gameId).emit('proposal_removed', {
-    moveNumber,
-    side,
+    moveNumber: state.moveNumber,
+    side: state.side,
     id: socket.id,
   });
   tryFinalizeTurn(socket.data.gameId, state);
@@ -228,13 +222,13 @@ function leave(this: Socket) {
     cleanupProposal(socket, state);
     endIfOneSided(gameId, state);
   }
-
   socket.leave(gameId);
   delete socket.data.gameId;
   delete socket.data.side;
   broadcastPlayers(gameId);
 
   if (!io.sockets.adapter.rooms.has(gameId)) {
+    if (state) state.engine.quit();
     gameStates.delete(gameId);
   }
 }
@@ -244,73 +238,66 @@ io.on('connection', (socket: Socket) => {
     const gameId = nanoid(6);
     socket.join(gameId);
     socket.data = { name, gameId, side: 'spectator' };
-    cb({ gameId });
+    if (typeof cb === 'function') cb({ gameId });
     broadcastPlayers(gameId);
   });
 
   socket.on('join_game', ({ gameId, name }, cb) => {
-    if (!io.sockets.adapter.rooms.has(gameId)) return cb({ error: 'Game not found.' });
+    if (!io.sockets.adapter.rooms.has(gameId)) {
+      if (typeof cb === 'function') cb({ error: 'Game not found.' });
+      return;
+    }
     socket.join(gameId);
     socket.data = { name, gameId, side: 'spectator' };
-    cb({ gameId });
+    if (typeof cb === 'function') cb({ gameId });
     broadcastPlayers(gameId);
     const state = gameStates.get(gameId);
     if (!state || !state.started) return;
     socket.emit('position_update', { fen: state.chess.fen() });
     socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
-    if (state.ended) {
-      socket.emit('game_over', { reason: state.endReason, winner: state.endWinner });
-    } else {
-      socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
-    }
+    if (state.ended) socket.emit('game_over', { reason: state.endReason, winner: state.endWinner });
+    else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
   });
 
   socket.on('join_side', ({ side }, cb) => {
     const gameId = socket.data.gameId as string | undefined;
-    if (!gameId) return cb({ success: false, error: 'Not in a game.' });
+    if (!gameId)
+      return typeof cb === 'function' ? cb({ success: false, error: 'Not in a game.' }) : undefined;
 
     const prevSide = socket.data.side as Seat;
     socket.data.side = side;
-
     const state = gameStates.get(gameId);
     if (state && state.started && !state.ended) {
-      // update side sets
       removePlayerFromSide(state, socket.id, prevSide);
       if (side === 'white') state.whiteIds.add(socket.id);
-      if (side === 'black') state.blackIds.add(socket.id);
+      else if (side === 'black') state.blackIds.add(socket.id);
       endIfOneSided(gameId, state);
-
-      // if moved to spectator, clean up proposal
-      if (side === 'spectator') {
-        cleanupProposal(socket, state);
-      }
+      if (side === 'spectator') cleanupProposal(socket, state);
     }
-
     broadcastPlayers(gameId);
-    cb({ success: true });
+    if (typeof cb === 'function') cb({ success: true });
   });
 
-  socket.on('start_game', cb => {
+  socket.on('start_game', (cb?: (res: { success: boolean; error?: string }) => void) => {
     const gameId = socket.data.gameId as string | undefined;
-    if (!gameId || gameStates.has(gameId)) return cb?.();
+    if (!gameId || gameStates.has(gameId)) {
+      if (typeof cb === 'function')
+        cb({ success: false, error: 'Invalid or already started game.' });
+      return;
+    }
     const engine = loadEngine(stockfishPath);
-
-    // UCI handshake & readiness
     engine.send('uci', (data: string) => {
-      if (data.startsWith('uciok')) {
-        engine.send('isready', (rd: string) => {
-          if (rd === 'readyok') console.log('Stockfish ready!');
-        });
-      }
+      if (data.startsWith('uciok'))
+        engine.send('isready', rd => console.log(rd === 'readyok' ? 'Stockfish ready!' : rd));
     });
 
     const whites = new Set<string>();
     const blacks = new Set<string>();
-    for (const id of io.sockets.adapter.rooms.get(gameId)!) {
+    io.sockets.adapter.rooms.get(gameId)!.forEach(id => {
       const s = io.sockets.sockets.get(id);
       if (s?.data.side === 'white') whites.add(id);
       else if (s?.data.side === 'black') blacks.add(id);
-    }
+    });
 
     const chess = new Chess();
     gameStates.set(gameId, {
@@ -330,13 +317,14 @@ io.on('connection', (socket: Socket) => {
     io.in(gameId).emit('game_started', { moveNumber: 1, side: 'white' });
     io.in(gameId).emit('position_update', { fen: chess.fen() });
     startClock(gameId);
-    cb?.();
+    if (typeof cb === 'function') cb({ success: true });
   });
 
   socket.on('play_move', (lan: string, cb) => {
     const gameId = socket.data.gameId as string | undefined;
     const state = gameStates.get(gameId!);
-    if (!state || state.ended) return cb({ error: 'Game not running.' });
+    if (!state || state.ended)
+      return typeof cb === 'function' ? cb({ error: 'Game not running.' }) : undefined;
 
     const active = state.side === 'white' ? state.whiteIds : state.blackIds;
     if (!active.has(socket.id)) return cb({ error: 'Not your turn.' });
@@ -344,8 +332,9 @@ io.on('connection', (socket: Socket) => {
 
     const from = lan.slice(0, 2);
     const to = lan.slice(2, 4);
-    const promo = lan[4];
-    const move = state.chess.move({ from, to, promotion: promo });
+    const params: any = { from, to };
+    if (lan.length === 5) params.promotion = lan[4];
+    const move = state.chess.move(params);
     if (!move) return cb({ error: 'Illegal move.' });
     state.chess.undo();
 
@@ -359,8 +348,8 @@ io.on('connection', (socket: Socket) => {
       san: move.san,
     });
 
-    tryFinalizeTurn(gameId!, state);
-    cb({});
+    tryFinalizeTurn(gameId, state);
+    if (typeof cb === 'function') cb({});
   });
 
   socket.on('exit_game', leave);
