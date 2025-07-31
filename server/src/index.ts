@@ -48,6 +48,12 @@ interface GameState {
 
 const gameStates = new Map<string, GameState>();
 
+function generateGameId(): string {
+  return Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, '0');
+}
+
 function endGame(gameId: string, reason: string, winner: string | null = null) {
   const state = gameStates.get(gameId);
   if (!state) return;
@@ -243,7 +249,7 @@ function leave(this: Socket) {
 
 io.on('connection', (socket: Socket) => {
   socket.on('create_game', ({ name }, cb) => {
-    const gameId = nanoid(6);
+    const gameId = generateGameId();
     socket.join(gameId);
     socket.data = { name, gameId, side: 'spectator' };
     if (typeof cb === 'function') cb({ gameId });
