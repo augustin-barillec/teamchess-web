@@ -532,7 +532,7 @@ export default function App() {
                         return (
                           <li key={p.id}>
                             {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
-                            {isSel ? <strong>{p.lan}</strong> : p.lan}
+                            {isSel ? <span style={{ color: 'green' }}>{p.lan}</span> : p.lan}
                             {fan && ` (${fan})`}
                           </li>
                         );
