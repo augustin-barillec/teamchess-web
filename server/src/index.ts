@@ -335,6 +335,27 @@ io.on('connection', (socket: Socket) => {
     if (typeof cb === 'function') cb({ success: true });
   });
 
+  socket.on('reset_game', (cb?: (res: { success: boolean; error?: string }) => void) => {
+    const gameId = socket.data.gameId as string | undefined;
+    const state = gameId && gameStates.get(gameId);
+    if (!gameId || !state) {
+      if (cb) cb({ success: false, error: 'Game not found.' });
+      return;
+    }
+
+    // stop the clock
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    // shut down Stockfish worker
+    state.engine.quit();
+    // drop the in-memory game state so start_game can recreate it
+    gameStates.delete(gameId);
+
+    // tell every client in the room to reset their UI
+    io.in(gameId).emit('game_reset');
+
+    if (cb) cb({ success: true });
+  });
+
   socket.on('play_move', (lan: string, cb) => {
     const gameId = socket.data.gameId as string | undefined;
     const state = gameStates.get(gameId!);

@@ -146,6 +146,18 @@ export default function App() {
       setTurns([{ moveNumber, side, proposals: [] }]);
       setLastMoveSquares(null);
     });
+    socket.on('game_reset', () => {
+      // rewind local UI to pre-start
+      setGameStarted(false);
+      setGameOver(false);
+      setWinner(null);
+      setEndReason(null);
+      setTurns([]);
+      chess.reset();
+      setPosition(chess.fen());
+      setClocks({ whiteTime: 0, blackTime: 0 });
+      setLastMoveSquares(null);
+    });
     socket.on('clock_update', ({ whiteTime, blackTime }) => setClocks({ whiteTime, blackTime }));
     socket.on('position_update', ({ fen }) => {
       chess.load(fen);
@@ -252,6 +264,14 @@ export default function App() {
   // leave current team and rejoin spectators
   const joinSpectator = () => joinSide('spectator');
   const startGame = () => (window as any).socket.emit('start_game');
+  // fires off the server reset, it’ll call us back when done
+  const resetGame = () => {
+    if (!socket) return;
+    socket.emit('reset_game', (res: { success: boolean; error?: string }) => {
+      if (res.error) return alert(res.error);
+      // otherwise, we’ll get a 'game_reset' event below
+    });
+  };
   const exitGame = () => {
     (window as any).socket.emit('exit_game');
     setJoined(false);
@@ -388,6 +408,12 @@ export default function App() {
             !gameOver &&
             players.whitePlayers.length > 0 &&
             players.blackPlayers.length > 0 && <button onClick={startGame}>Start Game</button>}
+
+          {(gameStarted || gameOver) && (
+            <div style={{ marginTop: 10, display: 'flex', gap: '0.5rem' }}>
+              <button onClick={resetGame}>Reset Game</button>
+            </div>
+          )}
 
           {!gameOver && side === 'spectator' && (
             <div style={{ marginTop: 10 }}>
