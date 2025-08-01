@@ -54,6 +54,14 @@ function generateGameId(): string {
     .padStart(4, '0');
 }
 
+function generateUniqueGameId(): string {
+  let id: string;
+  do {
+    id = generateGameId();
+  } while (io.sockets.adapter.rooms.has(id));
+  return id;
+}
+
 function endGame(gameId: string, reason: string, winner: string | null = null) {
   const state = gameStates.get(gameId);
   if (!state) return;
@@ -250,7 +258,7 @@ function leave(this: Socket) {
 
 io.on('connection', (socket: Socket) => {
   socket.on('create_game', ({ name }, cb) => {
-    const gameId = generateGameId();
+    const gameId = generateUniqueGameId();
     socket.join(gameId);
     socket.data = { name, gameId, side: 'spectator' };
     if (typeof cb === 'function') cb({ gameId });
