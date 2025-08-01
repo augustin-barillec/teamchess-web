@@ -417,7 +417,9 @@ export default function App() {
               <h3>Spectators</h3>
               <ul>
                 {players.spectators.map(p => (
-                  <li key={p.id}>{p.id === myId ? <strong>{p.name}</strong> : p.name}</li>
+                  <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {p.id === myId ? <strong>{p.name}</strong> : p.name}
+                  </li>
                 ))}
               </ul>
             </div>
