@@ -508,38 +508,40 @@ export default function App() {
                   </div>
                 </div>
               </div>
-              {gameOver && (
+              {turns.some(t => t.selection) && (
                 <div
                   ref={movesRef}
                   style={{
-                    width: 180, // was 120, now 1.5× larger
-                    height: boardOptions.boardWidth * 0.5, // was *0.75, now *0.25 (0.75–0.5)
+                    width: 180,
+                    height: boardOptions.boardWidth * 0.5,
                     overflowY: 'auto',
                     border: '1px solid #ccc',
                     padding: '8px',
                     background: '#fafafa',
                   }}
                 >
-                  {turns.map(t => (
-                    <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
-                      <strong>
-                        Move {t.moveNumber} ({t.side})
-                      </strong>
-                      <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
-                        {t.proposals.map(p => {
-                          const isSel = t.selection?.lan === p.lan;
-                          const fan = p.san ? sanToFan(p.san, t.side) : '';
-                          return (
-                            <li key={p.id}>
-                              {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
-                              {isSel ? <span style={{ color: 'green' }}>{p.lan}</span> : p.lan}
-                              {fan && ` (${fan})`}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))}
+                  {turns
+                    .filter(t => t.selection)
+                    .map(t => (
+                      <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
+                        <strong>
+                          Move {t.moveNumber} ({t.side})
+                        </strong>
+                        <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
+                          {t.proposals.map(p => {
+                            const isSel = t.selection!.lan === p.lan;
+                            const fan = p.san ? sanToFan(p.san, t.side) : '';
+                            return (
+                              <li key={p.id}>
+                                {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
+                                {isSel ? <span style={{ color: 'green' }}>{p.lan}</span> : p.lan}
+                                {fan && ` (${fan})`}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))}
                 </div>
               )}
             </div>
