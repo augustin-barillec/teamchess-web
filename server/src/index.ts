@@ -57,6 +57,7 @@ function generateGameId(): string {
 function endGame(gameId: string, reason: string, winner: string | null = null) {
   const state = gameStates.get(gameId);
   if (!state) return;
+  if (state.ended) return;
   if (state.timerInterval) clearInterval(state.timerInterval);
   state.engine.quit();
   state.ended = true;
