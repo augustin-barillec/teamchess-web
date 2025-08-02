@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, CSSProperties } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { io, Socket } from 'socket.io-client';
 import { Chess } from 'chess.js';
-import { Chessboard, PieceDropHandlerArgs } from 'react-chessboard';
+import { Chessboard, PieceDropHandlerArgs, PieceHandlerArgs } from 'react-chessboard';
 import { Players, GameInfo, Proposal, Selection, EndReason } from '@teamchess/shared';
 
 const reasonMessages: Record<string, (winner: string | null) => string> = {
@@ -71,6 +71,9 @@ export default function App() {
   const [clocks, setClocks] = useState({ whiteTime: 0, blackTime: 0 });
   // track the last move that got played
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
+  useState<{ from: string; to: string } | null>(null);
+  // track legal move highlights
+  const [legalSquareStyles, setLegalSquareStyles] = useState<Record<string, CSSProperties>>({});
   // compute lost material for each side, sorted by type
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1 };
@@ -300,14 +303,31 @@ export default function App() {
   const boardOptions = {
     position,
     boardOrientation: orientation,
-    squareStyles: lastMoveSquares
-      ? {
-          [lastMoveSquares.from]: { backgroundColor: 'rgba(245,246,110,0.75)' },
-          [lastMoveSquares.to]: { backgroundColor: 'rgba(245,246,110,0.75)' },
-        }
-      : {},
+    squareStyles: {
+      ...(lastMoveSquares
+        ? {
+            [lastMoveSquares.from]: { backgroundColor: 'rgba(245,246,110,0.75)' },
+            [lastMoveSquares.to]: { backgroundColor: 'rgba(245,246,110,0.75)' },
+          }
+        : {}),
+      ...legalSquareStyles,
+    },
     boardWidth: 600,
+    onPieceDrag: ({ square }: PieceHandlerArgs) => {
+      // highlight all legal moves for this piece
+      const moves = chess.moves({ square: square, verbose: true });
+      const highlights: Record<string, CSSProperties> = {};
+      moves.forEach(m => {
+        highlights[m.to] = { backgroundColor: 'rgba(0,255,0,0.2)' };
+      });
+      setLegalSquareStyles(highlights);
+    },
+    onPieceDragEnd: () => {
+      // clear highlights when done dragging
+      setLegalSquareStyles({});
+    },
     onPieceDrop: ({ sourceSquare, targetSquare }: PieceDropHandlerArgs) => {
+      setLegalSquareStyles({});
       const from = sourceSquare;
       const to = targetSquare;
 
