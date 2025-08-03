@@ -5,6 +5,9 @@
     "client",
     "server"
   ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "prepare": "husky install",
     "build": "npm run build --workspaces",
