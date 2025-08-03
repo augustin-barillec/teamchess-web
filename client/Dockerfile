@@ -10,7 +10,7 @@ COPY server/package.json ./server/
 COPY client/package.json ./client/
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy all source code
 COPY . .

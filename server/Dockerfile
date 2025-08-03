@@ -10,7 +10,7 @@ COPY server/package.json ./server/
 COPY client/package.json ./client/
 
 # Install all dependencies needed for the build
-RUN npm install
+RUN npm ci
 
 # Copy the entire monorepo source code
 COPY . .
