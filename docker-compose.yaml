@@ -17,7 +17,6 @@ services:
     container_name: teamchess-client
     restart: unless-stopped
     ports:
-      # Expose on port 5173 to match the local dev server port
-      - "5173:80"
+      - "80:80"
     depends_on:
       - server
