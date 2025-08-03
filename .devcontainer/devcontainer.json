@@ -1,0 +1,79 @@
+{
+  "name": "Teamchess Development Environment",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "teamchess-app",
+  "workspaceFolder": "/app/workspace",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "redhat.vscode-yaml",
+        "ms-vsliveshare.vsliveshare",
+        "davidanson.vscode-markdownlint",
+        "streetsidesoftware.code-spell-checker",
+        "eamodio.gitlens",
+        "dbaeumer.vscode-eslint",
+        "formulahendry.auto-rename-tag",
+        "naumovs.color-highlight",
+        "mikestead.dotenv",
+        "christian-kohler.path-intellisense",
+        "wayou.vscode-todo-highlight",
+        "editorconfig.editorconfig",
+        "stylelint.vscode-stylelint",
+        "bradlc.vscode-tailwindcss",
+        "dsznajder.es7-react-js-snippets",
+        "mgmcdermott.vscode-language-babel",
+        "esbenp.prettier-vscode",
+        "biomejs.biome",
+        "rvest.vs-code-prettier-eslint",
+        "wix.vscode-import-cost",
+        "ofhumanbondage.react-proptypes-intellisense",
+        "pflannery.vscode-versionlens",
+        "github.copilot-chat",
+        "yoavbls.pretty-ts-errors",
+        "foxundermoon.shell-format",
+        "hashicorp.terraform",
+        "antfu.iconify",
+        "ms-python.python",
+        "ms-toolsai.jupyter",
+        "ms-toolsai.datawrangler",
+        "charliermarsh.ruff",
+        "iterative.vscode-dvc-pack",
+        "saoudrizwan.claude-dev"
+      ],
+      "settings": {
+        "files.exclude": {
+          "**/.*_cache": true
+        },
+        "editor.formatOnSave": true,
+        "editor.formatOnPaste": true,
+        "files.autoSave": "afterDelay",
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": "always"
+        },
+        "[typescript]": {
+          "editor.defaultFormatter": "biomejs.biome"
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "biomejs.biome"
+        },
+        "[javascript]": {
+          "editor.defaultFormatter": "biomejs.biome"
+        },
+        "[yaml]": {
+          "editor.defaultFormatter": "redhat.vscode-yaml"
+        },
+        "[markdown]": {
+          "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
+        },
+        "[dockerfile]": {
+          "editor.defaultFormatter": "foxundermoon.shell-format"
+        },
+        "cSpell.diagnosticLevel": "Hint"
+      }
+    }
+  },
+  "postCreateCommand": "npm install",
+  "postStartCommand": "npm run dev",
+  "forwardPorts": [5173],
+  "shutdownAction": "stopCompose"
+}

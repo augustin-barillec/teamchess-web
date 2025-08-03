@@ -1,0 +1,16 @@
+services:
+  teamchess-app:
+    container_name: teamchess-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/app/workspace
+    ports:
+      - '127.0.0.1:5173:5173'
+    networks:
+      - teamchess-network
+
+networks:
+  teamchess-network:
+    name: teamchess-network
