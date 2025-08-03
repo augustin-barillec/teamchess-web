@@ -1,21 +1,23 @@
-import React, { useState, useEffect, useMemo, useRef, CSSProperties } from 'react';
-import { Toaster, toast } from 'react-hot-toast';
-import { io, Socket } from 'socket.io-client';
-import { Chess } from 'chess.js';
+import { EndReason, GameInfo, Players, Proposal, Selection } from '@teamchess/shared';
+import { Chess, Move } from 'chess.js';
+import { CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { Chessboard, PieceDropHandlerArgs, PieceHandlerArgs } from 'react-chessboard';
-import { Players, GameInfo, Proposal, Selection, EndReason } from '@teamchess/shared';
+import { toast, Toaster } from 'react-hot-toast';
+import { io, Socket } from 'socket.io-client';
+import Navbar from './components/Navbar';
 
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
-    `☑️ Checkmate! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
+    `☑️ Checkmate! ${winner ? winner?.[0].toUpperCase() + winner?.slice(1) : ''} wins!`,
   [EndReason.Stalemate]: () => `🤝 Game drawn by stalemate.`,
   [EndReason.Threefold]: () => `🤝 Game drawn by threefold repetition.`,
   [EndReason.Insufficient]: () => `🤝 Game drawn by insufficient material.`,
   [EndReason.DrawRule]: () => `🤝 Game drawn by rule (e.g. fifty-move).`,
   [EndReason.Resignation]: winner =>
-    `🏳️ Resignation! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
+    `🏳️ Resignation! ${winner ? winner?.[0].toUpperCase() + winner?.slice(1) : ''} wins!`,
   [EndReason.DrawAgreement]: () => `🤝 Draw agreed by both players.`,
-  [EndReason.Timeout]: winner => `⏱️ Time! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
+  [EndReason.Timeout]: winner =>
+    `⏱️ Time! ${winner ? winner?.[0].toUpperCase() + winner?.slice(1) : ''} wins!`,
 };
 
 // helper for FAN
@@ -42,6 +44,7 @@ function sanToFan(san: string, side: 'white' | 'black'): string {
 }
 
 export default function App() {
+  const [theme, setTheme] = useState('auto');
   const [socket, setSocket] = useState<Socket>();
   const [myId, setMyId] = useState<string>('');
   const [name, setName] = useState('');
@@ -138,7 +141,7 @@ export default function App() {
     const socket = io();
     setSocket(socket);
     // socket.id is only valid after the initial “connect” event fires:
-    socket.on('connect', () => setMyId(socket.id));
+    socket.on('connect', () => setMyId(socket.id || ''));
 
     socket.on('players', (p: Players) => setPlayers(p));
     socket.on('game_started', ({ moveNumber, side }: GameInfo) => {
@@ -228,8 +231,10 @@ export default function App() {
     setLastMoveSquares(null);
     if (!name.trim()) return alert('Enter your name.');
     (window as any).socket.emit('create_game', { name }, ({ gameId }: any) => {
-      setGameId(gameId);
-      setJoined(true);
+      if (gameId) {
+        setGameId(gameId);
+        setJoined(true);
+      }
     });
   };
   const joinGame = () => {
@@ -291,7 +296,7 @@ export default function App() {
   };
 
   function needsPromotion(from: string, to: string) {
-    const piece = chess.get(from);
+    const piece = chess.get(from as any);
     if (!piece || piece.type !== 'p') return false;
     const rank = to[1];
     return piece.color === 'w' ? rank === '8' : rank === '1';
@@ -314,8 +319,9 @@ export default function App() {
     },
     boardWidth: 600,
     onPieceDrag: ({ square }: PieceHandlerArgs) => {
+      if (!square) return;
       // highlight all legal moves for this piece
-      const moves = chess.moves({ square: square, verbose: true });
+      const moves = chess.moves({ square: square, verbose: true }) as Move[];
       const highlights: Record<string, CSSProperties> = {};
       moves.forEach(m => {
         highlights[m.to] = { backgroundColor: 'rgba(0,255,0,0.2)' };
@@ -328,11 +334,12 @@ export default function App() {
     },
     onPieceDrop: ({ sourceSquare, targetSquare }: PieceDropHandlerArgs) => {
       setLegalSquareStyles({});
+      if (!sourceSquare || !targetSquare) return false;
       const from = sourceSquare;
       const to = targetSquare;
 
       if (gameOver) return false;
-      if (side !== current.side) return false;
+      if (!current || side !== current.side) return false;
 
       let promotion: 'q' | 'r' | 'b' | 'n' | undefined;
       if (needsPromotion(from, to)) {
@@ -360,290 +367,282 @@ export default function App() {
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
 
   return (
-    <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
-      <Toaster position="top-right" />
-      <h1>TeamChess</h1>
+    <>
+      <Navbar theme={theme} setTheme={setTheme} />
+      <div className="container mt-4">
+        <Toaster position="top-right" />
+        <h1 className="mb-4">TeamChess</h1>
 
-      {!joined ? (
-        <div>
-          {/* Name input */}
-          <div>
-            <input placeholder="Your name" value={name} onChange={e => setName(e.target.value)} />
-          </div>
-
-          {/* Buttons */}
-          <div style={{ marginTop: 5 }}>
-            <button onClick={createGame}>Create Game</button>
-            <button onClick={() => setShowJoin(s => !s)} style={{ marginLeft: 5 }}>
-              Join Game
-            </button>
-          </div>
-
-          {/* Join form */}
-          {showJoin && (
-            <div style={{ marginTop: 5 }}>
-              <input
-                placeholder="Game ID"
-                value={gameId}
-                onChange={e => setGameId(e.target.value)}
-              />
-              <button onClick={joinGame} style={{ marginLeft: 5 }}>
-                Submit
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <>
-          <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <strong>Game ID:</strong>
-            <input
-              style={{ width: gameId.length + 'ch' }}
-              value={gameId}
-              readOnly
-              onFocus={e => e.currentTarget.select()}
-            />
-            <button
-              onClick={() => {
-                const input = document.createElement('input');
-                input.value = gameId;
-                document.body.appendChild(input);
-                input.select();
-                try {
-                  const success = document.execCommand('copy');
-                  toast.success(success ? 'Game ID copied' : 'Copy failed');
-                } catch {
-                  toast.error('Copy not supported');
-                }
-                document.body.removeChild(input);
-              }}
-            >
-              Copy
-            </button>
-
-            <button onClick={exitGame}>Exit Game</button>
-          </p>
-
-          {!gameStarted &&
-            !gameOver &&
-            players.whitePlayers.length > 0 &&
-            players.blackPlayers.length > 0 && <button onClick={startGame}>Start Game</button>}
-
-          {(gameStarted || gameOver) && (
-            <div style={{ marginTop: 10, display: 'flex', gap: '0.5rem' }}>
-              <button onClick={resetGame}>Reset Game</button>
-            </div>
-          )}
-
-          {!gameOver && side === 'spectator' && (
-            <div style={{ marginTop: 10 }}>
-              <button onClick={autoAssign} style={{ marginLeft: 5 }}>
-                Auto Assign
-              </button>
-              <button onClick={() => joinSide('white')}>Join White</button>
-              <button onClick={() => joinSide('black')} style={{ marginLeft: 5 }}>
-                Join Black
-              </button>
-            </div>
-          )}
-
-          {!gameOver && (side === 'white' || side === 'black') && (
-            <div style={{ marginTop: 10 }}>
-              <button onClick={joinSpectator}>Join Spectators</button>
-            </div>
-          )}
-
-          <div
-            style={{
-              display: 'flex',
-              gap: '2rem',
-            }}
-          >
-            <div>
-              <h3>Spectators</h3>
-              <ul>
-                {players.spectators.map(p => (
-                  <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {p.id === myId ? <strong>{p.name}</strong> : p.name}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {/* White */}
-            <div>
-              <h3>White</h3>
-              <ul>
-                {players.whitePlayers.map(p => (
-                  <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {p.id === myId ? <strong>{p.name}</strong> : p.name}
-                    {hasPlayed(p.id) && <span>✔️</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Black */}
-            <div>
-              <h3>Black</h3>
-              <ul>
-                {players.blackPlayers.map(p => (
-                  <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {p.id === myId ? <strong>{p.name}</strong> : p.name}
-                    {hasPlayed(p.id) && <span>✔️</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* Board + Timers + Move List */}
-          {(gameStarted || gameOver) && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center', // center everything vertically
-                gap: '1.5rem',
-                marginTop: 20,
-              }}
-            >
-              {/* 1) Chessboard + clocks wrapper */}
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                {/* Board */}
-                <div style={{ flexShrink: 0, width: boardOptions.boardWidth }}>
-                  <Chessboard options={boardOptions} />
-                </div>
-
-                {/* Clocks */}
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: orientation === 'white' ? 'column-reverse' : 'column',
-                    justifyContent: 'center', // center clocks within the board height
-                    gap: '1rem',
-                    fontFamily: 'monospace',
-                    fontSize: '2rem',
-                    minWidth: 140,
-                    height: boardOptions.boardWidth, // match board height
-                  }}
-                >
-                  {/* white clock */}
-                  <div
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: 6,
-                      background: current?.side === 'white' && !gameOver ? '#3a5f0b' : '#333',
-                      color: '#fff',
-                      fontWeight: current?.side === 'white' && !gameOver ? 'bold' : 'normal',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {String(Math.floor(clocks.whiteTime / 60)).padStart(2, '0')}:
-                    {String(clocks.whiteTime % 60).padStart(2, '0')}
-                  </div>
-                  {/* black clock */}
-                  <div
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: 6,
-                      background: current?.side === 'black' && !gameOver ? '#3a5f0b' : '#333',
-                      color: '#fff',
-                      fontWeight: current?.side === 'black' && !gameOver ? 'bold' : 'normal',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {String(Math.floor(clocks.blackTime / 60)).padStart(2, '0')}:
-                    {String(clocks.blackTime % 60).padStart(2, '0')}
-                  </div>
-                </div>
+        {!joined ? (
+          <div className="row">
+            <div className="col-md-6">
+              <div className="mb-3">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Your name"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                />
               </div>
-              {turns.some(t => t.selection) && (
-                <div
-                  ref={movesRef}
-                  style={{
-                    width: 180,
-                    height: boardOptions.boardWidth * 0.5,
-                    overflowY: 'auto',
-                    border: '1px solid #ccc',
-                    padding: '8px',
-                    background: '#fafafa',
-                  }}
-                >
-                  {turns
-                    .filter(t => t.selection)
-                    .map(t => (
-                      <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
-                        <strong>
-                          Move {t.moveNumber} ({t.side})
-                        </strong>
-                        <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
-                          {t.proposals.map(p => {
-                            const isSel = t.selection!.lan === p.lan;
-                            const fan = p.san ? sanToFan(p.san, t.side) : '';
-                            return (
-                              <li key={p.id}>
-                                {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
-                                {isSel ? <span style={{ color: 'green' }}>{p.lan}</span> : p.lan}
-                                {fan && ` (${fan})`}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    ))}
+              <button className="btn btn-primary" onClick={createGame}>
+                Create Game
+              </button>
+              <button className="btn btn-secondary ms-2" onClick={() => setShowJoin(s => !s)}>
+                Join Game
+              </button>
+              {showJoin && (
+                <div className="mt-3">
+                  <div className="input-group">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Game ID"
+                      value={gameId}
+                      onChange={e => setGameId(e.target.value)}
+                    />
+                    <button className="btn btn-success" onClick={joinGame}>
+                      Submit
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
-          )}
-
-          {(gameStarted || gameOver) && (
-            <div style={{ marginTop: 10, fontSize: '2rem' }}>
-              {/* White’s lost‐pieces row */}
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    minWidth: '3ch',
-                    marginRight: '0.5rem',
-                    fontSize: '0.75em',
-                    textAlign: 'right',
-                    visibility: materialBalance === 0 ? 'hidden' : 'visible',
-                  }}
-                >
-                  {materialBalance > 0 ? `+${materialBalance}` : ''}
-                </span>
-                <span>{lostWhitePieces.join(' ')}</span>
-              </div>
-
-              {/* Black’s lost‐pieces row */}
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    minWidth: '3ch',
-                    marginRight: '0.5rem',
-                    fontSize: '0.75em',
-                    textAlign: 'right',
-                    visibility: materialBalance === 0 ? 'hidden' : 'visible',
-                  }}
-                >
-                  {materialBalance < 0 ? `+${-materialBalance}` : ''}
-                </span>
-                <span>{lostBlackPieces.join(' ')}</span>
+          </div>
+        ) : (
+          <>
+            <div className="row">
+              <div className="col-md-6">
+                <div className="input-group mb-3">
+                  <span className="input-group-text">Game ID</span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={gameId}
+                    readOnly
+                    onFocus={e => e.currentTarget.select()}
+                  />
+                  <button
+                    className="btn btn-outline-secondary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(gameId);
+                      toast.success('Game ID copied');
+                    }}
+                  >
+                    Copy
+                  </button>
+                  <button className="btn btn-danger" onClick={exitGame}>
+                    Exit Game
+                  </button>
+                </div>
               </div>
             </div>
-          )}
 
-          {gameOver && (
-            <div style={{ marginTop: 20, fontSize: '1.2em' }}>
-              <p>
-                {endReason && reasonMessages[endReason]
-                  ? reasonMessages[endReason](winner)
-                  : `🎉 Game over! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`}
-              </p>
+            {!gameStarted &&
+              !gameOver &&
+              players.whitePlayers.length > 0 &&
+              players.blackPlayers.length > 0 && (
+                <button className="btn btn-primary my-3" onClick={startGame}>
+                  Start Game
+                </button>
+              )}
+
+            {(gameStarted || gameOver) && (
+              <div className="my-3">
+                <button className="btn btn-warning" onClick={resetGame}>
+                  Reset Game
+                </button>
+              </div>
+            )}
+
+            {!gameOver && side === 'spectator' && (
+              <div className="my-3">
+                <button className="btn btn-info" onClick={autoAssign}>
+                  Auto Assign
+                </button>
+                <button className="btn btn-light ms-2" onClick={() => joinSide('white')}>
+                  Join White
+                </button>
+                <button className="btn btn-dark ms-2" onClick={() => joinSide('black')}>
+                  Join Black
+                </button>
+              </div>
+            )}
+
+            {!gameOver && (side === 'white' || side === 'black') && (
+              <div className="my-3">
+                <button className="btn btn-secondary" onClick={joinSpectator}>
+                  Join Spectators
+                </button>
+              </div>
+            )}
+
+            <div className="row">
+              <div className="col-md-4">
+                <h3>Spectators</h3>
+                <ul className="list-group">
+                  {players.spectators.map(p => (
+                    <li key={p.id} className="list-group-item">
+                      {p.id === myId ? <strong>{p.name}</strong> : p.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="col-md-4">
+                <h3>White</h3>
+                <ul className="list-group">
+                  {players.whitePlayers.map(p => (
+                    <li key={p.id} className="list-group-item">
+                      {p.id === myId ? <strong>{p.name}</strong> : p.name}
+                      {hasPlayed(p.id) && <span className="ms-2">✔️</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="col-md-4">
+                <h3>Black</h3>
+                <ul className="list-group">
+                  {players.blackPlayers.map(p => (
+                    <li key={p.id} className="list-group-item">
+                      {p.id === myId ? <strong>{p.name}</strong> : p.name}
+                      {hasPlayed(p.id) && <span className="ms-2">✔️</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-          )}
-        </>
-      )}
-    </div>
+
+            {/* Board + Timers + Move List */}
+            {(gameStarted || gameOver) && (
+              <div className="row mt-4">
+                <div className="col-lg-8">
+                  <div className="d-flex gap-3">
+                    <div style={{ flexShrink: 0, width: boardOptions.boardWidth }}>
+                      <Chessboard options={boardOptions} />
+                    </div>
+                    <div
+                      className={`d-flex flex-column justify-content-center gap-3 ${
+                        orientation === 'white' ? 'flex-column-reverse' : ''
+                      }`}
+                      style={{ minWidth: 140, height: boardOptions.boardWidth }}
+                    >
+                      <div
+                        className={`p-2 rounded text-center ${
+                          current?.side === 'white' && !gameOver
+                            ? 'bg-success text-white fw-bold'
+                            : 'bg-dark text-white'
+                        }`}
+                      >
+                        {String(Math.floor(clocks.whiteTime / 60)).padStart(2, '0')}:
+                        {String(clocks.whiteTime % 60).padStart(2, '0')}
+                      </div>
+                      <div
+                        className={`p-2 rounded text-center ${
+                          current?.side === 'black' && !gameOver
+                            ? 'bg-success text-white fw-bold'
+                            : 'bg-dark text-white'
+                        }`}
+                      >
+                        {String(Math.floor(clocks.blackTime / 60)).padStart(2, '0')}:
+                        {String(clocks.blackTime % 60).padStart(2, '0')}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {turns.some(t => t.selection) && (
+                  <div
+                    className="col-lg-4"
+                    ref={movesRef}
+                    style={{
+                      height: boardOptions.boardWidth * 0.5,
+                      overflowY: 'auto',
+                    }}
+                  >
+                    <div className="card">
+                      <div className="card-body">
+                        {turns
+                          .filter(t => t.selection)
+                          .map(t => (
+                            <div key={`${t.side}-${t.moveNumber}`} className="mb-3">
+                              <strong>
+                                Move {t.moveNumber} ({t.side})
+                              </strong>
+                              <ul className="list-unstyled">
+                                {t.proposals.map(p => {
+                                  const isSel = t.selection!.lan === p.lan;
+                                  const fan = p.san ? sanToFan(p.san, t.side) : '';
+                                  return (
+                                    <li key={p.id}>
+                                      {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
+                                      {isSel ? (
+                                        <span className="text-success">{p.lan}</span>
+                                      ) : (
+                                        p.lan
+                                      )}
+                                      {fan && (
+                                        <>
+                                          {' '}
+                                          (<span className="piece-figurine">{fan}</span>)
+                                        </>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(gameStarted || gameOver) && (
+              <div className="mt-3 fs-4">
+                <div className="d-flex align-items-center">
+                  <span
+                    className="me-2"
+                    style={{
+                      minWidth: '3ch',
+                      textAlign: 'right',
+                      visibility: materialBalance === 0 ? 'hidden' : 'visible',
+                    }}
+                  >
+                    {materialBalance > 0 ? `+${materialBalance}` : ''}
+                  </span>
+                  <span className="piece-figurine">{lostWhitePieces.join(' ')}</span>
+                </div>
+                <div className="d-flex align-items-center">
+                  <span
+                    className="me-2"
+                    style={{
+                      minWidth: '3ch',
+                      textAlign: 'right',
+                      visibility: materialBalance === 0 ? 'hidden' : 'visible',
+                    }}
+                  >
+                    {materialBalance < 0 ? `+${-materialBalance}` : ''}
+                  </span>
+                  <span className="piece-figurine">{lostBlackPieces.join(' ')}</span>
+                </div>
+              </div>
+            )}
+
+            {gameOver && (
+              <div className="mt-4 fs-5">
+                <p>
+                  {endReason && reasonMessages[endReason]
+                    ? reasonMessages[endReason](winner)
+                    : `🎉 Game over! ${
+                        winner ? winner?.[0].toUpperCase() + winner?.slice(1) : ''
+                      } wins!`}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </>
   );
 }
