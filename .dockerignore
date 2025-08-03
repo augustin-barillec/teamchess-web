@@ -1,0 +1,23 @@
+# Git and Node specific
+.git
+.gitignore
+node_modules
+**/node_modules
+npm-debug.log
+
+# Build artifacts
+dist
+build
+**/dist
+**/build
+*.tsbuildinfo
+
+# Docker files
+Dockerfile*
+docker-compose.yml
+.dockerignore
+nginx.conf
+
+# Other
+.husky
+README.md

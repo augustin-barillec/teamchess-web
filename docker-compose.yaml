@@ -1,0 +1,23 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: teamchess-server
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: teamchess-client
+    restart: unless-stopped
+    ports:
+      # Expose on port 5173 to match the local dev server port
+      - "5173:80"
+    depends_on:
+      - server
