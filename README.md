@@ -46,13 +46,13 @@ Test the production-ready Docker environment on your local machine. This is the 
     docker compose up --build
     ```
 
-    This command builds the images for the client and server and starts the application stack. The app will be available at `http://localhost:5173`.
+    This command builds the images for the client and server and starts the application stack. The app will be available at `http://localhost:80`.
 
 ---
 
 ## Production Deployment (Google Cloud)
 
-These instructions guide you through deploying the application to a Google Compute Engine VM.
+These instructions guide you through deploying the application to a Google Compute Engine VM. This method uses Docker Compose's built-in restart capabilities to ensure the application starts automatically on boot.
 
 ### 1\. Initial Setup (Local Machine)
 
@@ -118,9 +118,9 @@ Connect to your new VM and install the required software.
 
     **Important**: You must log out (`exit`) and log back in for this change to take effect.
 
-### 3\. Deploy and Configure Auto-Start
+### 3\. Deploy and Run the Application
 
-Clone your application and create a `systemd` service to manage it and enable auto-start on boot.
+Clone your application repository onto the VM and start it using Docker Compose.
 
 1.  **Clone your repository** inside the VM:
 
@@ -129,50 +129,37 @@ Clone your application and create a `systemd` service to manage it and enable au
     cd teamchess
     ```
 
-2.  **Create the `systemd` service file**:
+2.  **Build and start the application**:
 
     ```bash
-    sudo nano /etc/systemd/system/teamchess.service
+    docker compose up --build -d
     ```
 
-3.  **Paste the following configuration** into the editor. Remember to replace `your-user` with your actual username on the VM (run `whoami` to check).
+    - `--build`: This builds the Docker images from scratch.
+    - `-d`: This runs the containers in "detached" mode, so they run in the background.
 
-    ```ini
-    [Unit]
-    Description=TeamChess Docker Compose Application
-    Requires=docker.service
-    After=docker.service
-
-    [Service]
-    User=your-user
-    Group=docker
-    WorkingDirectory=/home/your-user/teamchess
-    Restart=on-failure
-    ExecStart=/usr/bin/docker compose up
-    ExecStop=/usr/bin/docker compose down
-
-    [Install]
-    WantedBy=multi-user.target
-    ```
-
-    Save the file and exit (`Ctrl+X`, then `Y`, then `Enter`).
-
-4.  **Enable and start the service**:
-
-    ```bash
-    sudo systemctl daemon-reload
-    sudo systemctl enable teamchess.service
-    sudo systemctl start teamchess.service
-    ```
+3.  **How Auto-Start Works**: The `docker-compose.yaml` file includes the `restart: unless-stopped` policy for both services. This tells the Docker daemon to automatically restart these containers whenever the VM boots up or if they crash.
 
 ### 4\. Managing the Live Application
 
 - **Accessing the App**: Find your VM's public IP address in the Google Cloud Console or by running `gcloud compute instances describe teamchess-vm --format='get(networkInterfaces[0].accessConfigs[0].natIP)'` on your local machine. Access the app at: `http://<YOUR_VM_EXTERNAL_IP>`
 
-- **Updating the App**: To deploy new changes, SSH into the VM, pull the latest code, and restart the service.
+- **Updating the App**: To deploy new changes, SSH into the VM, pull the latest code, and re-run the `docker compose` command. It will intelligently rebuild and restart only the services that have changed.
 
   ```bash
   cd ~/teamchess
   git pull
-  sudo systemctl restart teamchess.service
+  docker compose up --build -d
+  ```
+
+- **Viewing Logs**: To see the real-time logs from all running services:
+
+  ```bash
+  docker compose logs -f
+  ```
+
+- **Stopping the App**: To stop and remove all application containers:
+
+  ```bash
+  docker compose down
   ```
