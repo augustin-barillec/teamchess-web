@@ -191,6 +191,20 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
         fen,
       });
 
+      console.log(
+        'selection',
+        JSON.stringify({
+          gameId,
+          moveNumber: state.moveNumber,
+          side: state.side,
+          id: selId,
+          name: selName,
+          lan: selLan,
+          san: move.san,
+          fen,
+        }),
+      );
+
       if (state.chess.isGameOver()) {
         const reason = state.chess.isCheckmate()
           ? 'checkmate'
@@ -391,6 +405,19 @@ io.on('connection', (socket: Socket) => {
       lan,
       san: move.san,
     });
+
+    console.log(
+      'proposal',
+      JSON.stringify({
+        gameId,
+        moveNumber: state.moveNumber,
+        side: state.side,
+        id: socket.id,
+        name: socket.data.name,
+        lan,
+        san: move.san,
+      }),
+    );
 
     tryFinalizeTurn(gameId, state);
     if (typeof cb === 'function') cb({});
