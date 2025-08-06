@@ -3,7 +3,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { io, Socket } from 'socket.io-client';
 import { Chess } from 'chess.js';
 import { Chessboard, PieceDropHandlerArgs, PieceHandlerArgs } from 'react-chessboard';
-import { Players, GameInfo, Proposal, Selection, EndReason } from '@teamchess/shared';
+import { Players, GameInfo, Proposal, Selection, EndReason, ChatMessage } from '@teamchess/shared';
 
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
@@ -58,6 +58,7 @@ export default function App() {
   const [gameOver, setGameOver] = useState(false);
   const [winner, setWinner] = useState<'white' | 'black' | null>(null);
   const [endReason, setEndReason] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [turns, setTurns] = useState<
     {
       moveNumber: number;
@@ -148,6 +149,7 @@ export default function App() {
       setEndReason(null);
       setTurns([{ moveNumber, side, proposals: [] }]);
       setLastMoveSquares(null);
+      setChatMessages([]);
     });
     socket.on('game_reset', () => {
       // rewind local UI to pre-start
@@ -209,6 +211,10 @@ export default function App() {
       setWinner(winner);
       setEndReason(reason);
     });
+    socket.on('chat_message', (msg: ChatMessage) => {
+      console.log('My ID:', myId);
+      setChatMessages(msgs => [...msgs, msg]);
+    });
 
     (window as any).socket = socket;
     return () => {
@@ -226,6 +232,7 @@ export default function App() {
     setPosition(chess.fen());
     setClocks({ whiteTime: 0, blackTime: 0 });
     setLastMoveSquares(null);
+    setChatMessages([]);
     if (!name.trim()) return alert('Enter your name.');
     (window as any).socket.emit('create_game', { name }, ({ gameId }: any) => {
       setGameId(gameId);
@@ -242,6 +249,7 @@ export default function App() {
     setPosition(chess.fen());
     setClocks({ whiteTime: 0, blackTime: 0 });
     setLastMoveSquares(null);
+    setChatMessages([]);
     if (!name.trim() || !gameId.trim()) return alert('Enter name & game ID.');
     (window as any).socket.emit('join_game', { gameId, name }, (res: any) => {
       if (res.error) alert(res.error);
@@ -288,6 +296,7 @@ export default function App() {
     setPosition(chess.fen());
     setClocks({ whiteTime: 0, blackTime: 0 });
     setLastMoveSquares(null);
+    setChatMessages([]);
   };
 
   function needsPromotion(from: string, to: string) {
@@ -592,6 +601,85 @@ export default function App() {
                     ))}
                 </div>
               )}
+              {/* Chat component */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  width: 300,
+                  border: '1px solid #ccc',
+                  borderRadius: 8,
+                  height: boardOptions.boardWidth,
+                  boxSizing: 'border-box',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    flexGrow: 1,
+                    padding: 10,
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column-reverse',
+                    gap: '0.5rem',
+                  }}
+                >
+                  {chatMessages
+                    .slice()
+                    .reverse()
+                    .map((msg, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: 4,
+                          background: '#fff',
+                          alignSelf: myId === msg.senderId ? 'flex-end' : 'flex-start',
+                          maxWidth: '80%',
+                          wordWrap: 'break-word',
+                        }}
+                      >
+                        {myId === msg.senderId ? (
+                          <strong>{msg.sender}:</strong>
+                        ) : (
+                          <span>{msg.sender}:</span>
+                        )}{' '}
+                        {msg.message}
+                      </div>
+                    ))}
+                </div>
+                <div style={{ borderTop: '1px solid #ccc', padding: 10 }}>
+                  <form
+                    onSubmit={e => {
+                      e.preventDefault();
+                      const form = e.target as HTMLFormElement;
+                      const input = form.elements.namedItem('chatInput') as HTMLInputElement;
+                      const message = input.value;
+                      if (message.trim()) {
+                        socket.emit('chat_message', message);
+                        input.value = '';
+                      }
+                    }}
+                  >
+                    <input
+                      type="text"
+                      name="chatInput"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
+                      placeholder="Type a message..."
+                      style={{
+                        width: '100%',
+                        padding: 8,
+                        boxSizing: 'border-box',
+                        border: '1px solid #ccc',
+                        borderRadius: 4,
+                      }}
+                    />
+                  </form>
+                </div>
+              </div>
             </div>
           )}
 

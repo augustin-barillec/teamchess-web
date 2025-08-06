@@ -9,7 +9,14 @@ export type Players = {
   blackPlayers: Player[];
 };
 
+export type ChatMessage = {
+  sender: string;
+  senderId: string;
+  message: string;
+};
+
 export type GameInfo = { moveNumber: number; side: 'white' | 'black' };
+
 export type Proposal = {
   id: string; // socket.id of who proposed
   name: string; // their DISPLAY name

@@ -423,6 +423,20 @@ io.on('connection', (socket: Socket) => {
     if (typeof cb === 'function') cb({});
   });
 
+  socket.on('chat_message', (message: string) => {
+    const gameId = socket.data.gameId as string | undefined;
+    const name = socket.data.name as string | undefined;
+
+    if (!gameId || !name || !message.trim()) return;
+
+    // broadcast message to everyone in the room
+    io.to(gameId).emit('chat_message', {
+      sender: name,
+      senderId: socket.id,
+      message: message.trim(),
+    });
+  });
+
   socket.on('exit_game', leave);
   socket.on('disconnect', leave);
 });
