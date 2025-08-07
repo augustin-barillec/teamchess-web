@@ -9,6 +9,11 @@ services:
       - "3001:3001"
     environment:
       - NODE_ENV=production
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m" # a single log file won't exceed 10MB
+        max-file: "3"   # keep a total of 3 log files (1 active, 2 archived)
 
   client:
     build:
@@ -20,3 +25,8 @@ services:
       - "80:80"
     depends_on:
       - server
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
