@@ -446,19 +446,23 @@ export default function App() {
 
           {!gameOver && side === 'spectator' && (
             <div style={{ marginTop: 10 }}>
-              <button onClick={autoAssign} style={{ marginLeft: 5 }}>
-                Auto Assign
-              </button>
+              <button onClick={autoAssign}>Auto Assign</button>
               <button onClick={() => joinSide('white')}>Join White</button>
-              <button onClick={() => joinSide('black')} style={{ marginLeft: 5 }}>
-                Join Black
-              </button>
+              <button onClick={() => joinSide('black')}>Join Black</button>
             </div>
           )}
 
           {!gameOver && (side === 'white' || side === 'black') && (
             <div style={{ marginTop: 10 }}>
               <button onClick={joinSpectator}>Join Spectators</button>
+              {!gameStarted && (
+                <button
+                  onClick={() => joinSide(side === 'white' ? 'black' : 'white')}
+                  style={{ marginLeft: 5 }}
+                >
+                  Switch to {side === 'white' ? 'Black' : 'White'}
+                </button>
+              )}
             </div>
           )}
 
