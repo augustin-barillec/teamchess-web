@@ -5,7 +5,7 @@ import cors from 'cors';
 import { nanoid } from 'nanoid';
 import { Chess } from 'chess.js';
 import path from 'path';
-import { Player } from '@teamchess/shared';
+import { Player, EndReason } from '@teamchess/shared';
 
 // path to the built Stockfish engine
 const stockfishPath = path.join(
@@ -206,12 +206,23 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
       );
 
       if (state.chess.isGameOver()) {
-        const reason = state.chess.isCheckmate()
-          ? 'checkmate'
-          : state.chess.isDraw()
-            ? 'draw'
-            : 'terminated';
-        endGame(gameId, reason, state.chess.isCheckmate() ? state.side : null);
+        let reason: string;
+        let winner: 'white' | 'black' | null = null;
+        if (state.chess.isCheckmate()) {
+          reason = EndReason.Checkmate;
+          winner = state.side;
+        } else if (state.chess.isStalemate()) {
+          reason = EndReason.Stalemate;
+        } else if (state.chess.isThreefoldRepetition()) {
+          reason = EndReason.Threefold;
+        } else if (state.chess.isInsufficientMaterial()) {
+          reason = EndReason.Insufficient;
+        } else if (state.chess.isDraw()) {
+          reason = EndReason.DrawRule;
+        } else {
+          reason = 'terminated'; // Should not be reached
+        }
+        endGame(gameId, reason, winner);
       } else {
         state.proposals.clear();
         state.side = state.side === 'white' ? 'black' : 'white';
