@@ -39,13 +39,12 @@ COPY server/package.json ./server/
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 
 # Copy the entire built server directory from the builder.
-# This is the key change: it brings over everything the server needs in one go,
-# including its compiled code (`dist`), the `.cjs` helper, and its own
-# pruned `node_modules` directory, preserving the exact structure.
 COPY --from=builder /usr/src/app/server ./server
 
-# Copy the built shared library, which is a dependency of the server
-COPY --from=builder /usr/src/app/shared/dist ./shared/dist
+# Correctly place the built `shared` package into the root node_modules.
+# This ensures that `require('@teamchess/shared')` resolves correctly.
+RUN mkdir -p ./node_modules/@teamchess
+COPY --from=builder /usr/src/app/shared ./node_modules/@teamchess/shared
 
 # Expose the port the server listens on
 EXPOSE 3001
