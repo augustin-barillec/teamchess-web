@@ -149,7 +149,6 @@ export default function App() {
       setEndReason(null);
       setTurns([{ moveNumber, side, proposals: [] }]);
       setLastMoveSquares(null);
-      setChatMessages([]);
     });
     socket.on('game_reset', () => {
       // rewind local UI to pre-start
@@ -340,7 +339,7 @@ export default function App() {
       const from = sourceSquare;
       const to = targetSquare;
 
-      if (gameOver) return false;
+      if (!gameStarted || gameOver) return false;
       if (side !== current.side) return false;
 
       let promotion: 'q' | 'r' | 'b' | 'n' | undefined;
@@ -510,220 +509,216 @@ export default function App() {
           </div>
 
           {/* Board + Timers + Move List */}
-          {(gameStarted || gameOver) && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center', // center everything vertically
-                gap: '1.5rem',
-                marginTop: 20,
-              }}
-            >
-              {/* 1) Chessboard + clocks wrapper */}
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                {/* Board */}
-                <div style={{ flexShrink: 0, width: boardOptions.boardWidth }}>
-                  <Chessboard options={boardOptions} />
-                </div>
-
-                {/* Clocks */}
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: orientation === 'white' ? 'column-reverse' : 'column',
-                    justifyContent: 'center', // center clocks within the board height
-                    gap: '1rem',
-                    fontFamily: 'monospace',
-                    fontSize: '2rem',
-                    minWidth: 140,
-                    height: boardOptions.boardWidth, // match board height
-                  }}
-                >
-                  {/* white clock */}
-                  <div
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: 6,
-                      background: current?.side === 'white' && !gameOver ? '#3a5f0b' : '#333',
-                      color: '#fff',
-                      fontWeight: current?.side === 'white' && !gameOver ? 'bold' : 'normal',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {String(Math.floor(clocks.whiteTime / 60)).padStart(2, '0')}:
-                    {String(clocks.whiteTime % 60).padStart(2, '0')}
-                  </div>
-                  {/* black clock */}
-                  <div
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: 6,
-                      background: current?.side === 'black' && !gameOver ? '#3a5f0b' : '#333',
-                      color: '#fff',
-                      fontWeight: current?.side === 'black' && !gameOver ? 'bold' : 'normal',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {String(Math.floor(clocks.blackTime / 60)).padStart(2, '0')}:
-                    {String(clocks.blackTime % 60).padStart(2, '0')}
-                  </div>
-                </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center', // center everything vertically
+              gap: '1.5rem',
+              marginTop: 20,
+            }}
+          >
+            {/* 1) Chessboard + clocks wrapper */}
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              {/* Board */}
+              <div style={{ flexShrink: 0, width: boardOptions.boardWidth }}>
+                <Chessboard options={boardOptions} />
               </div>
-              {turns.some(t => t.selection) && (
-                <div
-                  ref={movesRef}
-                  style={{
-                    width: 180,
-                    height: boardOptions.boardWidth * 0.5,
-                    overflowY: 'auto',
-                    border: '1px solid #ccc',
-                    padding: '8px',
-                    background: '#fafafa',
-                  }}
-                >
-                  {turns
-                    .filter(t => t.selection)
-                    .map(t => (
-                      <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
-                        <strong>
-                          Move {t.moveNumber} ({t.side})
-                        </strong>
-                        <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
-                          {t.proposals.map(p => {
-                            const isSel = t.selection!.lan === p.lan;
-                            const fan = p.san ? sanToFan(p.san, t.side) : '';
-                            return (
-                              <li key={p.id}>
-                                {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
-                                {isSel ? <span style={{ color: 'green' }}>{p.lan}</span> : p.lan}
-                                {fan && ` (${fan})`}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    ))}
-                </div>
-              )}
-              {/* Chat component */}
+
+              {/* Clocks */}
               <div
                 style={{
                   display: 'flex',
-                  flexDirection: 'column',
-                  width: 300,
-                  border: '1px solid #ccc',
-                  borderRadius: 8,
-                  height: boardOptions.boardWidth,
-                  boxSizing: 'border-box',
-                  overflow: 'hidden',
+                  flexDirection: orientation === 'white' ? 'column-reverse' : 'column',
+                  justifyContent: 'center', // center clocks within the board height
+                  gap: '1rem',
+                  fontFamily: 'monospace',
+                  fontSize: '2rem',
+                  minWidth: 140,
+                  height: boardOptions.boardWidth, // match board height
                 }}
               >
+                {/* white clock */}
                 <div
                   style={{
-                    flexGrow: 1,
-                    padding: 10,
-                    overflowY: 'auto',
-                    display: 'flex',
-                    flexDirection: 'column-reverse',
-                    gap: '0.5rem',
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    background: current?.side === 'white' && !gameOver ? '#3a5f0b' : '#333',
+                    color: '#fff',
+                    fontWeight: current?.side === 'white' && !gameOver ? 'bold' : 'normal',
+                    textAlign: 'center',
                   }}
                 >
-                  {chatMessages
-                    .slice()
-                    .reverse()
-                    .map((msg, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          borderRadius: 4,
-                          background: '#fff',
-                          alignSelf: myId === msg.senderId ? 'flex-end' : 'flex-start',
-                          maxWidth: '80%',
-                          wordWrap: 'break-word',
-                        }}
-                      >
-                        {myId === msg.senderId ? (
-                          <strong>{msg.sender}:</strong>
-                        ) : (
-                          <span>{msg.sender}:</span>
-                        )}{' '}
-                        {msg.message}
-                      </div>
-                    ))}
+                  {String(Math.floor(clocks.whiteTime / 60)).padStart(2, '0')}:
+                  {String(clocks.whiteTime % 60).padStart(2, '0')}
                 </div>
-                <div style={{ borderTop: '1px solid #ccc', padding: 10 }}>
-                  <form
-                    onSubmit={e => {
-                      e.preventDefault();
-                      const form = e.target as HTMLFormElement;
-                      const input = form.elements.namedItem('chatInput') as HTMLInputElement;
-                      const message = input.value;
-                      if (message.trim()) {
-                        socket.emit('chat_message', message);
-                        input.value = '';
-                      }
-                    }}
-                  >
-                    <input
-                      type="text"
-                      name="chatInput"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="off"
-                      spellCheck="false"
-                      placeholder="Type a message..."
+                {/* black clock */}
+                <div
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    background: current?.side === 'black' && !gameOver ? '#3a5f0b' : '#333',
+                    color: '#fff',
+                    fontWeight: current?.side === 'black' && !gameOver ? 'bold' : 'normal',
+                    textAlign: 'center',
+                  }}
+                >
+                  {String(Math.floor(clocks.blackTime / 60)).padStart(2, '0')}:
+                  {String(clocks.blackTime % 60).padStart(2, '0')}
+                </div>
+              </div>
+            </div>
+            {turns.some(t => t.selection) && (
+              <div
+                ref={movesRef}
+                style={{
+                  width: 180,
+                  height: boardOptions.boardWidth * 0.5,
+                  overflowY: 'auto',
+                  border: '1px solid #ccc',
+                  padding: '8px',
+                  background: '#fafafa',
+                }}
+              >
+                {turns
+                  .filter(t => t.selection)
+                  .map(t => (
+                    <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
+                      <strong>
+                        Move {t.moveNumber} ({t.side})
+                      </strong>
+                      <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
+                        {t.proposals.map(p => {
+                          const isSel = t.selection!.lan === p.lan;
+                          const fan = p.san ? sanToFan(p.san, t.side) : '';
+                          return (
+                            <li key={p.id}>
+                              {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
+                              {isSel ? <span style={{ color: 'green' }}>{p.lan}</span> : p.lan}
+                              {fan && ` (${fan})`}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+              </div>
+            )}
+            {/* Chat component */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                width: 300,
+                border: '1px solid #ccc',
+                borderRadius: 8,
+                height: boardOptions.boardWidth,
+                boxSizing: 'border-box',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  flexGrow: 1,
+                  padding: 10,
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column-reverse',
+                  gap: '0.5rem',
+                }}
+              >
+                {chatMessages
+                  .slice()
+                  .reverse()
+                  .map((msg, idx) => (
+                    <div
+                      key={idx}
                       style={{
-                        width: '100%',
-                        padding: 8,
-                        boxSizing: 'border-box',
-                        border: '1px solid #ccc',
+                        padding: '0.25rem 0.5rem',
                         borderRadius: 4,
+                        background: '#fff',
+                        alignSelf: myId === msg.senderId ? 'flex-end' : 'flex-start',
+                        maxWidth: '80%',
+                        wordWrap: 'break-word',
                       }}
-                    />
-                  </form>
-                </div>
+                    >
+                      {myId === msg.senderId ? (
+                        <strong>{msg.sender}:</strong>
+                      ) : (
+                        <span>{msg.sender}:</span>
+                      )}{' '}
+                      {msg.message}
+                    </div>
+                  ))}
               </div>
-            </div>
-          )}
-
-          {(gameStarted || gameOver) && (
-            <div style={{ marginTop: 10, fontSize: '2rem' }}>
-              {/* White’s lost‐pieces row */}
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    minWidth: '3ch',
-                    marginRight: '0.5rem',
-                    fontSize: '0.75em',
-                    textAlign: 'right',
-                    visibility: materialBalance === 0 ? 'hidden' : 'visible',
+              <div style={{ borderTop: '1px solid #ccc', padding: 10 }}>
+                <form
+                  onSubmit={e => {
+                    e.preventDefault();
+                    const form = e.target as HTMLFormElement;
+                    const input = form.elements.namedItem('chatInput') as HTMLInputElement;
+                    const message = input.value;
+                    if (message.trim()) {
+                      socket.emit('chat_message', message);
+                      input.value = '';
+                    }
                   }}
                 >
-                  {materialBalance > 0 ? `+${materialBalance}` : ''}
-                </span>
-                <span>{lostWhitePieces.join(' ')}</span>
-              </div>
-
-              {/* Black’s lost‐pieces row */}
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    minWidth: '3ch',
-                    marginRight: '0.5rem',
-                    fontSize: '0.75em',
-                    textAlign: 'right',
-                    visibility: materialBalance === 0 ? 'hidden' : 'visible',
-                  }}
-                >
-                  {materialBalance < 0 ? `+${-materialBalance}` : ''}
-                </span>
-                <span>{lostBlackPieces.join(' ')}</span>
+                  <input
+                    type="text"
+                    name="chatInput"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
+                    placeholder="Type a message..."
+                    style={{
+                      width: '100%',
+                      padding: 8,
+                      boxSizing: 'border-box',
+                      border: '1px solid #ccc',
+                      borderRadius: 4,
+                    }}
+                  />
+                </form>
               </div>
             </div>
-          )}
+          </div>
+
+          <div style={{ marginTop: 10, fontSize: '2rem' }}>
+            {/* White’s lost‐pieces row */}
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  minWidth: '3ch',
+                  marginRight: '0.5rem',
+                  fontSize: '0.75em',
+                  textAlign: 'right',
+                  visibility: materialBalance === 0 ? 'hidden' : 'visible',
+                }}
+              >
+                {materialBalance > 0 ? `+${materialBalance}` : ''}
+              </span>
+              <span>{lostWhitePieces.join(' ')}</span>
+            </div>
+
+            {/* Black’s lost‐pieces row */}
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  minWidth: '3ch',
+                  marginRight: '0.5rem',
+                  fontSize: '0.75em',
+                  textAlign: 'right',
+                  visibility: materialBalance === 0 ? 'hidden' : 'visible',
+                }}
+              >
+                {materialBalance < 0 ? `+${-materialBalance}` : ''}
+              </span>
+              <span>{lostBlackPieces.join(' ')}</span>
+            </div>
+          </div>
 
           {gameOver && (
             <div style={{ marginTop: 20, fontSize: '1.2em' }}>
