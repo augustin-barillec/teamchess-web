@@ -1,24 +1,26 @@
 export interface Player {
+  /** Stable player id (pid), not the transient socket.id */
   id: string;
   name: string;
 }
 
-export type Players = {
-  spectators: Player[];
-  whitePlayers: Player[];
-  blackPlayers: Player[];
-};
+export interface Player {
+  /** Stable player id (pid), not the transient socket.id */
+  id: string;
+  name: string;
+  connected: boolean; // <— NEW
+}
 
 export type ChatMessage = {
   sender: string;
-  senderId: string;
+  senderId: string; // stable pid
   message: string;
 };
 
 export type GameInfo = { moveNumber: number; side: 'white' | 'black' };
 
 export type Proposal = {
-  id: string; // socket.id of who proposed
+  id: string; // stable pid of who proposed
   name: string; // their DISPLAY name
   moveNumber: number;
   side: 'white' | 'black';

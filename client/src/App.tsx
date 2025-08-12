@@ -1,9 +1,17 @@
-import React, { useState, useEffect, useMemo, useRef, CSSProperties } from 'react';
+import { useState, useEffect, useMemo, useRef, CSSProperties } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { io, Socket } from 'socket.io-client';
 import { Chess } from 'chess.js';
 import { Chessboard, PieceDropHandlerArgs, PieceHandlerArgs } from 'react-chessboard';
 import { Players, GameInfo, Proposal, Selection, EndReason, ChatMessage } from '@teamchess/shared';
+
+// localStorage keys
+const LS = {
+  pid: 'tc:pid',
+  name: 'tc:name',
+  gameId: 'tc:game',
+  side: 'tc:side',
+} as const;
 
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
@@ -43,12 +51,14 @@ function sanToFan(san: string, side: 'white' | 'black'): string {
 
 export default function App() {
   const [socket, setSocket] = useState<Socket>();
-  const [myId, setMyId] = useState<string>('');
-  const [name, setName] = useState('');
+  const [myId, setMyId] = useState<string>(''); // stable pid, not socket.id
+  const [name, setName] = useState(localStorage.getItem(LS.name) || '');
   const [showJoin, setShowJoin] = useState(false);
-  const [gameId, setGameId] = useState('');
+  const [gameId, setGameId] = useState(localStorage.getItem(LS.gameId) || '');
   const [joined, setJoined] = useState(false);
-  const [side, setSide] = useState<'spectator' | 'white' | 'black'>('spectator');
+  const [side, setSide] = useState<'spectator' | 'white' | 'black'>(
+    (localStorage.getItem(LS.side) as 'spectator' | 'white' | 'black') || 'spectator',
+  );
   const [players, setPlayers] = useState<Players>({
     spectators: [],
     whitePlayers: [],
@@ -63,19 +73,16 @@ export default function App() {
     {
       moveNumber: number;
       side: 'white' | 'black';
-      proposals: Proposal[]; // ← use Proposal (with id,name,lan,san)
+      proposals: Proposal[];
       selection?: Selection;
     }[]
   >([]);
   const [chess] = useState(new Chess());
   const [position, setPosition] = useState(chess.fen());
   const [clocks, setClocks] = useState({ whiteTime: 0, blackTime: 0 });
-  // track the last move that got played
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
-  useState<{ from: string; to: string } | null>(null);
-  // track legal move highlights
   const [legalSquareStyles, setLegalSquareStyles] = useState<Record<string, CSSProperties>>({});
-  // compute lost material for each side, sorted by type
+
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1 };
     const currWhite: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
@@ -105,22 +112,10 @@ export default function App() {
     const order = ['P', 'N', 'B', 'R', 'Q', 'K'];
     lostW.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     lostB.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
-    // piece values:
-    const values: Record<string, number> = {
-      P: 1,
-      N: 3,
-      B: 3,
-      R: 5,
-      Q: 9,
-      K: 0,
-    };
-
-    // numeric totals of lost material
+    const values: Record<string, number> = { P: 1, N: 3, B: 3, R: 5, Q: 9, K: 0 };
     const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
     const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
-
-    // positive = White is up; negative = Black is up
-    const materialBalance = blackLostValue - whiteLostValue;
+    const materialBalance = blackLostValue - whiteLostValue; // + = White up
     return {
       lostWhitePieces: lostW.map(p => p.figurine),
       lostBlackPieces: lostB.map(p => p.figurine),
@@ -130,19 +125,48 @@ export default function App() {
 
   const movesRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (movesRef.current) {
-      movesRef.current.scrollTop = movesRef.current.scrollHeight;
-    }
+    if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns]);
 
   useEffect(() => {
-    const socket = io();
-    setSocket(socket);
-    // socket.id is only valid after the initial “connect” event fires:
-    socket.on('connect', () => setMyId(socket.id));
+    // try restoring persistent pid & name on connect
+    const storedPid = localStorage.getItem(LS.pid) || undefined;
+    const storedName = localStorage.getItem(LS.name) || undefined;
 
-    socket.on('players', (p: Players) => setPlayers(p));
-    socket.on('game_started', ({ moveNumber, side }: GameInfo) => {
+    const s = io('/', { auth: { pid: storedPid, name: storedName } });
+    setSocket(s);
+
+    // server confirms/assigns our stable pid
+    s.on('session', ({ id, name }: { id: string; name: string }) => {
+      setMyId(id);
+      localStorage.setItem(LS.pid, id);
+      if (name && !localStorage.getItem(LS.name)) {
+        localStorage.setItem(LS.name, name);
+      }
+    });
+
+    // optional: auto-rejoin a remembered game after reconnect/refresh
+    s.on('connect', () => {
+      const g = localStorage.getItem(LS.gameId);
+      const n = localStorage.getItem(LS.name) || name || '';
+      const rememberedSide =
+        (localStorage.getItem(LS.side) as 'white' | 'black' | 'spectator' | null) || 'spectator';
+      if (g && n) {
+        s.emit('join_game', { gameId: g, name: n }, (res: any) => {
+          if (!res?.error) {
+            setGameId(g);
+            setName(n);
+            setJoined(true);
+            if (rememberedSide && rememberedSide !== 'spectator') {
+              s.emit('join_side', { side: rememberedSide });
+            }
+          }
+        });
+      }
+    });
+
+    s.on('players', (p: Players) => setPlayers(p));
+    s.on('game_started', ({ moveNumber, side }: GameInfo) => {
       setGameStarted(true);
       setGameOver(false);
       setWinner(null);
@@ -150,8 +174,7 @@ export default function App() {
       setTurns([{ moveNumber, side, proposals: [] }]);
       setLastMoveSquares(null);
     });
-    socket.on('game_reset', () => {
-      // rewind local UI to pre-start
+    s.on('game_reset', () => {
       setGameStarted(false);
       setGameOver(false);
       setWinner(null);
@@ -162,12 +185,12 @@ export default function App() {
       setClocks({ whiteTime: 0, blackTime: 0 });
       setLastMoveSquares(null);
     });
-    socket.on('clock_update', ({ whiteTime, blackTime }) => setClocks({ whiteTime, blackTime }));
-    socket.on('position_update', ({ fen }) => {
+    s.on('clock_update', ({ whiteTime, blackTime }) => setClocks({ whiteTime, blackTime }));
+    s.on('position_update', ({ fen }) => {
       chess.load(fen);
       setPosition(fen);
     });
-    socket.on('move_submitted', (m: Proposal) =>
+    s.on('move_submitted', (m: Proposal) =>
       setTurns(ts =>
         ts.map(t =>
           t.moveNumber === m.moveNumber && t.side === m.side
@@ -176,50 +199,43 @@ export default function App() {
         ),
       ),
     );
-    socket.on('move_selected', (sel: Selection) => {
+    s.on('move_selected', (sel: Selection) => {
       setTurns(ts =>
         ts.map(t =>
           t.moveNumber === sel.moveNumber && t.side === sel.side ? { ...t, selection: sel } : t,
         ),
       );
 
-      // remember the last move squares
       chess.load(sel.fen);
       const from = sel.lan.slice(0, 2);
       const to = sel.lan.slice(2, 4);
       setLastMoveSquares({ from, to });
       setPosition(sel.fen);
     });
-    socket.on('turn_change', ({ moveNumber, side }: GameInfo) =>
+    s.on('turn_change', ({ moveNumber, side }: GameInfo) =>
       setTurns(ts => [...ts, { moveNumber, side, proposals: [] }]),
     );
-    socket.on('proposal_removed', ({ moveNumber, side, id }) => {
+    s.on('proposal_removed', ({ moveNumber, side, id }) => {
       setTurns(ts =>
         ts.map(t =>
           t.moveNumber === moveNumber && t.side === side
-            ? {
-                ...t,
-                proposals: t.proposals.filter(p => p.id !== id),
-              }
+            ? { ...t, proposals: t.proposals.filter(p => p.id !== id) }
             : t,
         ),
       );
     });
-    socket.on('game_over', ({ reason, winner }) => {
+    s.on('game_over', ({ reason, winner }) => {
       setGameOver(true);
       setWinner(winner);
       setEndReason(reason);
     });
-    socket.on('chat_message', (msg: ChatMessage) => {
-      console.log('My ID:', myId);
+    s.on('chat_message', (msg: ChatMessage) => {
       setChatMessages(msgs => [...msgs, msg]);
     });
 
-    (window as any).socket = socket;
-    return () => {
-      socket.disconnect();
-    };
-  }, [chess]);
+    (window as any).socket = s;
+    return () => s.disconnect();
+  }, [chess]); // chess is stable
 
   const createGame = () => {
     setGameStarted(false);
@@ -233,11 +249,15 @@ export default function App() {
     setLastMoveSquares(null);
     setChatMessages([]);
     if (!name.trim()) return alert('Enter your name.');
+    localStorage.setItem(LS.name, name);
     (window as any).socket.emit('create_game', { name }, ({ gameId }: any) => {
       setGameId(gameId);
       setJoined(true);
+      localStorage.setItem(LS.gameId, gameId);
+      localStorage.setItem(LS.side, 'spectator');
     });
   };
+
   const joinGame = () => {
     setGameStarted(false);
     setGameOver(false);
@@ -250,38 +270,46 @@ export default function App() {
     setLastMoveSquares(null);
     setChatMessages([]);
     if (!name.trim() || !gameId.trim()) return alert('Enter name & game ID.');
+    localStorage.setItem(LS.name, name);
     (window as any).socket.emit('join_game', { gameId, name }, (res: any) => {
       if (res.error) alert(res.error);
-      else setJoined(true);
+      else {
+        setJoined(true);
+        localStorage.setItem(LS.gameId, gameId);
+        localStorage.setItem(LS.side, 'spectator');
+      }
     });
   };
+
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
     (window as any).socket.emit('join_side', { side: s }, (res: any) => {
       if (res.error) alert(res.error);
       else setSide(s);
+      localStorage.setItem(LS.side, s);
     });
+
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
     let chosen: 'white' | 'black';
-
     if (whiteCount < blackCount) chosen = 'white';
     else if (blackCount < whiteCount) chosen = 'black';
     else chosen = Math.random() < 0.5 ? 'white' : 'black';
-
     joinSide(chosen);
   };
-  // leave current team and rejoin spectators
+
   const joinSpectator = () => joinSide('spectator');
+
   const startGame = () => (window as any).socket.emit('start_game');
-  // fires off the server reset, it’ll call us back when done
+
   const resetGame = () => {
-    if (!socket) return;
-    socket.emit('reset_game', (res: { success: boolean; error?: string }) => {
+    const s = socket;
+    if (!s) return;
+    s.emit('reset_game', (res: { success: boolean; error?: string }) => {
       if (res.error) return alert(res.error);
-      // otherwise, we’ll get a 'game_reset' event below
     });
   };
+
   const exitGame = () => {
     (window as any).socket.emit('exit_game');
     setJoined(false);
@@ -296,6 +324,8 @@ export default function App() {
     setClocks({ whiteTime: 0, blackTime: 0 });
     setLastMoveSquares(null);
     setChatMessages([]);
+    localStorage.removeItem(LS.gameId);
+    localStorage.setItem(LS.side, 'spectator');
   };
 
   function needsPromotion(from: string, to: string) {
@@ -322,7 +352,6 @@ export default function App() {
     },
     boardWidth: 600,
     onPieceDrag: ({ square }: PieceHandlerArgs) => {
-      // highlight all legal moves for this piece
       const moves = chess.moves({ square: square, verbose: true });
       const highlights: Record<string, CSSProperties> = {};
       moves.forEach(m => {
@@ -331,7 +360,6 @@ export default function App() {
       setLegalSquareStyles(highlights);
     },
     onPieceDragEnd: () => {
-      // clear highlights when done dragging
       setLegalSquareStyles({});
     },
     onPieceDrop: ({ sourceSquare, targetSquare }: PieceDropHandlerArgs) => {
@@ -376,7 +404,14 @@ export default function App() {
         <div>
           {/* Name input */}
           <div>
-            <input placeholder="Your name" value={name} onChange={e => setName(e.target.value)} />
+            <input
+              placeholder="Your name"
+              value={name}
+              onChange={e => {
+                setName(e.target.value);
+                localStorage.setItem(LS.name, e.target.value);
+              }}
+            />
           </div>
 
           {/* Buttons */}
@@ -465,32 +500,53 @@ export default function App() {
             </div>
           )}
 
-          <div
-            style={{
-              display: 'flex',
-              gap: '2rem',
-            }}
-          >
+          <div style={{ display: 'flex', gap: '2rem' }}>
+            {/* Spectators */}
             <div>
               <h3>Spectators</h3>
               <ul>
-                {players.spectators.map(p => (
-                  <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {p.id === myId ? <strong>{p.name}</strong> : p.name}
-                  </li>
-                ))}
+                {players.spectators.map(p => {
+                  const isMe = p.id === myId;
+                  const text = `${p.name}${p.connected ? '' : ' (disconnected)'}`;
+                  return (
+                    <li
+                      key={p.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        opacity: p.connected ? 1 : 0.6,
+                      }}
+                    >
+                      {isMe ? <strong>{text}</strong> : <span>{text}</span>}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
+
             {/* White */}
             <div>
               <h3>White</h3>
               <ul>
-                {players.whitePlayers.map(p => (
-                  <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {p.id === myId ? <strong>{p.name}</strong> : p.name}
-                    {hasPlayed(p.id) && <span>✔️</span>}
-                  </li>
-                ))}
+                {players.whitePlayers.map(p => {
+                  const isMe = p.id === myId;
+                  const text = `${p.name}${p.connected ? '' : ' (disconnected)'}`;
+                  return (
+                    <li
+                      key={p.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        opacity: p.connected ? 1 : 0.6,
+                      }}
+                    >
+                      {isMe ? <strong>{text}</strong> : <span>{text}</span>}
+                      {hasPlayed(p.id) && <span>✔️</span>}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
 
@@ -498,12 +554,24 @@ export default function App() {
             <div>
               <h3>Black</h3>
               <ul>
-                {players.blackPlayers.map(p => (
-                  <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {p.id === myId ? <strong>{p.name}</strong> : p.name}
-                    {hasPlayed(p.id) && <span>✔️</span>}
-                  </li>
-                ))}
+                {players.blackPlayers.map(p => {
+                  const isMe = p.id === myId;
+                  const text = `${p.name}${p.connected ? '' : ' (disconnected)'}`;
+                  return (
+                    <li
+                      key={p.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        opacity: p.connected ? 1 : 0.6,
+                      }}
+                    >
+                      {isMe ? <strong>{text}</strong> : <span>{text}</span>}
+                      {hasPlayed(p.id) && <span>✔️</span>}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </div>
@@ -512,7 +580,7 @@ export default function App() {
           <div
             style={{
               display: 'flex',
-              alignItems: 'center', // center everything vertically
+              alignItems: 'center',
               gap: '1.5rem',
               marginTop: 20,
             }}
@@ -520,7 +588,7 @@ export default function App() {
             {/* 1) Chessboard + clocks wrapper */}
             <div style={{ display: 'flex', gap: '1rem' }}>
               {/* Board */}
-              <div style={{ flexShrink: 0, width: boardOptions.boardWidth }}>
+              <div style={{ flexShrink: 0, width: 600 }}>
                 <Chessboard options={boardOptions} />
               </div>
 
@@ -529,12 +597,12 @@ export default function App() {
                 style={{
                   display: 'flex',
                   flexDirection: orientation === 'white' ? 'column-reverse' : 'column',
-                  justifyContent: 'center', // center clocks within the board height
+                  justifyContent: 'center',
                   gap: '1rem',
                   fontFamily: 'monospace',
                   fontSize: '2rem',
                   minWidth: 140,
-                  height: boardOptions.boardWidth, // match board height
+                  height: 600,
                 }}
               >
                 {/* white clock */}
@@ -567,12 +635,13 @@ export default function App() {
                 </div>
               </div>
             </div>
+
             {turns.some(t => t.selection) && (
               <div
                 ref={movesRef}
                 style={{
                   width: 180,
-                  height: boardOptions.boardWidth * 0.5,
+                  height: 300,
                   overflowY: 'auto',
                   border: '1px solid #ccc',
                   padding: '8px',
@@ -603,7 +672,8 @@ export default function App() {
                   ))}
               </div>
             )}
-            {/* Chat component */}
+
+            {/* Chat */}
             <div
               style={{
                 display: 'flex',
@@ -611,7 +681,7 @@ export default function App() {
                 width: 300,
                 border: '1px solid #ccc',
                 borderRadius: 8,
-                height: boardOptions.boardWidth,
+                height: 600,
                 boxSizing: 'border-box',
                 overflow: 'hidden',
               }}
@@ -658,7 +728,7 @@ export default function App() {
                     const input = form.elements.namedItem('chatInput') as HTMLInputElement;
                     const message = input.value;
                     if (message.trim()) {
-                      socket.emit('chat_message', message);
+                      socket?.emit('chat_message', message);
                       input.value = '';
                     }
                   }}
@@ -685,7 +755,7 @@ export default function App() {
           </div>
 
           <div style={{ marginTop: 10, fontSize: '2rem' }}>
-            {/* White’s lost‐pieces row */}
+            {/* White lost */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span
                 style={{
@@ -701,8 +771,7 @@ export default function App() {
               </span>
               <span>{lostWhitePieces.join(' ')}</span>
             </div>
-
-            {/* Black’s lost‐pieces row */}
+            {/* Black lost */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span
                 style={{
