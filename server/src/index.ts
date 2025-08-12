@@ -26,7 +26,11 @@ const loadEngine = require('../load_engine.cjs') as (enginePath: string) => {
 const app = express();
 app.use(cors());
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, {
+  cors: { origin: '*' },
+  pingInterval: 5000, // default 25000
+  pingTimeout: 5000, // default 20000
+});
 
 type Seat = 'white' | 'black' | 'spectator';
 type PlayerSide = 'white' | 'black';

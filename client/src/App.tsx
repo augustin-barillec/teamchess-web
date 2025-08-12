@@ -148,8 +148,28 @@ export default function App() {
     const storedPid = localStorage.getItem(LS.pid) || undefined;
     const storedName = localStorage.getItem(LS.name) || undefined;
 
-    const s = io('/', { auth: { pid: storedPid, name: storedName } });
+    // faster retry cadence
+    const s = io('/', {
+      auth: { pid: storedPid, name: storedName },
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 2000,
+      randomizationFactor: 0.2,
+    });
     setSocket(s);
+
+    // react instantly to browser going offline/online
+    const onOffline = () => {
+      setAmDisconnected(true);
+      // avoid wasting retries while offline; reconnect when back online
+      if (s.connected) s.disconnect();
+    };
+    const onOnline = () => {
+      if (!s.connected) s.connect();
+    };
+    window.addEventListener('offline', onOffline);
+    window.addEventListener('online', onOnline);
 
     // server confirms/assigns our stable pid
     s.on('session', ({ id, name }: { id: string; name: string }) => {
@@ -160,15 +180,12 @@ export default function App() {
       }
     });
 
-    s.on('disconnect', () => {
-      // Locally mark *me* as disconnected so I see "(disconnected)" in the roster
-      setAmDisconnected(true);
-    });
-
-    // optional: auto-rejoin a remembered game after reconnect/refresh
+    // connectivity state → banner
+    const showOffline = () => setAmDisconnected(true);
     s.on('connect', () => {
       setAmDisconnected(false);
 
+      // optional: auto-rejoin a remembered game after reconnect/refresh
       const g = localStorage.getItem(LS.gameId);
       const n = localStorage.getItem(LS.name) || name || '';
       const rememberedSide =
@@ -186,7 +203,23 @@ export default function App() {
         });
       }
     });
+    s.on('connect_error', showOffline);
+    s.on('reconnect_attempt', showOffline);
+    s.on('reconnect', () => setAmDisconnected(false));
+    s.on('disconnect', (reason: string) => {
+      setAmDisconnected(true);
+      // if this was a manual/server disconnect, try to reconnect (but only if we're online)
+      if (
+        (reason === 'io client disconnect' || reason === 'io server disconnect') &&
+        navigator.onLine
+      ) {
+        setTimeout(() => {
+          if (!s.connected) s.connect();
+        }, 500);
+      }
+    });
 
+    // ==== existing game events ====
     s.on('players', (p: Players) => setPlayers(p));
     s.on('game_started', ({ moveNumber, side }: GameInfo) => {
       setGameStarted(true);
@@ -227,7 +260,6 @@ export default function App() {
           t.moveNumber === sel.moveNumber && t.side === sel.side ? { ...t, selection: sel } : t,
         ),
       );
-
       chess.load(sel.fen);
       const from = sel.lan.slice(0, 2);
       const to = sel.lan.slice(2, 4);
@@ -256,8 +288,12 @@ export default function App() {
     });
 
     (window as any).socket = s;
-    return () => s.disconnect();
-  }, [chess]); // chess is stable
+    return () => {
+      window.removeEventListener('offline', onOffline);
+      window.removeEventListener('online', onOnline);
+      s.disconnect();
+    };
+  }, [chess]);
 
   const createGame = () => {
     setGameStarted(false);
