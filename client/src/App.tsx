@@ -424,6 +424,20 @@ export default function App() {
       <Toaster position="top-right" />
       <h1>TeamChess</h1>
 
+      {amDisconnected && (
+        <div
+          style={{
+            padding: '6px 10px',
+            background: '#ffe3e3',
+            border: '1px solid #ffb3b3',
+            borderRadius: 6,
+            marginBottom: 8,
+          }}
+        >
+          You’re offline. Try refreshing or wait for auto-reconnect…
+        </div>
+      )}
+
       {!joined ? (
         <div>
           {/* Name input */}
