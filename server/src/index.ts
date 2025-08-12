@@ -284,8 +284,18 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
 }
 
 // no instant auto-end on one-sided presence; clocks decide outcomes
-function endIfOneSided(_gameId: string, _state: GameState) {
-  /* disabled */
+function endIfOneSided(gameId: string, state: GameState) {
+  if (!state.started || state.ended) return;
+
+  const whiteAlive = state.whiteIds.size > 0;
+  const blackAlive = state.blackIds.size > 0;
+
+  if (whiteAlive && blackAlive) return;
+
+  // If one side is empty, the other side wins immediately.
+  // If somehow both are empty, we end with no winner.
+  const winner = whiteAlive ? 'white' : blackAlive ? 'black' : null;
+  endGame(gameId, EndReason.Resignation, winner);
 }
 
 function removePlayerPidFromSide(state: GameState, pid: string, side: Seat) {
@@ -322,6 +332,9 @@ function leave(this: Socket, explicit = false) {
 
       // remove from team sets using the side we still have on socket.data
       removePlayerPidFromSide(state, pid, (socket.data.side as Seat) || 'spectator');
+
+      // NEW: end immediately if a team is now empty
+      endIfOneSided(gameId, state);
 
       // if room is now empty, tear down
       if (!io.sockets.adapter.rooms.has(gameId)) {
@@ -450,6 +463,7 @@ io.on('connection', (socket: Socket) => {
       if (side === 'white') state.whiteIds.add(pid);
       else if (side === 'black') state.blackIds.add(pid);
       if (side === 'spectator') cleanupProposalByPid(gameId, state, pid);
+      endIfOneSided(gameId, state);
     }
     broadcastPlayers(gameId);
     cb?.({ success: true });
