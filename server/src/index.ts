@@ -313,34 +313,46 @@ function leave(this: Socket, explicit = false) {
 
   const finalize = (clearSession: boolean) => {
     if (state) {
+      // drop any pending move from this pid
       cleanupProposalByPid(gameId, state, pid);
+
+      // remove from team sets using the side we still have on socket.data
       removePlayerPidFromSide(state, pid, (socket.data.side as Seat) || 'spectator');
-      broadcastPlayers(gameId);
-      tryFinalizeTurn(gameId, state);
+
+      // if room is now empty, tear down
       if (!io.sockets.adapter.rooms.has(gameId)) {
         state.engine.quit();
         gameStates.delete(gameId);
       }
     }
+
     if (clearSession) {
       sess.gameId = undefined;
       sess.side = undefined;
     }
+
+    // tell everyone in the room right now
+    broadcastPlayers(gameId);
+    if (state) tryFinalizeTurn(gameId, state);
   };
 
   if (explicit) {
-    finalize(true); // user clicked Exit: immediate
+    // user clicked Exit → leave room immediately so they disappear at once
     socket.leave(gameId);
+    finalize(true);
     delete (socket.data as any).gameId;
     delete (socket.data as any).side;
-  } else {
-    // transient disconnect: wait before removal
-    if (sess.reconnectTimer) clearTimeout(sess.reconnectTimer);
-    sess.reconnectTimer = setTimeout(() => {
-      finalize(true); // time’s up → disappear and don’t auto-rejoin
-      sess.reconnectTimer = undefined;
-    }, DISCONNECT_GRACE_MS);
+    return;
   }
+
+  // transient disconnect → grace period before removal
+  if (sess.reconnectTimer) clearTimeout(sess.reconnectTimer);
+  sess.reconnectTimer = setTimeout(() => {
+    finalize(true);
+    sess.reconnectTimer = undefined;
+  }, DISCONNECT_GRACE_MS);
+
+  broadcastPlayers(gameId);
 }
 
 io.on('connection', (socket: Socket) => {
@@ -377,8 +389,8 @@ io.on('connection', (socket: Socket) => {
       if (state.ended)
         socket.emit('game_over', { reason: state.endReason, winner: state.endWinner });
       else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
-      broadcastPlayers(sess.gameId);
     }
+    broadcastPlayers(sess.gameId);
   }
 
   socket.on('create_game', ({ name }, cb) => {

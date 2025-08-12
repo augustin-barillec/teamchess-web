@@ -50,6 +50,7 @@ function sanToFan(san: string, side: 'white' | 'black'): string {
 }
 
 export default function App() {
+  const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket>();
   const [myId, setMyId] = useState<string>(''); // stable pid, not socket.id
   const [name, setName] = useState(localStorage.getItem(LS.name) || '');
@@ -129,6 +130,20 @@ export default function App() {
   }, [turns]);
 
   useEffect(() => {
+    if (!myId) return;
+    const serverSide = players.whitePlayers.some(p => p.id === myId)
+      ? 'white'
+      : players.blackPlayers.some(p => p.id === myId)
+        ? 'black'
+        : 'spectator';
+
+    if (serverSide !== side) {
+      setSide(serverSide);
+      localStorage.setItem(LS.side, serverSide);
+    }
+  }, [players, myId]);
+
+  useEffect(() => {
     // try restoring persistent pid & name on connect
     const storedPid = localStorage.getItem(LS.pid) || undefined;
     const storedName = localStorage.getItem(LS.name) || undefined;
@@ -145,8 +160,15 @@ export default function App() {
       }
     });
 
+    s.on('disconnect', () => {
+      // Locally mark *me* as disconnected so I see "(disconnected)" in the roster
+      setAmDisconnected(true);
+    });
+
     // optional: auto-rejoin a remembered game after reconnect/refresh
     s.on('connect', () => {
+      setAmDisconnected(false);
+
       const g = localStorage.getItem(LS.gameId);
       const n = localStorage.getItem(LS.name) || name || '';
       const rememberedSide =
@@ -253,6 +275,7 @@ export default function App() {
     (window as any).socket.emit('create_game', { name }, ({ gameId }: any) => {
       setGameId(gameId);
       setJoined(true);
+      setSide('spectator');
       localStorage.setItem(LS.gameId, gameId);
       localStorage.setItem(LS.side, 'spectator');
     });
@@ -275,6 +298,7 @@ export default function App() {
       if (res.error) alert(res.error);
       else {
         setJoined(true);
+        setSide('spectator'); // <-- add this
         localStorage.setItem(LS.gameId, gameId);
         localStorage.setItem(LS.side, 'spectator');
       }
@@ -507,7 +531,8 @@ export default function App() {
               <ul>
                 {players.spectators.map(p => {
                   const isMe = p.id === myId;
-                  const text = `${p.name}${p.connected ? '' : ' (disconnected)'}`;
+                  const disconnected = isMe ? amDisconnected : !p.connected;
+                  const text = `${p.name}${disconnected ? ' (disconnected)' : ''}`;
                   return (
                     <li
                       key={p.id}
@@ -531,7 +556,8 @@ export default function App() {
               <ul>
                 {players.whitePlayers.map(p => {
                   const isMe = p.id === myId;
-                  const text = `${p.name}${p.connected ? '' : ' (disconnected)'}`;
+                  const disconnected = isMe ? amDisconnected : !p.connected;
+                  const text = `${p.name}${disconnected ? ' (disconnected)' : ''}`;
                   return (
                     <li
                       key={p.id}
@@ -556,7 +582,8 @@ export default function App() {
               <ul>
                 {players.blackPlayers.map(p => {
                   const isMe = p.id === myId;
-                  const text = `${p.name}${p.connected ? '' : ' (disconnected)'}`;
+                  const disconnected = isMe ? amDisconnected : !p.connected;
+                  const text = `${p.name}${disconnected ? ' (disconnected)' : ''}`;
                   return (
                     <li
                       key={p.id}
