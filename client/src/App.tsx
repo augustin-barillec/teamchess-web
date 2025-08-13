@@ -69,6 +69,7 @@ export default function App() {
   const [gameOver, setGameOver] = useState(false);
   const [winner, setWinner] = useState<'white' | 'black' | null>(null);
   const [endReason, setEndReason] = useState<string | null>(null);
+  const [pgn, setPgn] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [turns, setTurns] = useState<
     {
@@ -146,9 +147,8 @@ export default function App() {
   useEffect(() => {
     // try restoring persistent pid & name on connect
     const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
-    const storedName = sessionStorage.getItem(STORAGE_KEYS.name) || undefined;
+    const storedName = sessionStorage.getItem(STORAGE_KEYS.name) || undefined; // faster retry cadence
 
-    // faster retry cadence
     const s = io('/', {
       auth: { pid: storedPid, name: storedName },
       reconnection: true,
@@ -157,35 +157,30 @@ export default function App() {
       reconnectionDelayMax: 2000,
       randomizationFactor: 0.2,
     });
-    setSocket(s);
+    setSocket(s); // react instantly to browser going offline/online
 
-    // react instantly to browser going offline/online
     const onOffline = () => {
-      setAmDisconnected(true);
-      // avoid wasting retries while offline; reconnect when back online
+      setAmDisconnected(true); // avoid wasting retries while offline; reconnect when back online
       if (s.connected) s.disconnect();
     };
     const onOnline = () => {
       if (!s.connected) s.connect();
     };
     window.addEventListener('offline', onOffline);
-    window.addEventListener('online', onOnline);
+    window.addEventListener('online', onOnline); // server confirms/assigns our stable pid
 
-    // server confirms/assigns our stable pid
     s.on('session', ({ id, name }: { id: string; name: string }) => {
       setMyId(id);
       sessionStorage.setItem(STORAGE_KEYS.pid, id);
       if (name && !sessionStorage.getItem(STORAGE_KEYS.name)) {
         sessionStorage.setItem(STORAGE_KEYS.name, name);
       }
-    });
+    }); // connectivity state → banner
 
-    // connectivity state → banner
     const showOffline = () => setAmDisconnected(true);
     s.on('connect', () => {
-      setAmDisconnected(false);
+      setAmDisconnected(false); // optional: auto-rejoin a remembered game after reconnect/refresh
 
-      // optional: auto-rejoin a remembered game after reconnect/refresh
       const g = sessionStorage.getItem(STORAGE_KEYS.gameId);
       const n = sessionStorage.getItem(STORAGE_KEYS.name) || name || '';
       const rememberedSide =
@@ -208,8 +203,7 @@ export default function App() {
     s.on('reconnect_attempt', showOffline);
     s.on('reconnect', () => setAmDisconnected(false));
     s.on('disconnect', (reason: string) => {
-      setAmDisconnected(true);
-      // if this was a manual/server disconnect, try to reconnect (but only if we're online)
+      setAmDisconnected(true); // if this was a manual/server disconnect, try to reconnect (but only if we're online)
       if (
         (reason === 'io client disconnect' || reason === 'io server disconnect') &&
         navigator.onLine
@@ -218,15 +212,15 @@ export default function App() {
           if (!s.connected) s.connect();
         }, 500);
       }
-    });
+    }); // ==== existing game events ====
 
-    // ==== existing game events ====
     s.on('players', (p: Players) => setPlayers(p));
     s.on('game_started', ({ moveNumber, side }: GameInfo) => {
       setGameStarted(true);
       setGameOver(false);
       setWinner(null);
       setEndReason(null);
+      setPgn('');
       setTurns([{ moveNumber, side, proposals: [] }]);
       setLastMoveSquares(null);
     });
@@ -235,6 +229,7 @@ export default function App() {
       setGameOver(false);
       setWinner(null);
       setEndReason(null);
+      setPgn('');
       setTurns([]);
       chess.reset();
       setPosition(chess.fen());
@@ -279,11 +274,15 @@ export default function App() {
         ),
       );
     });
-    s.on('game_over', ({ reason, winner }) => {
-      setGameOver(true);
-      setWinner(winner);
-      setEndReason(reason);
-    });
+    s.on(
+      'game_over',
+      ({ reason, winner, pgn }: { reason: string; winner: string | null; pgn: string }) => {
+        setGameOver(true);
+        setWinner(winner);
+        setEndReason(reason);
+        setPgn(pgn);
+      },
+    );
     s.on('chat_message', (msg: ChatMessage) => {
       setChatMessages(msgs => [...msgs, msg]);
     });
@@ -301,6 +300,7 @@ export default function App() {
     setGameOver(false);
     setWinner(null);
     setEndReason(null);
+    setPgn('');
     setTurns([]);
     chess.reset();
     setPosition(chess.fen());
@@ -323,6 +323,7 @@ export default function App() {
     setGameOver(false);
     setWinner(null);
     setEndReason(null);
+    setPgn('');
     setTurns([]);
     chess.reset();
     setPosition(chess.fen());
@@ -379,6 +380,7 @@ export default function App() {
     setGameOver(false);
     setWinner(null);
     setEndReason(null);
+    setPgn('');
     setTurns([]);
     chess.reset();
     setPosition(chess.fen());
@@ -460,7 +462,6 @@ export default function App() {
     <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
       <Toaster position="top-right" />
       <h1>TeamChess</h1>
-
       {amDisconnected && (
         <div
           style={{
@@ -474,7 +475,6 @@ export default function App() {
           You’re offline. Try refreshing or wait for auto-reconnect…
         </div>
       )}
-
       {!joined ? (
         <div>
           {/* Name input */}
@@ -488,7 +488,6 @@ export default function App() {
               }}
             />
           </div>
-
           {/* Buttons */}
           <div style={{ marginTop: 5 }}>
             <button onClick={createGame}>Create Game</button>
@@ -496,7 +495,6 @@ export default function App() {
               Join Game
             </button>
           </div>
-
           {/* Join form */}
           {showJoin && (
             <div style={{ marginTop: 5 }}>
@@ -538,21 +536,17 @@ export default function App() {
             >
               Copy
             </button>
-
             <button onClick={exitGame}>Exit Game</button>
           </p>
-
           {!gameStarted &&
             !gameOver &&
             players.whitePlayers.length > 0 &&
             players.blackPlayers.length > 0 && <button onClick={startGame}>Start Game</button>}
-
           {(gameStarted || gameOver) && (
             <div style={{ marginTop: 10, display: 'flex', gap: '0.5rem' }}>
               <button onClick={resetGame}>Reset Game</button>
             </div>
           )}
-
           {!gameOver && side === 'spectator' && (
             <div style={{ marginTop: 10 }}>
               <button onClick={autoAssign}>Auto Assign</button>
@@ -560,7 +554,6 @@ export default function App() {
               <button onClick={() => joinSide('black')}>Join Black</button>
             </div>
           )}
-
           {!gameOver && (side === 'white' || side === 'black') && (
             <div style={{ marginTop: 10 }}>
               <button onClick={joinSpectator}>Join Spectators</button>
@@ -574,7 +567,6 @@ export default function App() {
               )}
             </div>
           )}
-
           <div style={{ display: 'flex', gap: '2rem' }}>
             {/* Spectators */}
             <div>
@@ -600,7 +592,6 @@ export default function App() {
                 })}
               </ul>
             </div>
-
             {/* White */}
             <div>
               <h3>White</h3>
@@ -626,7 +617,6 @@ export default function App() {
                 })}
               </ul>
             </div>
-
             {/* Black */}
             <div>
               <h3>Black</h3>
@@ -653,7 +643,6 @@ export default function App() {
               </ul>
             </div>
           </div>
-
           {/* Board + Timers + Move List */}
           <div
             style={{
@@ -669,7 +658,6 @@ export default function App() {
               <div style={{ flexShrink: 0, width: 600 }}>
                 <Chessboard options={boardOptions} />
               </div>
-
               {/* Clocks */}
               <div
                 style={{
@@ -713,7 +701,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-
             {turns.some(t => t.selection) && (
               <div
                 ref={movesRef}
@@ -739,7 +726,7 @@ export default function App() {
                           const fan = p.san ? sanToFan(p.san, t.side) : '';
                           return (
                             <li key={p.id}>
-                              {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
+                              {p.id === myId ? <strong>{p.name}</strong> : p.name}:
                               {isSel ? <span style={{ color: 'green' }}>{p.lan}</span> : p.lan}
                               {fan && ` (${fan})`}
                             </li>
@@ -750,7 +737,6 @@ export default function App() {
                   ))}
               </div>
             )}
-
             {/* Chat */}
             <div
               style={{
@@ -831,7 +817,6 @@ export default function App() {
               </div>
             </div>
           </div>
-
           <div style={{ marginTop: 10, fontSize: '2rem' }}>
             {/* White lost */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -866,14 +851,31 @@ export default function App() {
               <span>{lostBlackPieces.join(' ')}</span>
             </div>
           </div>
-
           {gameOver && (
-            <div style={{ marginTop: 20, fontSize: '1.2em' }}>
-              <p>
+            <div style={{ marginTop: 20 }}>
+              <p style={{ fontSize: '1.2em', margin: 0, marginBottom: '1rem' }}>
                 {endReason && reasonMessages[endReason]
                   ? reasonMessages[endReason](winner)
                   : `🎉 Game over! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`}
               </p>
+              {pgn && (
+                <div>
+                  <strong>PGN</strong>
+                  <textarea
+                    readOnly
+                    value={pgn}
+                    onFocus={e => e.currentTarget.select()}
+                    style={{
+                      width: '100%',
+                      minHeight: 120,
+                      boxSizing: 'border-box',
+                      marginTop: 5,
+                      fontFamily: 'monospace',
+                      fontSize: '0.9em',
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
         </>

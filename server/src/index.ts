@@ -87,7 +87,8 @@ function endGame(gameId: string, reason: string, winner: string | null = null) {
   state.ended = true;
   state.endReason = reason;
   state.endWinner = winner;
-  io.in(gameId).emit('game_over', { reason, winner });
+  const pgn = state.chess.pgn();
+  io.in(gameId).emit('game_over', { reason, winner, pgn });
 }
 
 function startClock(gameId: string) {
@@ -151,10 +152,9 @@ function broadcastPlayers(gameId: string) {
     [...room]
       .map(sid => io.sockets.sockets.get(sid)?.data.pid as string | undefined)
       .filter((pid): pid is string => Boolean(pid)),
-  );
-
-  // Using the shared Player type (id, name). We'll attach 'connected' transiently
+  ); // Using the shared Player type (id, name). We'll attach 'connected' transiently
   // and then emit; the client can read it, TS is fine because we cast on push.
+
   const spectators: Player[] = [];
   const whitePlayers: Player[] = [];
   const blackPlayers: Player[] = [];
@@ -216,9 +216,8 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
         blackTime: state.blackTime,
       });
 
-      const [selPid] = entries.find(([, v]) => v === selLan)!;
+      const [selPid] = entries.find(([, v]) => v === selLan)!; // find a live socket to read the name, fallback to sessions
 
-      // find a live socket to read the name, fallback to sessions
       let selName: string | undefined;
       for (const sid of room) {
         const sock = io.sockets.sockets.get(sid);
@@ -290,10 +289,9 @@ function endIfOneSided(gameId: string, state: GameState) {
   const whiteAlive = state.whiteIds.size > 0;
   const blackAlive = state.blackIds.size > 0;
 
-  if (whiteAlive && blackAlive) return;
-
-  // If one side is empty, the other side wins immediately.
+  if (whiteAlive && blackAlive) return; // If one side is empty, the other side wins immediately.
   // If somehow both are empty, we end with no winner.
+
   const winner = whiteAlive ? 'white' : blackAlive ? 'black' : null;
   endGame(gameId, EndReason.Resignation, winner);
 }
@@ -328,15 +326,12 @@ function leave(this: Socket, explicit = false) {
   const finalize = (clearSession: boolean) => {
     if (state) {
       // drop any pending move from this pid
-      cleanupProposalByPid(gameId, state, pid);
+      cleanupProposalByPid(gameId, state, pid); // remove from team sets using the side we still have on socket.data
 
-      // remove from team sets using the side we still have on socket.data
-      removePlayerPidFromSide(state, pid, (socket.data.side as Seat) || 'spectator');
+      removePlayerPidFromSide(state, pid, (socket.data.side as Seat) || 'spectator'); // NEW: end immediately if a team is now empty
 
-      // NEW: end immediately if a team is now empty
-      endIfOneSided(gameId, state);
+      endIfOneSided(gameId, state); // if room is now empty, tear down
 
-      // if room is now empty, tear down
       if (!io.sockets.adapter.rooms.has(gameId)) {
         state.engine.quit();
         gameStates.delete(gameId);
@@ -346,9 +341,8 @@ function leave(this: Socket, explicit = false) {
     if (clearSession) {
       sess.gameId = undefined;
       sess.side = undefined;
-    }
+    } // tell everyone in the room right now
 
-    // tell everyone in the room right now
     broadcastPlayers(gameId);
     if (state) tryFinalizeTurn(gameId, state);
   };
@@ -360,9 +354,8 @@ function leave(this: Socket, explicit = false) {
     delete (socket.data as any).gameId;
     delete (socket.data as any).side;
     return;
-  }
+  } // transient disconnect → grace period before removal
 
-  // transient disconnect → grace period before removal
   if (sess.reconnectTimer) clearTimeout(sess.reconnectTimer);
   sess.reconnectTimer = setTimeout(() => {
     finalize(true);
@@ -391,9 +384,8 @@ io.on('connection', (socket: Socket) => {
 
   socket.data.pid = pid;
   socket.data.name = sess.name;
-  socket.emit('session', { id: pid, name: sess.name });
+  socket.emit('session', { id: pid, name: sess.name }); // if the session remembers a room and it exists, silently rejoin
 
-  // if the session remembers a room and it exists, silently rejoin
   if (sess.gameId && io.sockets.adapter.rooms.has(sess.gameId)) {
     socket.join(sess.gameId);
     socket.data.gameId = sess.gameId;
@@ -404,7 +396,11 @@ io.on('connection', (socket: Socket) => {
       socket.emit('position_update', { fen: state.chess.fen() });
       socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
       if (state.ended)
-        socket.emit('game_over', { reason: state.endReason, winner: state.endWinner });
+        socket.emit('game_over', {
+          reason: state.endReason,
+          winner: state.endWinner,
+          pgn: state.chess.pgn(),
+        });
       else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
     }
     broadcastPlayers(sess.gameId);
@@ -440,7 +436,12 @@ io.on('connection', (socket: Socket) => {
     if (!state || !state.started) return;
     socket.emit('position_update', { fen: state.chess.fen() });
     socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
-    if (state.ended) socket.emit('game_over', { reason: state.endReason, winner: state.endWinner });
+    if (state.ended)
+      socket.emit('game_over', {
+        reason: state.endReason,
+        winner: state.endWinner,
+        pgn: state.chess.pgn(),
+      });
     else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
   });
 
