@@ -5,8 +5,8 @@ import { Chess } from 'chess.js';
 import { Chessboard, PieceDropHandlerArgs, PieceHandlerArgs } from 'react-chessboard';
 import { Players, GameInfo, Proposal, Selection, EndReason, ChatMessage } from '@teamchess/shared';
 
-// localStorage keys
-const LS = {
+// sessionStorage keys
+const STORAGE_KEYS = {
   pid: 'tc:pid',
   name: 'tc:name',
   gameId: 'tc:game',
@@ -53,12 +53,12 @@ export default function App() {
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket>();
   const [myId, setMyId] = useState<string>(''); // stable pid, not socket.id
-  const [name, setName] = useState(localStorage.getItem(LS.name) || '');
+  const [name, setName] = useState(sessionStorage.getItem(STORAGE_KEYS.name) || '');
   const [showJoin, setShowJoin] = useState(false);
-  const [gameId, setGameId] = useState(localStorage.getItem(LS.gameId) || '');
+  const [gameId, setGameId] = useState(sessionStorage.getItem(STORAGE_KEYS.gameId) || '');
   const [joined, setJoined] = useState(false);
   const [side, setSide] = useState<'spectator' | 'white' | 'black'>(
-    (localStorage.getItem(LS.side) as 'spectator' | 'white' | 'black') || 'spectator',
+    (sessionStorage.getItem(STORAGE_KEYS.side) as 'spectator' | 'white' | 'black') || 'spectator',
   );
   const [players, setPlayers] = useState<Players>({
     spectators: [],
@@ -139,14 +139,14 @@ export default function App() {
 
     if (serverSide !== side) {
       setSide(serverSide);
-      localStorage.setItem(LS.side, serverSide);
+      sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId]);
 
   useEffect(() => {
     // try restoring persistent pid & name on connect
-    const storedPid = localStorage.getItem(LS.pid) || undefined;
-    const storedName = localStorage.getItem(LS.name) || undefined;
+    const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
+    const storedName = sessionStorage.getItem(STORAGE_KEYS.name) || undefined;
 
     // faster retry cadence
     const s = io('/', {
@@ -174,9 +174,9 @@ export default function App() {
     // server confirms/assigns our stable pid
     s.on('session', ({ id, name }: { id: string; name: string }) => {
       setMyId(id);
-      localStorage.setItem(LS.pid, id);
-      if (name && !localStorage.getItem(LS.name)) {
-        localStorage.setItem(LS.name, name);
+      sessionStorage.setItem(STORAGE_KEYS.pid, id);
+      if (name && !sessionStorage.getItem(STORAGE_KEYS.name)) {
+        sessionStorage.setItem(STORAGE_KEYS.name, name);
       }
     });
 
@@ -186,10 +186,11 @@ export default function App() {
       setAmDisconnected(false);
 
       // optional: auto-rejoin a remembered game after reconnect/refresh
-      const g = localStorage.getItem(LS.gameId);
-      const n = localStorage.getItem(LS.name) || name || '';
+      const g = sessionStorage.getItem(STORAGE_KEYS.gameId);
+      const n = sessionStorage.getItem(STORAGE_KEYS.name) || name || '';
       const rememberedSide =
-        (localStorage.getItem(LS.side) as 'white' | 'black' | 'spectator' | null) || 'spectator';
+        (sessionStorage.getItem(STORAGE_KEYS.side) as 'white' | 'black' | 'spectator' | null) ||
+        'spectator';
       if (g && n) {
         s.emit('join_game', { gameId: g, name: n }, (res: any) => {
           if (!res?.error) {
@@ -307,13 +308,13 @@ export default function App() {
     setLastMoveSquares(null);
     setChatMessages([]);
     if (!name.trim()) return alert('Enter your name.');
-    localStorage.setItem(LS.name, name);
+    sessionStorage.setItem(STORAGE_KEYS.name, name);
     (window as any).socket.emit('create_game', { name }, ({ gameId }: any) => {
       setGameId(gameId);
       setJoined(true);
       setSide('spectator');
-      localStorage.setItem(LS.gameId, gameId);
-      localStorage.setItem(LS.side, 'spectator');
+      sessionStorage.setItem(STORAGE_KEYS.gameId, gameId);
+      sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
     });
   };
 
@@ -329,14 +330,14 @@ export default function App() {
     setLastMoveSquares(null);
     setChatMessages([]);
     if (!name.trim() || !gameId.trim()) return alert('Enter name & game ID.');
-    localStorage.setItem(LS.name, name);
+    sessionStorage.setItem(STORAGE_KEYS.name, name);
     (window as any).socket.emit('join_game', { gameId, name }, (res: any) => {
       if (res.error) alert(res.error);
       else {
         setJoined(true);
         setSide('spectator'); // <-- add this
-        localStorage.setItem(LS.gameId, gameId);
-        localStorage.setItem(LS.side, 'spectator');
+        sessionStorage.setItem(STORAGE_KEYS.gameId, gameId);
+        sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
       }
     });
   };
@@ -345,7 +346,7 @@ export default function App() {
     (window as any).socket.emit('join_side', { side: s }, (res: any) => {
       if (res.error) alert(res.error);
       else setSide(s);
-      localStorage.setItem(LS.side, s);
+      sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
 
   const autoAssign = () => {
@@ -384,8 +385,8 @@ export default function App() {
     setClocks({ whiteTime: 0, blackTime: 0 });
     setLastMoveSquares(null);
     setChatMessages([]);
-    localStorage.removeItem(LS.gameId);
-    localStorage.setItem(LS.side, 'spectator');
+    sessionStorage.removeItem(STORAGE_KEYS.gameId);
+    sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
   };
 
   function needsPromotion(from: string, to: string) {
@@ -483,7 +484,7 @@ export default function App() {
               value={name}
               onChange={e => {
                 setName(e.target.value);
-                localStorage.setItem(LS.name, e.target.value);
+                sessionStorage.setItem(STORAGE_KEYS.name, e.target.value);
               }}
             />
           </div>
