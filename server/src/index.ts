@@ -87,7 +87,10 @@ function endGame(gameId: string, reason: string, winner: string | null = null) {
   state.ended = true;
   state.endReason = reason;
   state.endWinner = winner;
-  const pgn = state.chess.pgn();
+  const fullPgn = state.chess.pgn();
+  // Strip the PGN headers. The move text is separated from the
+  // headers by a blank line, so we can use a regex to remove them.
+  const pgn = fullPgn.replace(/^\[.*\]\n/gm, '').trim();
   io.in(gameId).emit('game_over', { reason, winner, pgn });
 }
 

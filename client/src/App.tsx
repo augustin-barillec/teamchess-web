@@ -458,6 +458,26 @@ export default function App() {
 
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
 
+  const copyPgn = () => {
+    if (!pgn) return;
+    // Use the older `execCommand` for http compatibility. A textarea is
+    // used to preserve newlines in the PGN string.
+    const textArea = document.createElement('textarea');
+    textArea.value = pgn;
+    textArea.style.position = 'absolute';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      const success = document.execCommand('copy');
+      toast.success(success ? 'PGN copied!' : 'Copy failed.');
+    } catch (err) {
+      console.error('Failed to copy PGN:', err);
+      toast.error('Could not copy PGN.');
+    }
+    document.body.removeChild(textArea);
+  };
+
   return (
     <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
       <Toaster position="top-right" />
@@ -860,20 +880,34 @@ export default function App() {
               </p>
               {pgn && (
                 <div>
-                  <strong>PGN</strong>
-                  <textarea
-                    readOnly
-                    value={pgn}
-                    onFocus={e => e.currentTarget.select()}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem', // This creates space between the items
+                    }}
+                  >
+                    <strong>PGN</strong>
+                    <button onClick={copyPgn}>Copy</button>
+                  </div>
+                  <pre
                     style={{
                       width: '100%',
-                      minHeight: 120,
+                      padding: '10px',
                       boxSizing: 'border-box',
                       marginTop: 5,
+                      background: '#fafafa',
+                      border: '1px solid #ccc',
+                      borderRadius: 4,
                       fontFamily: 'monospace',
                       fontSize: '0.9em',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      margin: 0,
                     }}
-                  />
+                  >
+                    {pgn}
+                  </pre>
                 </div>
               )}
             </div>
