@@ -1,15 +1,16 @@
+// Player and Chat
 export interface Player {
   /** Stable player id (pid), not the transient socket.id */
   id: string;
   name: string;
+  connected: boolean;
 }
 
-export interface Player {
-  /** Stable player id (pid), not the transient socket.id */
-  id: string;
-  name: string;
-  connected: boolean; // <— NEW
-}
+export type Players = {
+  spectators: Player[];
+  whitePlayers: Player[];
+  blackPlayers: Player[];
+};
 
 export type ChatMessage = {
   sender: string;
@@ -17,6 +18,7 @@ export type ChatMessage = {
   message: string;
 };
 
+// Game Mechanics
 export type GameInfo = { moveNumber: number; side: 'white' | 'black' };
 
 export type Proposal = {
@@ -27,8 +29,10 @@ export type Proposal = {
   lan: string;
   san?: string;
 };
+
 export type Selection = Proposal & { fen: string };
 
+// Game State
 export enum EndReason {
   Checkmate = 'checkmate',
   Stalemate = 'stalemate',

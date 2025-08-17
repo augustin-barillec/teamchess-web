@@ -5,7 +5,7 @@ import { Chess } from 'chess.js';
 import { Chessboard, PieceDropHandlerArgs, PieceHandlerArgs } from 'react-chessboard';
 import { Players, GameInfo, Proposal, Selection, EndReason, ChatMessage } from '@teamchess/shared';
 
-// sessionStorage keys
+// Constants and Helpers
 const STORAGE_KEYS = {
   pid: 'tc:pid',
   name: 'tc:name',
@@ -15,18 +15,17 @@ const STORAGE_KEYS = {
 
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
-    `☑️ Checkmate! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
+    `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
   [EndReason.Stalemate]: () => `🤝 Game drawn by stalemate.`,
   [EndReason.Threefold]: () => `🤝 Game drawn by threefold repetition.`,
   [EndReason.Insufficient]: () => `🤝 Game drawn by insufficient material.`,
   [EndReason.DrawRule]: () => `🤝 Game drawn by rule (e.g. fifty-move).`,
   [EndReason.Resignation]: winner =>
-    `🏳️ Resignation! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
+    `🏳️ Resignation!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
   [EndReason.DrawAgreement]: () => `🤝 Draw agreed by both players.`,
-  [EndReason.Timeout]: winner => `⏱️ Time! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
+  [EndReason.Timeout]: winner => `⏱️ Time!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
 };
 
-// helper for FAN
 const pieceToFigurineWhite: Record<string, string> = {
   K: '♔',
   Q: '♕',
@@ -49,7 +48,9 @@ function sanToFan(san: string, side: 'white' | 'black'): string {
   return san.replace(/[KQRBNP]/g, m => map[m]);
 }
 
+// App Component
 export default function App() {
+  // State Management
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket>();
   const [myId, setMyId] = useState<string>(''); // stable pid, not socket.id
@@ -72,12 +73,7 @@ export default function App() {
   const [pgn, setPgn] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [turns, setTurns] = useState<
-    {
-      moveNumber: number;
-      side: 'white' | 'black';
-      proposals: Proposal[];
-      selection?: Selection;
-    }[]
+    { moveNumber: number; side: 'white' | 'black'; proposals: Proposal[]; selection?: Selection }[]
   >([]);
   const [chess] = useState(new Chess());
   const [position, setPosition] = useState(chess.fen());
@@ -85,10 +81,16 @@ export default function App() {
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
   const [legalSquareStyles, setLegalSquareStyles] = useState<Record<string, CSSProperties>>({});
 
+  // Derived State and Refs
+  const movesRef = useRef<HTMLDivElement>(null);
+  const current = turns[turns.length - 1];
+  const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
+
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1 };
     const currWhite: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
     const currBlack: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
+
     chess
       .board()
       .flat()
@@ -99,25 +101,28 @@ export default function App() {
           else currBlack[type]++;
         }
       });
+
     const lostW: { type: string; figurine: string }[] = [];
     const lostB: { type: string; figurine: string }[] = [];
+    const order = ['P', 'N', 'B', 'R', 'Q', 'K'];
+    const values: Record<string, number> = { P: 1, N: 3, B: 3, R: 5, Q: 9, K: 0 };
+
     Object.entries(initial).forEach(([type, count]) => {
       const wCount = currWhite[type] || 0;
       const bCount = currBlack[type] || 0;
-      for (let i = 0; i < count - wCount; i++) {
+      for (let i = 0; i < count - wCount; i++)
         lostW.push({ type, figurine: pieceToFigurineWhite[type] });
-      }
-      for (let i = 0; i < count - bCount; i++) {
+      for (let i = 0; i < count - bCount; i++)
         lostB.push({ type, figurine: pieceToFigurineBlack[type] });
-      }
     });
-    const order = ['P', 'N', 'B', 'R', 'Q', 'K'];
+
     lostW.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     lostB.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
-    const values: Record<string, number> = { P: 1, N: 3, B: 3, R: 5, Q: 9, K: 0 };
+
     const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
     const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
     const materialBalance = blackLostValue - whiteLostValue; // + = White up
+
     return {
       lostWhitePieces: lostW.map(p => p.figurine),
       lostBlackPieces: lostB.map(p => p.figurine),
@@ -125,7 +130,7 @@ export default function App() {
     };
   }, [position]);
 
-  const movesRef = useRef<HTMLDivElement>(null);
+  // Side Effects
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns]);
@@ -137,7 +142,6 @@ export default function App() {
       : players.blackPlayers.some(p => p.id === myId)
         ? 'black'
         : 'spectator';
-
     if (serverSide !== side) {
       setSide(serverSide);
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
@@ -145,9 +149,8 @@ export default function App() {
   }, [players, myId]);
 
   useEffect(() => {
-    // try restoring persistent pid & name on connect
     const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
-    const storedName = sessionStorage.getItem(STORAGE_KEYS.name) || undefined; // faster retry cadence
+    const storedName = sessionStorage.getItem(STORAGE_KEYS.name) || undefined;
 
     const s = io('/', {
       auth: { pid: storedPid, name: storedName },
@@ -157,30 +160,31 @@ export default function App() {
       reconnectionDelayMax: 2000,
       randomizationFactor: 0.2,
     });
-    setSocket(s); // react instantly to browser going offline/online
+    setSocket(s);
 
+    // Browser connectivity
     const onOffline = () => {
-      setAmDisconnected(true); // avoid wasting retries while offline; reconnect when back online
+      setAmDisconnected(true);
       if (s.connected) s.disconnect();
     };
     const onOnline = () => {
       if (!s.connected) s.connect();
     };
     window.addEventListener('offline', onOffline);
-    window.addEventListener('online', onOnline); // server confirms/assigns our stable pid
+    window.addEventListener('online', onOnline);
 
+    // Socket.IO event listeners
     s.on('session', ({ id, name }: { id: string; name: string }) => {
       setMyId(id);
       sessionStorage.setItem(STORAGE_KEYS.pid, id);
       if (name && !sessionStorage.getItem(STORAGE_KEYS.name)) {
         sessionStorage.setItem(STORAGE_KEYS.name, name);
       }
-    }); // connectivity state → banner
+    });
 
     const showOffline = () => setAmDisconnected(true);
     s.on('connect', () => {
-      setAmDisconnected(false); // optional: auto-rejoin a remembered game after reconnect/refresh
-
+      setAmDisconnected(false);
       const g = sessionStorage.getItem(STORAGE_KEYS.gameId);
       const n = sessionStorage.getItem(STORAGE_KEYS.name) || name || '';
       const rememberedSide =
@@ -203,7 +207,7 @@ export default function App() {
     s.on('reconnect_attempt', showOffline);
     s.on('reconnect', () => setAmDisconnected(false));
     s.on('disconnect', (reason: string) => {
-      setAmDisconnected(true); // if this was a manual/server disconnect, try to reconnect (but only if we're online)
+      setAmDisconnected(true);
       if (
         (reason === 'io client disconnect' || reason === 'io server disconnect') &&
         navigator.onLine
@@ -212,7 +216,7 @@ export default function App() {
           if (!s.connected) s.connect();
         }, 500);
       }
-    }); // ==== existing game events ====
+    });
 
     s.on('players', (p: Players) => setPlayers(p));
     s.on('game_started', ({ moveNumber, side }: GameInfo) => {
@@ -288,6 +292,7 @@ export default function App() {
     });
 
     (window as any).socket = s;
+
     return () => {
       window.removeEventListener('offline', onOffline);
       window.removeEventListener('online', onOnline);
@@ -295,7 +300,8 @@ export default function App() {
     };
   }, [chess]);
 
-  const createGame = () => {
+  // Event Handlers and Functions
+  const resetLocalGameState = () => {
     setGameStarted(false);
     setGameOver(false);
     setWinner(null);
@@ -307,6 +313,10 @@ export default function App() {
     setClocks({ whiteTime: 0, blackTime: 0 });
     setLastMoveSquares(null);
     setChatMessages([]);
+  };
+
+  const createGame = () => {
+    resetLocalGameState();
     if (!name.trim()) return alert('Enter your name.');
     sessionStorage.setItem(STORAGE_KEYS.name, name);
     (window as any).socket.emit('create_game', { name }, ({ gameId }: any) => {
@@ -319,28 +329,27 @@ export default function App() {
   };
 
   const joinGame = () => {
-    setGameStarted(false);
-    setGameOver(false);
-    setWinner(null);
-    setEndReason(null);
-    setPgn('');
-    setTurns([]);
-    chess.reset();
-    setPosition(chess.fen());
-    setClocks({ whiteTime: 0, blackTime: 0 });
-    setLastMoveSquares(null);
-    setChatMessages([]);
+    resetLocalGameState();
     if (!name.trim() || !gameId.trim()) return alert('Enter name & game ID.');
     sessionStorage.setItem(STORAGE_KEYS.name, name);
     (window as any).socket.emit('join_game', { gameId, name }, (res: any) => {
       if (res.error) alert(res.error);
       else {
         setJoined(true);
-        setSide('spectator'); // <-- add this
+        setSide('spectator');
         sessionStorage.setItem(STORAGE_KEYS.gameId, gameId);
         sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
       }
     });
+  };
+
+  const exitGame = () => {
+    (window as any).socket.emit('exit_game');
+    setJoined(false);
+    setSide('spectator');
+    resetLocalGameState();
+    sessionStorage.removeItem(STORAGE_KEYS.gameId);
+    sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
   };
 
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
@@ -361,34 +370,13 @@ export default function App() {
   };
 
   const joinSpectator = () => joinSide('spectator');
-
   const startGame = () => (window as any).socket.emit('start_game');
-
   const resetGame = () => {
     const s = socket;
     if (!s) return;
     s.emit('reset_game', (res: { success: boolean; error?: string }) => {
       if (res.error) return alert(res.error);
     });
-  };
-
-  const exitGame = () => {
-    (window as any).socket.emit('exit_game');
-    setJoined(false);
-    setSide('spectator');
-    setGameStarted(false);
-    setGameOver(false);
-    setWinner(null);
-    setEndReason(null);
-    setPgn('');
-    setTurns([]);
-    chess.reset();
-    setPosition(chess.fen());
-    setClocks({ whiteTime: 0, blackTime: 0 });
-    setLastMoveSquares(null);
-    setChatMessages([]);
-    sessionStorage.removeItem(STORAGE_KEYS.gameId);
-    sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
   };
 
   function needsPromotion(from: string, to: string) {
@@ -398,8 +386,25 @@ export default function App() {
     return piece.color === 'w' ? rank === '8' : rank === '1';
   }
 
-  const current = turns[turns.length - 1];
-  const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
+  const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
+
+  const copyPgn = () => {
+    if (!pgn) return;
+    const textArea = document.createElement('textarea');
+    textArea.value = pgn;
+    textArea.style.position = 'absolute';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      const success = document.execCommand('copy');
+      toast.success(success ? 'PGN copied!' : 'Copy failed.');
+    } catch (err) {
+      console.error('Failed to copy PGN:', err);
+      toast.error('Could not copy PGN.');
+    }
+    document.body.removeChild(textArea);
+  };
 
   const boardOptions = {
     position,
@@ -430,8 +435,7 @@ export default function App() {
       const from = sourceSquare;
       const to = targetSquare;
 
-      if (!gameStarted || gameOver) return false;
-      if (side !== current.side) return false;
+      if (!gameStarted || gameOver || side !== current.side) return false;
 
       let promotion: 'q' | 'r' | 'b' | 'n' | undefined;
       if (needsPromotion(from, to)) {
@@ -456,28 +460,7 @@ export default function App() {
     },
   };
 
-  const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
-
-  const copyPgn = () => {
-    if (!pgn) return;
-    // Use the older `execCommand` for http compatibility. A textarea is
-    // used to preserve newlines in the PGN string.
-    const textArea = document.createElement('textarea');
-    textArea.value = pgn;
-    textArea.style.position = 'absolute';
-    textArea.style.left = '-9999px';
-    document.body.appendChild(textArea);
-    textArea.select();
-    try {
-      const success = document.execCommand('copy');
-      toast.success(success ? 'PGN copied!' : 'Copy failed.');
-    } catch (err) {
-      console.error('Failed to copy PGN:', err);
-      toast.error('Could not copy PGN.');
-    }
-    document.body.removeChild(textArea);
-  };
-
+  // Render Logic
   return (
     <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
       <Toaster position="top-right" />
@@ -497,7 +480,6 @@ export default function App() {
       )}
       {!joined ? (
         <div>
-          {/* Name input */}
           <div>
             <input
               placeholder="Your name"
@@ -508,14 +490,12 @@ export default function App() {
               }}
             />
           </div>
-          {/* Buttons */}
           <div style={{ marginTop: 5 }}>
             <button onClick={createGame}>Create Game</button>
             <button onClick={() => setShowJoin(s => !s)} style={{ marginLeft: 5 }}>
               Join Game
             </button>
           </div>
-          {/* Join form */}
           {showJoin && (
             <div style={{ marginTop: 5 }}>
               <input
@@ -588,7 +568,6 @@ export default function App() {
             </div>
           )}
           <div style={{ display: 'flex', gap: '2rem' }}>
-            {/* Spectators */}
             <div>
               <h3>Spectators</h3>
               <ul>
@@ -612,7 +591,6 @@ export default function App() {
                 })}
               </ul>
             </div>
-            {/* White */}
             <div>
               <h3>White</h3>
               <ul>
@@ -637,7 +615,6 @@ export default function App() {
                 })}
               </ul>
             </div>
-            {/* Black */}
             <div>
               <h3>Black</h3>
               <ul>
@@ -663,22 +640,11 @@ export default function App() {
               </ul>
             </div>
           </div>
-          {/* Board + Timers + Move List */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1.5rem',
-              marginTop: 20,
-            }}
-          >
-            {/* 1) Chessboard + clocks wrapper */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginTop: 20 }}>
             <div style={{ display: 'flex', gap: '1rem' }}>
-              {/* Board */}
               <div style={{ flexShrink: 0, width: 600 }}>
                 <Chessboard options={boardOptions} />
               </div>
-              {/* Clocks */}
               <div
                 style={{
                   display: 'flex',
@@ -691,7 +657,6 @@ export default function App() {
                   height: 600,
                 }}
               >
-                {/* white clock */}
                 <div
                   style={{
                     padding: '6px 12px',
@@ -705,7 +670,6 @@ export default function App() {
                   {String(Math.floor(clocks.whiteTime / 60)).padStart(2, '0')}:
                   {String(clocks.whiteTime % 60).padStart(2, '0')}
                 </div>
-                {/* black clock */}
                 <div
                   style={{
                     padding: '6px 12px',
@@ -746,7 +710,7 @@ export default function App() {
                           const fan = p.san ? sanToFan(p.san, t.side) : '';
                           return (
                             <li key={p.id}>
-                              {p.id === myId ? <strong>{p.name}</strong> : p.name}:
+                              {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
                               {isSel ? <span style={{ color: 'green' }}>{p.lan}</span> : p.lan}
                               {fan && ` (${fan})`}
                             </li>
@@ -757,7 +721,6 @@ export default function App() {
                   ))}
               </div>
             )}
-            {/* Chat */}
             <div
               style={{
                 display: 'flex',
@@ -838,7 +801,6 @@ export default function App() {
             </div>
           </div>
           <div style={{ marginTop: 10, fontSize: '2rem' }}>
-            {/* White lost */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span
                 style={{
@@ -854,7 +816,6 @@ export default function App() {
               </span>
               <span>{lostWhitePieces.join(' ')}</span>
             </div>
-            {/* Black lost */}
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span
                 style={{
@@ -880,13 +841,7 @@ export default function App() {
               </p>
               {pgn && (
                 <div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem', // This creates space between the items
-                    }}
-                  >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <strong>PGN</strong>
                     <button onClick={copyPgn}>Copy</button>
                   </div>
