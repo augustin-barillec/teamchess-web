@@ -7,7 +7,7 @@ import cors from 'cors';
 import { nanoid } from 'nanoid';
 import { Chess } from 'chess.js';
 import path from 'path';
-import { Player, EndReason } from '@teamchess/shared';
+import { Player, EndReason, GameStatus } from '@teamchess/shared';
 
 // Constants and Types
 const DISCONNECT_GRACE_MS = 20000;
@@ -19,10 +19,8 @@ const stockfishPath = path.join(
   'src',
   'stockfish-nnue-16.js',
 );
-
 type Side = 'white' | 'black' | 'spectator';
 type PlayerSide = 'white' | 'black';
-
 type Session = {
   pid: string; // stable player id
   name: string;
@@ -42,8 +40,7 @@ interface GameState {
   timerInterval?: NodeJS.Timeout;
   engine: ReturnType<typeof loadEngine>;
   chess: Chess;
-  started: boolean;
-  ended: boolean;
+  status: GameStatus.Active | GameStatus.Over;
   endReason?: string;
   endWinner?: string | null;
 }
@@ -93,11 +90,9 @@ function broadcastPlayers(gameId: string) {
       .map(sid => io.sockets.sockets.get(sid)?.data.pid as string | undefined)
       .filter((pid): pid is string => Boolean(pid)),
   );
-
   const spectators: Player[] = [];
   const whitePlayers: Player[] = [];
   const blackPlayers: Player[] = [];
-
   for (const sess of sessions.values()) {
     if (sess.gameId !== gameId) continue;
     const pid = sess.pid;
@@ -116,11 +111,11 @@ function broadcastPlayers(gameId: string) {
 
 function endGame(gameId: string, reason: string, winner: string | null = null) {
   const state = gameStates.get(gameId);
-  if (!state || state.ended) return;
+  if (!state || state.status === GameStatus.Over) return;
 
   if (state.timerInterval) clearInterval(state.timerInterval);
   state.engine.quit();
-  state.ended = true;
+  state.status = GameStatus.Over;
   state.endReason = reason;
   state.endWinner = winner;
   const pgn = getCleanPgn(state.chess);
@@ -129,14 +124,13 @@ function endGame(gameId: string, reason: string, winner: string | null = null) {
 
 function startClock(gameId: string) {
   const state = gameStates.get(gameId);
-  if (!state || state.ended) return;
+  if (!state || state.status !== GameStatus.Active) return;
   if (state.timerInterval) clearInterval(state.timerInterval);
 
   io.in(gameId).emit('clock_update', {
     whiteTime: state.whiteTime,
     blackTime: state.blackTime,
   });
-
   state.timerInterval = setInterval(() => {
     if (state.side === 'white') state.whiteTime--;
     else state.blackTime--;
@@ -161,7 +155,6 @@ async function chooseBestMove(
   timeoutMs = 5000,
 ) {
   if (candidates.length === 1) return candidates[0];
-
   return new Promise<string>(resolve => {
     let done = false;
     engine.send(`position fen ${fen}`);
@@ -184,7 +177,7 @@ async function chooseBestMove(
 }
 
 function tryFinalizeTurn(gameId: string, state: GameState) {
-  if (!state.started || state.ended) return;
+  if (state.status !== GameStatus.Active) return;
 
   const room = io.sockets.adapter.rooms.get(gameId) || new Set<string>();
   const onlinePids = new Set(
@@ -255,7 +248,6 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
           fen,
         }),
       );
-
       if (state.chess.isGameOver()) {
         let reason: string;
         let winner: 'white' | 'black' | null = null;
@@ -287,7 +279,7 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
 }
 
 function endIfOneSided(gameId: string, state: GameState) {
-  if (!state.started || state.ended) return;
+  if (state.status !== GameStatus.Active) return;
 
   const whiteAlive = state.whiteIds.size > 0;
   const blackAlive = state.blackIds.size > 0;
@@ -397,7 +389,7 @@ io.on('connection', (socket: Socket) => {
       (sess.side === 'white' ? state.whiteIds : state.blackIds).add(pid);
       socket.emit('position_update', { fen: state.chess.fen() });
       socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
-      if (state.ended) {
+      if (state.status === GameStatus.Over) {
         socket.emit('game_over', {
           reason: state.endReason,
           winner: state.endWinner,
@@ -435,10 +427,10 @@ io.on('connection', (socket: Socket) => {
     broadcastPlayers(gameId);
 
     const state = gameStates.get(gameId);
-    if (!state || !state.started) return;
+    if (!state) return;
     socket.emit('position_update', { fen: state.chess.fen() });
     socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
-    if (state.ended)
+    if (state.status === GameStatus.Over)
       socket.emit('game_over', {
         reason: state.endReason,
         winner: state.endWinner,
@@ -478,7 +470,7 @@ io.on('connection', (socket: Socket) => {
     sess.side = side;
     sess.gameId = gameId;
 
-    if (state && state.started && !state.ended) {
+    if (state && state.status === GameStatus.Active) {
       if (prevSide) removePlayerPidFromSide(state, pid, prevSide);
       if (side === 'white') state.whiteIds.add(pid);
       else if (side === 'black') state.blackIds.add(pid);
@@ -522,8 +514,7 @@ io.on('connection', (socket: Socket) => {
       blackTime: 600,
       engine,
       chess,
-      started: true,
-      ended: false,
+      status: GameStatus.Active,
     });
     io.in(gameId).emit('game_started', { moveNumber: 1, side: 'white' });
     io.in(gameId).emit('position_update', { fen: chess.fen() });
@@ -550,7 +541,7 @@ io.on('connection', (socket: Socket) => {
   socket.on('play_move', (lan: string, cb) => {
     const gameId = socket.data.gameId as string | undefined;
     const state = gameStates.get(gameId!);
-    if (!state || state.ended) return cb?.({ error: 'Game not running.' });
+    if (!state || state.status !== GameStatus.Active) return cb?.({ error: 'Game not running.' });
 
     const pid = socket.data.pid as string;
     const active = state.side === 'white' ? state.whiteIds : state.blackIds;

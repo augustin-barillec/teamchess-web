@@ -3,7 +3,15 @@ import { Toaster, toast } from 'react-hot-toast';
 import { io, Socket } from 'socket.io-client';
 import { Chess } from 'chess.js';
 import { Chessboard, PieceDropHandlerArgs, PieceHandlerArgs } from 'react-chessboard';
-import { Players, GameInfo, Proposal, Selection, EndReason, ChatMessage } from '@teamchess/shared';
+import {
+  Players,
+  GameInfo,
+  Proposal,
+  Selection,
+  EndReason,
+  ChatMessage,
+  GameStatus,
+} from '@teamchess/shared';
 
 // Constants and Helpers
 const STORAGE_KEYS = {
@@ -12,7 +20,6 @@ const STORAGE_KEYS = {
   gameId: 'tc:game',
   side: 'tc:side',
 } as const;
-
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
@@ -25,7 +32,6 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.DrawAgreement]: () => `🤝 Draw agreed by both players.`,
   [EndReason.Timeout]: winner => `⏱️ Time!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
 };
-
 const pieceToFigurineWhite: Record<string, string> = {
   K: '♔',
   Q: '♕',
@@ -42,7 +48,6 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: '♞',
   P: '♟',
 };
-
 function sanToFan(san: string, side: 'white' | 'black'): string {
   const map = side === 'white' ? pieceToFigurineWhite : pieceToFigurineBlack;
   return san.replace(/[KQRBNP]/g, m => map[m]);
@@ -66,8 +71,7 @@ export default function App() {
     whitePlayers: [],
     blackPlayers: [],
   });
-  const [gameStarted, setGameStarted] = useState(false);
-  const [gameOver, setGameOver] = useState(false);
+  const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Lobby);
   const [winner, setWinner] = useState<'white' | 'black' | null>(null);
   const [endReason, setEndReason] = useState<string | null>(null);
   const [pgn, setPgn] = useState('');
@@ -118,7 +122,6 @@ export default function App() {
 
     lostW.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     lostB.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
-
     const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
     const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
     const materialBalance = blackLostValue - whiteLostValue; // + = White up
@@ -220,8 +223,7 @@ export default function App() {
 
     s.on('players', (p: Players) => setPlayers(p));
     s.on('game_started', ({ moveNumber, side }: GameInfo) => {
-      setGameStarted(true);
-      setGameOver(false);
+      setGameStatus(GameStatus.Active);
       setWinner(null);
       setEndReason(null);
       setPgn('');
@@ -229,8 +231,7 @@ export default function App() {
       setLastMoveSquares(null);
     });
     s.on('game_reset', () => {
-      setGameStarted(false);
-      setGameOver(false);
+      setGameStatus(GameStatus.Lobby);
       setWinner(null);
       setEndReason(null);
       setPgn('');
@@ -281,7 +282,7 @@ export default function App() {
     s.on(
       'game_over',
       ({ reason, winner, pgn }: { reason: string; winner: string | null; pgn: string }) => {
-        setGameOver(true);
+        setGameStatus(GameStatus.Over);
         setWinner(winner);
         setEndReason(reason);
         setPgn(pgn);
@@ -302,8 +303,7 @@ export default function App() {
 
   // Event Handlers and Functions
   const resetLocalGameState = () => {
-    setGameStarted(false);
-    setGameOver(false);
+    setGameStatus(GameStatus.Lobby);
     setWinner(null);
     setEndReason(null);
     setPgn('');
@@ -435,7 +435,7 @@ export default function App() {
       const from = sourceSquare;
       const to = targetSquare;
 
-      if (!gameStarted || gameOver || side !== current.side) return false;
+      if (gameStatus !== GameStatus.Active || side !== current.side) return false;
 
       let promotion: 'q' | 'r' | 'b' | 'n' | undefined;
       if (needsPromotion(from, to)) {
@@ -538,26 +538,25 @@ export default function App() {
             </button>
             <button onClick={exitGame}>Exit Game</button>
           </p>
-          {!gameStarted &&
-            !gameOver &&
+          {gameStatus === GameStatus.Lobby &&
             players.whitePlayers.length > 0 &&
             players.blackPlayers.length > 0 && <button onClick={startGame}>Start Game</button>}
-          {(gameStarted || gameOver) && (
+          {(gameStatus === GameStatus.Active || gameStatus === GameStatus.Over) && (
             <div style={{ marginTop: 10, display: 'flex', gap: '0.5rem' }}>
               <button onClick={resetGame}>Reset Game</button>
             </div>
           )}
-          {!gameOver && side === 'spectator' && (
+          {gameStatus !== GameStatus.Over && side === 'spectator' && (
             <div style={{ marginTop: 10 }}>
               <button onClick={autoAssign}>Auto Assign</button>
               <button onClick={() => joinSide('white')}>Join White</button>
               <button onClick={() => joinSide('black')}>Join Black</button>
             </div>
           )}
-          {!gameOver && (side === 'white' || side === 'black') && (
+          {gameStatus !== GameStatus.Over && (side === 'white' || side === 'black') && (
             <div style={{ marginTop: 10 }}>
               <button onClick={joinSpectator}>Join Spectators</button>
-              {!gameStarted && (
+              {gameStatus === GameStatus.Lobby && (
                 <button
                   onClick={() => joinSide(side === 'white' ? 'black' : 'white')}
                   style={{ marginLeft: 5 }}
@@ -661,9 +660,15 @@ export default function App() {
                   style={{
                     padding: '6px 12px',
                     borderRadius: 6,
-                    background: current?.side === 'white' && !gameOver ? '#3a5f0b' : '#333',
+                    background:
+                      current?.side === 'white' && gameStatus === GameStatus.Active
+                        ? '#3a5f0b'
+                        : '#333',
                     color: '#fff',
-                    fontWeight: current?.side === 'white' && !gameOver ? 'bold' : 'normal',
+                    fontWeight:
+                      current?.side === 'white' && gameStatus === GameStatus.Active
+                        ? 'bold'
+                        : 'normal',
                     textAlign: 'center',
                   }}
                 >
@@ -674,9 +679,15 @@ export default function App() {
                   style={{
                     padding: '6px 12px',
                     borderRadius: 6,
-                    background: current?.side === 'black' && !gameOver ? '#3a5f0b' : '#333',
+                    background:
+                      current?.side === 'black' && gameStatus === GameStatus.Active
+                        ? '#3a5f0b'
+                        : '#333',
                     color: '#fff',
-                    fontWeight: current?.side === 'black' && !gameOver ? 'bold' : 'normal',
+                    fontWeight:
+                      current?.side === 'black' && gameStatus === GameStatus.Active
+                        ? 'bold'
+                        : 'normal',
                     textAlign: 'center',
                   }}
                 >
@@ -832,7 +843,7 @@ export default function App() {
               <span>{lostBlackPieces.join(' ')}</span>
             </div>
           </div>
-          {gameOver && (
+          {gameStatus === GameStatus.Over && (
             <div style={{ marginTop: 20 }}>
               <p style={{ fontSize: '1.2em', margin: 0, marginBottom: '1rem' }}>
                 {endReason && reasonMessages[endReason]
