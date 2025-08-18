@@ -20,14 +20,14 @@ const stockfishPath = path.join(
   'stockfish-nnue-16.js',
 );
 
-type Seat = 'white' | 'black' | 'spectator';
+type Side = 'white' | 'black' | 'spectator';
 type PlayerSide = 'white' | 'black';
 
 type Session = {
   pid: string; // stable player id
   name: string;
   gameId?: string;
-  side?: Seat;
+  side?: Side;
   reconnectTimer?: NodeJS.Timeout;
 };
 
@@ -294,7 +294,7 @@ function endIfOneSided(gameId: string, state: GameState) {
   endGame(gameId, EndReason.Resignation, winner);
 }
 
-function removePlayerPidFromSide(state: GameState, pid: string, side: Seat) {
+function removePlayerPidFromSide(state: GameState, pid: string, side: Side) {
   if (side === 'white') state.whiteIds.delete(pid);
   else if (side === 'black') state.blackIds.delete(pid);
 }
@@ -324,7 +324,7 @@ function leave(this: Socket, explicit = false) {
   const finalize = (clearSession: boolean) => {
     if (state) {
       cleanupProposalByPid(gameId, state, pid);
-      removePlayerPidFromSide(state, pid, (socket.data.side as Seat) || 'spectator');
+      removePlayerPidFromSide(state, pid, (socket.data.side as Side) || 'spectator');
       endIfOneSided(gameId, state);
 
       if (!io.sockets.adapter.rooms.has(gameId)) {
@@ -466,7 +466,7 @@ io.on('connection', (socket: Socket) => {
     const gameId = socket.data.gameId as string | undefined;
     if (!gameId) return cb?.({ success: false, error: 'Not in a game.' });
 
-    const prevSide = socket.data.side as Seat;
+    const prevSide = socket.data.side as Side;
     socket.data.side = side;
 
     const state = gameStates.get(gameId);
