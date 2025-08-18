@@ -80,6 +80,12 @@ function generateUniqueGameId(): string {
   return id;
 }
 
+function getCleanPgn(chess: Chess): string {
+  const fullPgn = chess.pgn();
+  // Removes PGN headers like [Event "..."] to get only the move text.
+  return fullPgn.replace(/^\[.*\]\n/gm, '').trim();
+}
+
 function broadcastPlayers(gameId: string) {
   const room = io.sockets.adapter.rooms.get(gameId) || new Set<string>();
   const onlinePids = new Set(
@@ -117,9 +123,7 @@ function endGame(gameId: string, reason: string, winner: string | null = null) {
   state.ended = true;
   state.endReason = reason;
   state.endWinner = winner;
-
-  const fullPgn = state.chess.pgn();
-  const pgn = fullPgn.replace(/^\[.*\]\n/gm, '').trim();
+  const pgn = getCleanPgn(state.chess);
   io.in(gameId).emit('game_over', { reason, winner, pgn });
 }
 
@@ -389,18 +393,17 @@ io.on('connection', (socket: Socket) => {
     socket.data.gameId = sess.gameId;
     socket.data.side = sess.side || 'spectator';
     const state = gameStates.get(sess.gameId);
-
     if (state && sess.side && sess.side !== 'spectator') {
       (sess.side === 'white' ? state.whiteIds : state.blackIds).add(pid);
       socket.emit('position_update', { fen: state.chess.fen() });
       socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
-      if (state.ended)
+      if (state.ended) {
         socket.emit('game_over', {
           reason: state.endReason,
           winner: state.endWinner,
-          pgn: state.chess.pgn(),
+          pgn: getCleanPgn(state.chess),
         });
-      else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
+      } else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
     }
     broadcastPlayers(sess.gameId);
   }
@@ -439,7 +442,7 @@ io.on('connection', (socket: Socket) => {
       socket.emit('game_over', {
         reason: state.endReason,
         winner: state.endWinner,
-        pgn: state.chess.pgn(),
+        pgn: getCleanPgn(state.chess),
       });
     else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
     for (const [pid, lan] of state.proposals.entries()) {
