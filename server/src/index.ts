@@ -442,6 +442,24 @@ io.on('connection', (socket: Socket) => {
         pgn: state.chess.pgn(),
       });
     else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
+    for (const [pid, lan] of state.proposals.entries()) {
+      const from = lan.slice(0, 2);
+      const to = lan.slice(2, 4);
+      const params: any = { from, to };
+      if (lan.length === 5) params.promotion = lan[4];
+      const move = state.chess.move(params);
+      if (!move) continue;
+      state.chess.undo();
+      const proposal = {
+        id: pid,
+        name: sessions.get(pid)?.name || 'Player',
+        moveNumber: state.moveNumber,
+        side: state.side,
+        lan,
+        san: move.san,
+      };
+      socket.emit('move_submitted', proposal);
+    }
   });
 
   socket.on('join_side', ({ side }, cb) => {
