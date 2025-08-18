@@ -357,6 +357,7 @@ function leave(this: Socket, explicit = false) {
   }, DISCONNECT_GRACE_MS);
 
   broadcastPlayers(gameId);
+  if (state) tryFinalizeTurn(gameId, state);
 }
 
 // Socket.IO Connection Handler
