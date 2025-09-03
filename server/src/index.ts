@@ -1,5 +1,3 @@
-// /home/augustin/VSCode/teamchess/server/src/index.ts
-
 import express from 'express';
 import http from 'http';
 import { Server, Socket } from 'socket.io';
@@ -29,6 +27,10 @@ type Session = {
   reconnectTimer?: NodeJS.Timeout;
 };
 
+interface LobbyState {
+  status: GameStatus.Lobby | GameStatus.SearchingForMerge;
+}
+
 interface GameState {
   whiteIds: Set<string>; // pids
   blackIds: Set<string>; // pids
@@ -47,7 +49,10 @@ interface GameState {
 
 // In-Memory State
 const sessions = new Map<string, Session>();
+const lobbyStates = new Map<string, LobbyState>();
 const gameStates = new Map<string, GameState>();
+const mergeQueue = new Set<string>();
+
 const app = express();
 app.use(cors());
 const server = http.createServer(app);
@@ -56,7 +61,6 @@ const io = new Server(server, {
   pingInterval: 5000, // default 25000
   pingTimeout: 5000, // default 20000
 });
-
 // Helper Functions
 const loadEngine = require('../load_engine.cjs') as (enginePath: string) => {
   send(cmd: string, cb?: (data: string) => void, stream?: (data: string) => void): void;
@@ -126,7 +130,6 @@ function startClock(gameId: string) {
   const state = gameStates.get(gameId);
   if (!state || state.status !== GameStatus.Active) return;
   if (state.timerInterval) clearInterval(state.timerInterval);
-
   io.in(gameId).emit('clock_update', {
     whiteTime: state.whiteTime,
     blackTime: state.blackTime,
@@ -307,6 +310,51 @@ function cleanupProposalByPid(gameId: string, state: GameState, pid: string) {
   tryFinalizeTurn(gameId, state);
 }
 
+async function tryMatchAndMerge() {
+  if (mergeQueue.size < 2) return;
+
+  const [gameA_Id, gameB_Id] = [...mergeQueue];
+  mergeQueue.delete(gameA_Id);
+  mergeQueue.delete(gameB_Id);
+
+  const lobbyA = lobbyStates.get(gameA_Id);
+  const lobbyB = lobbyStates.get(gameB_Id);
+  if (!lobbyA || !lobbyB) return; // Should not happen
+
+  const newGameId = generateUniqueGameId();
+  lobbyStates.set(newGameId, { status: GameStatus.Lobby });
+
+  const roomA = io.sockets.adapter.rooms.get(gameA_Id) || new Set();
+  const roomB = io.sockets.adapter.rooms.get(gameB_Id) || new Set();
+  const allSocketIds = [...roomA, ...roomB];
+
+  for (const socketId of allSocketIds) {
+    const socket = io.sockets.sockets.get(socketId);
+    if (!socket) continue;
+    const pid = socket.data.pid as string;
+    const sess = sessions.get(pid);
+    if (!sess) continue;
+
+    socket.leave(sess.gameId!);
+    socket.join(newGameId);
+
+    sess.gameId = newGameId;
+    sess.side = 'spectator';
+    socket.data.gameId = newGameId;
+    socket.data.side = 'spectator';
+
+    socket.emit('merge_success', { newGameId });
+  }
+
+  lobbyStates.delete(gameA_Id);
+  lobbyStates.delete(gameB_Id);
+
+  // Use a small delay to allow clients to process the merge_success event
+  setTimeout(() => {
+    broadcastPlayers(newGameId);
+  }, 100);
+}
+
 function leave(this: Socket, explicit = false) {
   const socket = this;
   const pid = socket.data.pid as string | undefined;
@@ -316,7 +364,6 @@ function leave(this: Socket, explicit = false) {
   const state = gameStates.get(gameId);
   const sess = sessions.get(pid);
   if (!sess) return;
-
   const finalize = (clearSession: boolean) => {
     if (state) {
       cleanupProposalByPid(gameId, state, pid);
@@ -326,6 +373,14 @@ function leave(this: Socket, explicit = false) {
       if (!io.sockets.adapter.rooms.has(gameId)) {
         state.engine.quit();
         gameStates.delete(gameId);
+      }
+    } else {
+      // It's a lobby
+      if (mergeQueue.has(gameId)) {
+        mergeQueue.delete(gameId);
+      }
+      if (!io.sockets.adapter.rooms.has(gameId)) {
+        lobbyStates.delete(gameId);
       }
     }
 
@@ -380,13 +435,15 @@ io.on('connection', (socket: Socket) => {
   socket.emit('session', { id: pid, name: sess.name });
 
   // Auto-rejoin game if session exists
-  if (sess.gameId && io.sockets.adapter.rooms.has(sess.gameId)) {
+  if (sess.gameId && (gameStates.has(sess.gameId) || lobbyStates.has(sess.gameId))) {
     socket.join(sess.gameId);
     socket.data.gameId = sess.gameId;
     socket.data.side = sess.side || 'spectator';
     const state = gameStates.get(sess.gameId);
-    if (state && sess.side && sess.side !== 'spectator') {
-      (sess.side === 'white' ? state.whiteIds : state.blackIds).add(pid);
+    if (state) {
+      if (sess.side && sess.side !== 'spectator') {
+        (sess.side === 'white' ? state.whiteIds : state.blackIds).add(pid);
+      }
       socket.emit('position_update', { fen: state.chess.fen() });
       socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
       if (state.status === GameStatus.Over) {
@@ -395,13 +452,21 @@ io.on('connection', (socket: Socket) => {
           winner: state.endWinner,
           pgn: getCleanPgn(state.chess),
         });
-      } else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
+      } else {
+        socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
+      }
+    } else {
+      const lobby = lobbyStates.get(sess.gameId);
+      if (lobby) {
+        socket.emit('game_status_update', { status: lobby.status });
+      }
     }
     broadcastPlayers(sess.gameId);
   }
 
   socket.on('create_game', ({ name }, cb) => {
     const gameId = generateUniqueGameId();
+    lobbyStates.set(gameId, { status: GameStatus.Lobby });
     socket.join(gameId);
     socket.data = { ...socket.data, name, gameId, side: 'spectator' };
     const s = sessions.get(socket.data.pid)!;
@@ -411,9 +476,8 @@ io.on('connection', (socket: Socket) => {
     cb?.({ gameId });
     broadcastPlayers(gameId);
   });
-
   socket.on('join_game', ({ gameId, name }, cb) => {
-    if (!io.sockets.adapter.rooms.has(gameId)) {
+    if (!lobbyStates.has(gameId) && !gameStates.has(gameId)) {
       cb?.({ error: 'Game not found.' });
       return;
     }
@@ -427,33 +491,38 @@ io.on('connection', (socket: Socket) => {
     broadcastPlayers(gameId);
 
     const state = gameStates.get(gameId);
-    if (!state) return;
-    socket.emit('position_update', { fen: state.chess.fen() });
-    socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
-    if (state.status === GameStatus.Over)
-      socket.emit('game_over', {
-        reason: state.endReason,
-        winner: state.endWinner,
-        pgn: getCleanPgn(state.chess),
-      });
-    else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
-    for (const [pid, lan] of state.proposals.entries()) {
-      const from = lan.slice(0, 2);
-      const to = lan.slice(2, 4);
-      const params: any = { from, to };
-      if (lan.length === 5) params.promotion = lan[4];
-      const move = state.chess.move(params);
-      if (!move) continue;
-      state.chess.undo();
-      const proposal = {
-        id: pid,
-        name: sessions.get(pid)?.name || 'Player',
-        moveNumber: state.moveNumber,
-        side: state.side,
-        lan,
-        san: move.san,
-      };
-      socket.emit('move_submitted', proposal);
+    if (state) {
+      socket.emit('position_update', { fen: state.chess.fen() });
+      socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
+      if (state.status === GameStatus.Over)
+        socket.emit('game_over', {
+          reason: state.endReason,
+          winner: state.endWinner,
+          pgn: getCleanPgn(state.chess),
+        });
+      else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
+      for (const [pid, lan] of state.proposals.entries()) {
+        const from = lan.slice(0, 2);
+        const to = lan.slice(2, 4);
+        const params: any = { from, to };
+        if (lan.length === 5) params.promotion = lan[4];
+        const move = state.chess.move(params);
+        if (!move) continue;
+        state.chess.undo();
+        const proposal = {
+          id: pid,
+          name: sessions.get(pid)?.name || 'Player',
+          moveNumber: state.moveNumber,
+          side: state.side,
+          lan,
+          san: move.san,
+        };
+        socket.emit('move_submitted', proposal);
+      }
+    } else {
+      // It must be a lobby
+      const lobby = lobbyStates.get(gameId);
+      socket.emit('game_status_update', { status: lobby!.status });
     }
   });
 
@@ -480,13 +549,16 @@ io.on('connection', (socket: Socket) => {
     broadcastPlayers(gameId);
     cb?.({ success: true });
   });
-
   socket.on('start_game', (cb?: (res: { success: boolean; error?: string }) => void) => {
     const gameId = socket.data.gameId as string | undefined;
-    if (!gameId || gameStates.has(gameId)) {
-      cb?.({ success: false, error: 'Invalid or already started game.' });
+    const lobby = gameId ? lobbyStates.get(gameId) : undefined;
+
+    if (!gameId || !lobby || lobby.status !== GameStatus.Lobby || gameStates.has(gameId)) {
+      cb?.({ success: false, error: 'Invalid game state for starting.' });
       return;
     }
+    lobbyStates.delete(gameId); // Transition from lobby to active game
+
     const engine = loadEngine(stockfishPath);
     engine.send('uci', (data: string) => {
       if (data.startsWith('uciok'))
@@ -495,13 +567,12 @@ io.on('connection', (socket: Socket) => {
 
     const whites = new Set<string>();
     const blacks = new Set<string>();
-    (io.sockets.adapter.rooms.get(gameId) || new Set<string>()).forEach(id => {
-      const s = io.sockets.sockets.get(id);
-      const pid = s?.data.pid as string | undefined;
-      if (!pid) return;
-      if (s?.data.side === 'white') whites.add(pid);
-      else if (s?.data.side === 'black') blacks.add(pid);
-    });
+    for (const sess of sessions.values()) {
+      if (sess.gameId === gameId) {
+        if (sess.side === 'white') whites.add(sess.pid);
+        else if (sess.side === 'black') blacks.add(sess.pid);
+      }
+    }
 
     const chess = new Chess();
     gameStates.set(gameId, {
@@ -521,7 +592,6 @@ io.on('connection', (socket: Socket) => {
     startClock(gameId);
     cb?.({ success: true });
   });
-
   socket.on('reset_game', (cb?: (res: { success: boolean; error?: string }) => void) => {
     const gameId = socket.data.gameId as string | undefined;
     const state = gameId && gameStates.get(gameId);
@@ -533,11 +603,11 @@ io.on('connection', (socket: Socket) => {
     if (state.timerInterval) clearInterval(state.timerInterval);
     state.engine.quit();
     gameStates.delete(gameId);
+    lobbyStates.set(gameId, { status: GameStatus.Lobby });
 
     io.in(gameId).emit('game_reset');
     cb?.({ success: true });
   });
-
   socket.on('play_move', (lan: string, cb) => {
     const gameId = socket.data.gameId as string | undefined;
     const state = gameStates.get(gameId!);
@@ -595,8 +665,26 @@ io.on('connection', (socket: Socket) => {
     });
   });
 
+  socket.on('find_merge', () => {
+    const gameId = socket.data.gameId as string | undefined;
+    const lobby = gameId ? lobbyStates.get(gameId) : undefined;
+    if (!lobby || lobby.status !== GameStatus.Lobby) return;
+    lobby.status = GameStatus.SearchingForMerge;
+    mergeQueue.add(gameId!);
+    io.in(gameId!).emit('game_status_update', { status: lobby.status });
+    tryMatchAndMerge();
+  });
+
+  socket.on('cancel_merge', () => {
+    const gameId = socket.data.gameId as string | undefined;
+    const lobby = gameId ? lobbyStates.get(gameId) : undefined;
+    if (!lobby || lobby.status !== GameStatus.SearchingForMerge) return;
+    lobby.status = GameStatus.Lobby;
+    mergeQueue.delete(gameId!);
+    io.in(gameId!).emit('game_status_update', { status: lobby.status });
+  });
+
   socket.on('exit_game', () => leave.call(socket, true));
   socket.on('disconnect', () => leave.call(socket, false));
 });
-
 server.listen(3001, () => console.log('Socket.IO chess server listening on port 3001'));

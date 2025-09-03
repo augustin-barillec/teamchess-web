@@ -1,3 +1,5 @@
+// /home/augustin/VSCode/teamchess/client/src/App.tsx
+
 import { useState, useEffect, useMemo, useRef, CSSProperties } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { io, Socket } from 'socket.io-client';
@@ -12,7 +14,6 @@ import {
   ChatMessage,
   GameStatus,
 } from '@teamchess/shared';
-
 // Constants and Helpers
 const STORAGE_KEYS = {
   pid: 'tc:pid',
@@ -58,7 +59,8 @@ export default function App() {
   // State Management
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket>();
-  const [myId, setMyId] = useState<string>(''); // stable pid, not socket.id
+  const [myId, setMyId] = useState<string>('');
+  // stable pid, not socket.id
   const [name, setName] = useState(sessionStorage.getItem(STORAGE_KEYS.name) || '');
   const [showJoin, setShowJoin] = useState(false);
   const [gameId, setGameId] = useState(sessionStorage.getItem(STORAGE_KEYS.gameId) || '');
@@ -84,7 +86,6 @@ export default function App() {
   const [clocks, setClocks] = useState({ whiteTime: 0, blackTime: 0 });
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
   const [legalSquareStyles, setLegalSquareStyles] = useState<Record<string, CSSProperties>>({});
-
   // Derived State and Refs
   const movesRef = useRef<HTMLDivElement>(null);
   const current = turns[turns.length - 1];
@@ -137,7 +138,6 @@ export default function App() {
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns]);
-
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some(p => p.id === myId)
@@ -150,7 +150,6 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId]);
-
   useEffect(() => {
     const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
     const storedName = sessionStorage.getItem(STORAGE_KEYS.name) || undefined;
@@ -220,7 +219,6 @@ export default function App() {
         }, 500);
       }
     });
-
     s.on('players', (p: Players) => setPlayers(p));
     s.on('game_started', ({ moveNumber, side }: GameInfo) => {
       setGameStatus(GameStatus.Active);
@@ -291,7 +289,18 @@ export default function App() {
     s.on('chat_message', (msg: ChatMessage) => {
       setChatMessages(msgs => [...msgs, msg]);
     });
-
+    s.on('game_status_update', ({ status }: { status: GameStatus }) => {
+      setGameStatus(status);
+    });
+    s.on('merge_success', ({ newGameId }: { newGameId: string }) => {
+      setGameId(newGameId);
+      sessionStorage.setItem(STORAGE_KEYS.gameId, newGameId);
+      setSide('spectator');
+      sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
+      setChatMessages([]); // Reset chat for the new lobby
+      setGameStatus(GameStatus.Lobby); // <-- THE FIX IS HERE
+      toast.success('Teams merged! Welcome to the new lobby.');
+    });
     (window as any).socket = s;
 
     return () => {
@@ -314,7 +323,6 @@ export default function App() {
     setLastMoveSquares(null);
     setChatMessages([]);
   };
-
   const createGame = () => {
     resetLocalGameState();
     if (!name.trim()) return alert('Enter your name.');
@@ -351,14 +359,12 @@ export default function App() {
     sessionStorage.removeItem(STORAGE_KEYS.gameId);
     sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
   };
-
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
     (window as any).socket.emit('join_side', { side: s }, (res: any) => {
       if (res.error) alert(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
-
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -371,6 +377,9 @@ export default function App() {
 
   const joinSpectator = () => joinSide('spectator');
   const startGame = () => (window as any).socket.emit('start_game');
+  const findMergeableGame = () => socket?.emit('find_merge');
+  const cancelMergeSearch = () => socket?.emit('cancel_merge');
+
   const resetGame = () => {
     const s = socket;
     if (!s) return;
@@ -387,7 +396,6 @@ export default function App() {
   }
 
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
-
   const copyPgn = () => {
     if (!pgn) return;
     const textArea = document.createElement('textarea');
@@ -405,7 +413,6 @@ export default function App() {
     }
     document.body.removeChild(textArea);
   };
-
   const boardOptions = {
     position,
     boardOrientation: orientation,
@@ -436,7 +443,6 @@ export default function App() {
       const to = targetSquare;
 
       if (gameStatus !== GameStatus.Active || side !== current.side) return false;
-
       let promotion: 'q' | 'r' | 'b' | 'n' | undefined;
       if (needsPromotion(from, to)) {
         const choice = prompt('Promote pawn to (q, r, b, n)', 'q');
@@ -459,7 +465,6 @@ export default function App() {
       return false;
     },
   };
-
   // Render Logic
   return (
     <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
@@ -538,9 +543,23 @@ export default function App() {
             </button>
             <button onClick={exitGame}>Exit Game</button>
           </p>
-          {gameStatus === GameStatus.Lobby &&
-            players.whitePlayers.length > 0 &&
-            players.blackPlayers.length > 0 && <button onClick={startGame}>Start Game</button>}
+
+          {gameStatus === GameStatus.Lobby && (
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {players.whitePlayers.length > 0 && players.blackPlayers.length > 0 && (
+                <button onClick={startGame}>Start Game</button>
+              )}
+              <button onClick={findMergeableGame}>Find More Players</button>
+            </div>
+          )}
+
+          {gameStatus === GameStatus.SearchingForMerge && (
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <p style={{ margin: 0 }}>🔎 Searching for another team...</p>
+              <button onClick={cancelMergeSearch}>Cancel Search</button>
+            </div>
+          )}
+
           {(gameStatus === GameStatus.Active || gameStatus === GameStatus.Over) && (
             <div style={{ marginTop: 10, display: 'flex', gap: '0.5rem' }}>
               <button onClick={resetGame}>Reset Game</button>

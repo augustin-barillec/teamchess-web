@@ -16,22 +16,22 @@ export type ChatMessage = {
   senderId: string; // stable pid
   message: string;
 };
-
 // Game Mechanics
 export type GameInfo = { moveNumber: number; side: 'white' | 'black' };
 export type Proposal = {
   id: string; // stable pid of who proposed
-  name: string; // their DISPLAY name
+  name: string;
+  // their DISPLAY name
   moveNumber: number;
   side: 'white' | 'black';
   lan: string;
   san?: string;
 };
 export type Selection = Proposal & { fen: string };
-
 // Game State
 export enum GameStatus {
   Lobby = 'Lobby',
+  SearchingForMerge = 'SearchingForMerge',
   Active = 'Active',
   Over = 'Over',
 }
