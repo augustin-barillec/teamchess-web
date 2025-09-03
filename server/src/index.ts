@@ -5,11 +5,10 @@ import cors from 'cors';
 import { nanoid } from 'nanoid';
 import { Chess } from 'chess.js';
 import path from 'path';
-import { Player, EndReason, GameStatus } from '@teamchess/shared';
+import { Player, EndReason, GameStatus, MAX_PLAYERS_PER_GAME } from '@teamchess/shared';
 
 // Constants and Types
 const DISCONNECT_GRACE_MS = 20000;
-const MAX_PLAYERS_PER_GAME = 10;
 const stockfishPath = path.join(
   __dirname,
   '..',

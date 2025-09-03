@@ -1,5 +1,3 @@
-// /home/augustin/VSCode/teamchess/client/src/App.tsx
-
 import { useState, useEffect, useMemo, useRef, CSSProperties } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { io, Socket } from 'socket.io-client';
@@ -13,6 +11,7 @@ import {
   EndReason,
   ChatMessage,
   GameStatus,
+  MAX_PLAYERS_PER_GAME,
 } from '@teamchess/shared';
 // Constants and Helpers
 const STORAGE_KEYS = {
@@ -548,7 +547,7 @@ export default function App() {
             </button>
             <button onClick={exitGame}>Exit Game</button>
             <span style={{ marginLeft: '1.5rem' }}>
-              <strong>Players:</strong> {playerCount}/10
+              <strong>Players:</strong> {playerCount}/{MAX_PLAYERS_PER_GAME}
             </span>
           </p>
 
