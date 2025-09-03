@@ -134,6 +134,11 @@ export default function App() {
     };
   }, [position]);
 
+  const playerCount = useMemo(
+    () => players.spectators.length + players.whitePlayers.length + players.blackPlayers.length,
+    [players],
+  );
+
   // Side Effects
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
@@ -542,6 +547,9 @@ export default function App() {
               Copy
             </button>
             <button onClick={exitGame}>Exit Game</button>
+            <span style={{ marginLeft: '1.5rem' }}>
+              <strong>Players:</strong> {playerCount}/10
+            </span>
           </p>
 
           {gameStatus === GameStatus.Lobby && (
