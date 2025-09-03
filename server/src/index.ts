@@ -9,6 +9,7 @@ import { Player, EndReason, GameStatus } from '@teamchess/shared';
 
 // Constants and Types
 const DISCONNECT_GRACE_MS = 20000;
+const MAX_PLAYERS_PER_GAME = 10;
 const stockfishPath = path.join(
   __dirname,
   '..',
@@ -58,14 +59,25 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*' },
-  pingInterval: 5000, // default 25000
-  pingTimeout: 5000, // default 20000
+  pingInterval: 5000,
+  pingTimeout: 5000,
 });
+
 // Helper Functions
 const loadEngine = require('../load_engine.cjs') as (enginePath: string) => {
   send(cmd: string, cb?: (data: string) => void, stream?: (data: string) => void): void;
   quit(): void;
 };
+
+function countPlayersInGame(gameId: string): number {
+  let count = 0;
+  for (const session of sessions.values()) {
+    if (session.gameId === gameId) {
+      count++;
+    }
+  }
+  return count;
+}
 
 function generateGameId(): string {
   return Math.floor(Math.random() * 10000)
@@ -83,7 +95,6 @@ function generateUniqueGameId(): string {
 
 function getCleanPgn(chess: Chess): string {
   const fullPgn = chess.pgn();
-  // Removes PGN headers like [Event "..."] to get only the move text.
   return fullPgn.replace(/^\[.*\]\n/gm, '').trim();
 }
 
@@ -238,19 +249,6 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
         san: move.san,
         fen,
       });
-      console.log(
-        'selection',
-        JSON.stringify({
-          gameId,
-          moveNumber: state.moveNumber,
-          side: state.side,
-          id: selPid,
-          name: selName,
-          lan: selLan,
-          san: move.san,
-          fen,
-        }),
-      );
       if (state.chess.isGameOver()) {
         let reason: string;
         let winner: 'white' | 'black' | null = null;
@@ -266,7 +264,7 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
         } else if (state.chess.isDraw()) {
           reason = EndReason.DrawRule;
         } else {
-          reason = 'terminated'; // should not happen
+          reason = 'terminated';
         }
         endGame(gameId, reason, winner);
       } else {
@@ -313,13 +311,38 @@ function cleanupProposalByPid(gameId: string, state: GameState, pid: string) {
 async function tryMatchAndMerge() {
   if (mergeQueue.size < 2) return;
 
-  const [gameA_Id, gameB_Id] = [...mergeQueue];
+  const queueAsArray = [...mergeQueue];
+  let gameA_Id: string | null = null;
+  let gameB_Id: string | null = null;
+  let foundMatch = false;
+
+  for (let i = 0; i < queueAsArray.length; i++) {
+    for (let j = i + 1; j < queueAsArray.length; j++) {
+      const id1 = queueAsArray[i];
+      const id2 = queueAsArray[j];
+      const count1 = countPlayersInGame(id1);
+      const count2 = countPlayersInGame(id2);
+
+      if (count1 + count2 <= MAX_PLAYERS_PER_GAME) {
+        gameA_Id = id1;
+        gameB_Id = id2;
+        foundMatch = true;
+        break;
+      }
+    }
+    if (foundMatch) break;
+  }
+
+  if (!gameA_Id || !gameB_Id) {
+    return; // No suitable match found
+  }
+
   mergeQueue.delete(gameA_Id);
   mergeQueue.delete(gameB_Id);
 
   const lobbyA = lobbyStates.get(gameA_Id);
   const lobbyB = lobbyStates.get(gameB_Id);
-  if (!lobbyA || !lobbyB) return; // Should not happen
+  if (!lobbyA || !lobbyB) return;
 
   const newGameId = generateUniqueGameId();
   lobbyStates.set(newGameId, { status: GameStatus.Lobby });
@@ -349,7 +372,6 @@ async function tryMatchAndMerge() {
   lobbyStates.delete(gameA_Id);
   lobbyStates.delete(gameB_Id);
 
-  // Use a small delay to allow clients to process the merge_success event
   setTimeout(() => {
     broadcastPlayers(newGameId);
   }, 100);
@@ -375,7 +397,6 @@ function leave(this: Socket, explicit = false) {
         gameStates.delete(gameId);
       }
     } else {
-      // It's a lobby
       if (mergeQueue.has(gameId)) {
         mergeQueue.delete(gameId);
       }
@@ -413,7 +434,6 @@ function leave(this: Socket, explicit = false) {
 
 // Socket.IO Connection Handler
 io.on('connection', (socket: Socket) => {
-  // Establish/restore session
   const { pid: providedPid, name: providedName } =
     (socket.handshake.auth as { pid?: string; name?: string }) || {};
   const pid = providedPid && sessions.has(providedPid) ? providedPid : nanoid();
@@ -434,7 +454,6 @@ io.on('connection', (socket: Socket) => {
   socket.data.name = sess.name;
   socket.emit('session', { id: pid, name: sess.name });
 
-  // Auto-rejoin game if session exists
   if (sess.gameId && (gameStates.has(sess.gameId) || lobbyStates.has(sess.gameId))) {
     socket.join(sess.gameId);
     socket.data.gameId = sess.gameId;
@@ -481,6 +500,12 @@ io.on('connection', (socket: Socket) => {
       cb?.({ error: 'Game not found.' });
       return;
     }
+
+    if (countPlayersInGame(gameId) >= MAX_PLAYERS_PER_GAME) {
+      cb?.({ error: 'This game is full.' });
+      return;
+    }
+
     socket.join(gameId);
     socket.data = { ...socket.data, name, gameId, side: 'spectator' };
     const s = sessions.get(socket.data.pid)!;
@@ -520,7 +545,6 @@ io.on('connection', (socket: Socket) => {
         socket.emit('move_submitted', proposal);
       }
     } else {
-      // It must be a lobby
       const lobby = lobbyStates.get(gameId);
       socket.emit('game_status_update', { status: lobby!.status });
     }
@@ -549,6 +573,7 @@ io.on('connection', (socket: Socket) => {
     broadcastPlayers(gameId);
     cb?.({ success: true });
   });
+
   socket.on('start_game', (cb?: (res: { success: boolean; error?: string }) => void) => {
     const gameId = socket.data.gameId as string | undefined;
     const lobby = gameId ? lobbyStates.get(gameId) : undefined;
@@ -557,7 +582,7 @@ io.on('connection', (socket: Socket) => {
       cb?.({ success: false, error: 'Invalid game state for starting.' });
       return;
     }
-    lobbyStates.delete(gameId); // Transition from lobby to active game
+    lobbyStates.delete(gameId);
 
     const engine = loadEngine(stockfishPath);
     engine.send('uci', (data: string) => {
@@ -592,6 +617,7 @@ io.on('connection', (socket: Socket) => {
     startClock(gameId);
     cb?.({ success: true });
   });
+
   socket.on('reset_game', (cb?: (res: { success: boolean; error?: string }) => void) => {
     const gameId = socket.data.gameId as string | undefined;
     const state = gameId && gameStates.get(gameId);
@@ -608,6 +634,7 @@ io.on('connection', (socket: Socket) => {
     io.in(gameId).emit('game_reset');
     cb?.({ success: true });
   });
+
   socket.on('play_move', (lan: string, cb) => {
     const gameId = socket.data.gameId as string | undefined;
     const state = gameStates.get(gameId!);
@@ -635,18 +662,6 @@ io.on('connection', (socket: Socket) => {
       lan,
       san: move.san,
     });
-    console.log(
-      'proposal',
-      JSON.stringify({
-        gameId,
-        moveNumber: state.moveNumber,
-        side: state.side,
-        id: pid,
-        name: socket.data.name,
-        lan,
-        san: move.san,
-      }),
-    );
     tryFinalizeTurn(gameId!, state);
     cb?.({});
   });
