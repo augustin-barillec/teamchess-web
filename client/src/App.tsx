@@ -13,6 +13,7 @@ import {
   GameStatus,
   MAX_PLAYERS_PER_GAME,
 } from '@teamchess/shared';
+
 // Constants and Helpers
 const STORAGE_KEYS = {
   pid: 'tc:pid',
@@ -85,10 +86,25 @@ export default function App() {
   const [clocks, setClocks] = useState({ whiteTime: 0, blackTime: 0 });
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
   const [legalSquareStyles, setLegalSquareStyles] = useState<Record<string, CSSProperties>>({});
+
   // Derived State and Refs
   const movesRef = useRef<HTMLDivElement>(null);
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
+
+  const kingInCheckSquare = useMemo(() => {
+    if (!chess.isCheck()) return null;
+    const kingPiece = { type: 'k', color: chess.turn() };
+    let square: string | null = null;
+    chess.board().forEach((row, rowIndex) => {
+      row.forEach((piece, colIndex) => {
+        if (piece && piece.type === kingPiece.type && piece.color === kingPiece.color) {
+          square = `${'abcdefgh'[colIndex]}${8 - rowIndex}`;
+        }
+      });
+    });
+    return square;
+  }, [position]);
 
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1 };
@@ -142,6 +158,7 @@ export default function App() {
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns]);
+
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some(p => p.id === myId)
@@ -154,6 +171,7 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId]);
+
   useEffect(() => {
     const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
     const storedName = sessionStorage.getItem(STORAGE_KEYS.name) || undefined;
@@ -327,6 +345,7 @@ export default function App() {
     setLastMoveSquares(null);
     setChatMessages([]);
   };
+
   const createGame = () => {
     resetLocalGameState();
     if (!name.trim()) return alert('Enter your name.');
@@ -363,12 +382,14 @@ export default function App() {
     sessionStorage.removeItem(STORAGE_KEYS.gameId);
     sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
   };
+
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
     (window as any).socket.emit('join_side', { side: s }, (res: any) => {
       if (res.error) alert(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
+
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -400,6 +421,7 @@ export default function App() {
   }
 
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
+
   const copyPgn = () => {
     if (!pgn) return;
     const textArea = document.createElement('textarea');
@@ -417,6 +439,7 @@ export default function App() {
     }
     document.body.removeChild(textArea);
   };
+
   const boardOptions = {
     position,
     boardOrientation: orientation,
@@ -428,6 +451,14 @@ export default function App() {
           }
         : {}),
       ...legalSquareStyles,
+      ...(kingInCheckSquare
+        ? {
+            [kingInCheckSquare]: {
+              background:
+                'radial-gradient(ellipse at center, rgba(255,0,0,0.5) 0%, rgba(255,0,0,0) 75%)',
+            },
+          }
+        : {}),
     },
     boardWidth: 600,
     onPieceDrag: ({ square }: PieceHandlerArgs) => {
@@ -469,6 +500,7 @@ export default function App() {
       return false;
     },
   };
+
   // Render Logic
   return (
     <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
