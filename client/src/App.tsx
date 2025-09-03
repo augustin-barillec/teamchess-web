@@ -556,7 +556,9 @@ export default function App() {
               {players.whitePlayers.length > 0 && players.blackPlayers.length > 0 && (
                 <button onClick={startGame}>Start Game</button>
               )}
-              <button onClick={findMergeableGame}>Find More Players</button>
+              {playerCount < MAX_PLAYERS_PER_GAME && (
+                <button onClick={findMergeableGame}>Find More Players</button>
+              )}
             </div>
           )}
 
