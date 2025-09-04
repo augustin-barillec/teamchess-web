@@ -56,6 +56,29 @@ function sanToFan(san: string, side: 'white' | 'black'): string {
 
 // App Component
 export default function App() {
+  // Icon Component for Disconnected Status
+  const DisconnectedIcon = () => (
+    <svg
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{
+        width: '16px',
+        height: '16px',
+        fill: '#000000',
+        verticalAlign: 'middle',
+      }}
+    >
+      <g id="Wi-Fi_Off" data-name="Wi-Fi Off">
+        <g>
+          <path d="M10.37,6.564a12.392,12.392,0,0,1,10.71,3.93c.436.476,1.141-.233.708-.708A13.324,13.324,0,0,0,10.37,5.564c-.631.076-.638,1.077,0,1Z" />
+          <path d="M13.907,10.283A8.641,8.641,0,0,1,18.349,12.9c.434.477,1.139-.232.707-.707a9.586,9.586,0,0,0-4.883-2.871c-.626-.146-.893.818-.266.965Z" />
+          <circle cx="12.003" cy="16.922" r="1.12" />
+          <path d="M19.773,19.06a.5.5,0,0,1-.71.71l-5.84-5.84A4.478,4.478,0,0,0,8.7,15.24c-.43.48-1.14-.23-.71-.7a5.47,5.47,0,0,1,4.06-1.78l-2.37-2.37a8.693,8.693,0,0,0-4.03,2.53c-.43.48-1.13-.23-.7-.71A9.439,9.439,0,0,1,8.893,9.6L6.883,7.59a12.557,12.557,0,0,0-3.96,2.94.5.5,0,1,1-.7-.71,13.109,13.109,0,0,1,3.91-2.98l-1.9-1.9a.5.5,0,0,1,.71-.71Z" />
+        </g>
+      </g>
+    </svg>
+  );
+
   // State Management
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket>();
@@ -86,7 +109,6 @@ export default function App() {
   const [clocks, setClocks] = useState({ whiteTime: 0, blackTime: 0 });
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
   const [legalSquareStyles, setLegalSquareStyles] = useState<Record<string, CSSProperties>>({});
-
   // Derived State and Refs
   const movesRef = useRef<HTMLDivElement>(null);
   const current = turns[turns.length - 1];
@@ -105,7 +127,6 @@ export default function App() {
     });
     return square;
   }, [position]);
-
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1 };
     const currWhite: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
@@ -153,12 +174,10 @@ export default function App() {
     () => players.spectators.length + players.whitePlayers.length + players.blackPlayers.length,
     [players],
   );
-
   // Side Effects
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns]);
-
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some(p => p.id === myId)
@@ -171,7 +190,6 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId]);
-
   useEffect(() => {
     const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
     const storedName = sessionStorage.getItem(STORAGE_KEYS.name) || undefined;
@@ -345,7 +363,6 @@ export default function App() {
     setLastMoveSquares(null);
     setChatMessages([]);
   };
-
   const createGame = () => {
     resetLocalGameState();
     if (!name.trim()) return alert('Enter your name.');
@@ -382,14 +399,12 @@ export default function App() {
     sessionStorage.removeItem(STORAGE_KEYS.gameId);
     sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
   };
-
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
     (window as any).socket.emit('join_side', { side: s }, (res: any) => {
       if (res.error) alert(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
-
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -404,7 +419,6 @@ export default function App() {
   const startGame = () => (window as any).socket.emit('start_game');
   const findMergeableGame = () => socket?.emit('find_merge');
   const cancelMergeSearch = () => socket?.emit('cancel_merge');
-
   const resetGame = () => {
     const s = socket;
     if (!s) return;
@@ -421,7 +435,6 @@ export default function App() {
   }
 
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
-
   const copyPgn = () => {
     if (!pgn) return;
     const textArea = document.createElement('textarea');
@@ -439,7 +452,6 @@ export default function App() {
     }
     document.body.removeChild(textArea);
   };
-
   const boardOptions = {
     position,
     boardOrientation: orientation,
@@ -500,7 +512,6 @@ export default function App() {
       return false;
     },
   };
-
   // Render Logic
   return (
     <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
@@ -636,7 +647,6 @@ export default function App() {
                 {players.spectators.map(p => {
                   const isMe = p.id === myId;
                   const disconnected = isMe ? amDisconnected : !p.connected;
-                  const text = `${p.name}${disconnected ? ' (disconnected)' : ''}`;
                   return (
                     <li
                       key={p.id}
@@ -644,10 +654,10 @@ export default function App() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.5rem',
-                        opacity: p.connected ? 1 : 0.6,
                       }}
                     >
-                      {isMe ? <strong>{text}</strong> : <span>{text}</span>}
+                      {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
+                      {disconnected && <DisconnectedIcon />}
                     </li>
                   );
                 })}
@@ -659,7 +669,6 @@ export default function App() {
                 {players.whitePlayers.map(p => {
                   const isMe = p.id === myId;
                   const disconnected = isMe ? amDisconnected : !p.connected;
-                  const text = `${p.name}${disconnected ? ' (disconnected)' : ''}`;
                   return (
                     <li
                       key={p.id}
@@ -667,10 +676,10 @@ export default function App() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.5rem',
-                        opacity: p.connected ? 1 : 0.6,
                       }}
                     >
-                      {isMe ? <strong>{text}</strong> : <span>{text}</span>}
+                      {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
+                      {disconnected && <DisconnectedIcon />}
                       {hasPlayed(p.id) && <span>✔️</span>}
                     </li>
                   );
@@ -683,7 +692,6 @@ export default function App() {
                 {players.blackPlayers.map(p => {
                   const isMe = p.id === myId;
                   const disconnected = isMe ? amDisconnected : !p.connected;
-                  const text = `${p.name}${disconnected ? ' (disconnected)' : ''}`;
                   return (
                     <li
                       key={p.id}
@@ -691,10 +699,10 @@ export default function App() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.5rem',
-                        opacity: p.connected ? 1 : 0.6,
                       }}
                     >
-                      {isMe ? <strong>{text}</strong> : <span>{text}</span>}
+                      {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
+                      {disconnected && <DisconnectedIcon />}
                       {hasPlayed(p.id) && <span>✔️</span>}
                     </li>
                   );
