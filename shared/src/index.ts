@@ -17,7 +17,7 @@ export type ChatMessage = {
   message: string;
 };
 // Game Mechanics
-export const MAX_PLAYERS_PER_GAME = 10;
+export const MAX_PLAYERS_PER_GAME = 2;
 export type GameInfo = { moveNumber: number; side: 'white' | 'black' };
 export type Proposal = {
   id: string; // stable pid of who proposed

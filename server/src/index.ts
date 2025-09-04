@@ -390,16 +390,16 @@ function leave(this: Socket, explicit = false) {
       cleanupProposalByPid(gameId, state, pid);
       removePlayerPidFromSide(state, pid, (socket.data.side as Side) || 'spectator');
       endIfOneSided(gameId, state);
+    }
 
-      if (!io.sockets.adapter.rooms.has(gameId)) {
+    if (!io.sockets.adapter.rooms.has(gameId)) {
+      if (state) {
         state.engine.quit();
         gameStates.delete(gameId);
-      }
-    } else {
-      if (mergeQueue.has(gameId)) {
-        mergeQueue.delete(gameId);
-      }
-      if (!io.sockets.adapter.rooms.has(gameId)) {
+      } else {
+        if (mergeQueue.has(gameId)) {
+          mergeQueue.delete(gameId);
+        }
         lobbyStates.delete(gameId);
       }
     }
