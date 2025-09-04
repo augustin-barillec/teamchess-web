@@ -596,7 +596,10 @@ export default function App() {
 
           {gameStatus === GameStatus.SearchingForMerge && (
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <p style={{ margin: 0 }}>🔎 Searching for another team...</p>
+              <p style={{ margin: 0 }}>
+                🔎 Searching for another team of at most {MAX_PLAYERS_PER_GAME - playerCount}{' '}
+                players...
+              </p>{' '}
               <button onClick={cancelMergeSearch}>Cancel Search</button>
             </div>
           )}
