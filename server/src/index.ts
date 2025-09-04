@@ -181,9 +181,8 @@ async function chooseBestMove(
     setTimeout(() => {
       if (!done) {
         done = true;
-        const moves = new Chess(fen).moves({ verbose: true });
-        const random = moves[Math.floor(Math.random() * moves.length)];
-        resolve(random.lan || random.san);
+        const randomCandidate = candidates[Math.floor(Math.random() * candidates.length)];
+        resolve(randomCandidate);
       }
     }, timeoutMs);
   });
