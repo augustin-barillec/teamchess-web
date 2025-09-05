@@ -33,7 +33,8 @@ interface LobbyState {
 
 interface GameState {
   whiteIds: Set<string>; // pids
-  blackIds: Set<string>; // pids
+  blackIds: Set<string>;
+  // pids
   moveNumber: number;
   side: PlayerSide;
   proposals: Map<string, string>; // pid -> lan
@@ -121,6 +122,15 @@ function broadcastPlayers(gameId: string) {
   }
 
   io.in(gameId).emit('players', { spectators, whitePlayers, blackPlayers });
+}
+
+function sendSystemMessage(gameId: string, message: string) {
+  io.to(gameId).emit('chat_message', {
+    sender: 'System',
+    senderId: 'system',
+    message,
+    system: true,
+  });
 }
 
 function endGame(gameId: string, reason: string, winner: string | null = null) {
@@ -613,6 +623,7 @@ io.on('connection', (socket: Socket) => {
     io.in(gameId).emit('game_started', { moveNumber: 1, side: 'white' });
     io.in(gameId).emit('position_update', { fen: chess.fen() });
     startClock(gameId);
+    sendSystemMessage(gameId, `${socket.data.name} has started the game.`);
     cb?.({ success: true });
   });
   socket.on('reset_game', (cb?: (res: { success: boolean; error?: string }) => void) => {
@@ -629,6 +640,7 @@ io.on('connection', (socket: Socket) => {
     lobbyStates.set(gameId, { status: GameStatus.Lobby });
 
     io.in(gameId).emit('game_reset');
+    sendSystemMessage(gameId, `${socket.data.name} has reset the game.`);
     cb?.({ success: true });
   });
   socket.on('play_move', (lan: string, cb) => {
@@ -685,6 +697,7 @@ io.on('connection', (socket: Socket) => {
     }
 
     const winner = side === 'white' ? 'black' : 'white';
+    sendSystemMessage(gameId, `${socket.data.name} resigns on behalf of the ${side} team.`);
     endGame(gameId, EndReason.Resignation, winner);
   });
   socket.on('offer_draw', () => {
@@ -699,8 +712,8 @@ io.on('connection', (socket: Socket) => {
 
     state.drawOffer = side;
     io.in(gameId).emit('draw_offer_update', { side });
+    sendSystemMessage(gameId, `${socket.data.name} offers a draw on behalf of the ${side} team.`);
   });
-
   socket.on('accept_draw', () => {
     const gameId = socket.data.gameId as string | undefined;
     const side = socket.data.side as 'white' | 'black' | 'spectator' | undefined;
@@ -713,9 +726,12 @@ io.on('connection', (socket: Socket) => {
       return;
     }
 
+    sendSystemMessage(
+      gameId,
+      `${socket.data.name} accepts the draw offer. Game drawn by agreement.`,
+    );
     endGame(gameId, EndReason.DrawAgreement, null);
   });
-
   socket.on('reject_draw', () => {
     const gameId = socket.data.gameId as string | undefined;
     const side = socket.data.side as 'white' | 'black' | 'spectator' | undefined;
@@ -730,6 +746,7 @@ io.on('connection', (socket: Socket) => {
 
     state.drawOffer = undefined;
     io.in(gameId).emit('draw_offer_update', { side: null });
+    sendSystemMessage(gameId, `${socket.data.name} rejects the draw offer.`);
   });
   socket.on('find_merge', () => {
     const gameId = socket.data.gameId as string | undefined;
@@ -738,6 +755,7 @@ io.on('connection', (socket: Socket) => {
     lobby.status = GameStatus.SearchingForMerge;
     mergeQueue.add(gameId!);
     io.in(gameId!).emit('game_status_update', { status: lobby.status });
+    sendSystemMessage(gameId!, `${socket.data.name} initiated a search for more players.`);
     tryMatchAndMerge();
   });
   socket.on('cancel_merge', () => {
@@ -747,6 +765,7 @@ io.on('connection', (socket: Socket) => {
     lobby.status = GameStatus.Lobby;
     mergeQueue.delete(gameId!);
     io.in(gameId!).emit('game_status_update', { status: lobby.status });
+    sendSystemMessage(gameId!, `${socket.data.name} cancelled the search for more players.`);
   });
   socket.on('exit_game', () => leave.call(socket, true));
   socket.on('disconnect', () => leave.call(socket, false));

@@ -336,9 +336,6 @@ export default function App() {
     });
     s.on('draw_offer_update', ({ side }: { side: 'white' | 'black' | null }) => {
       setDrawOffer(side);
-      if (side) {
-        toast(`${side[0].toUpperCase() + side.slice(1)} offered a draw.`);
-      }
     });
     s.on('merge_success', ({ newGameId }: { newGameId: string }) => {
       setGameId(newGameId);
@@ -885,26 +882,43 @@ export default function App() {
                 {chatMessages
                   .slice()
                   .reverse()
-                  .map((msg, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: 4,
-                        background: '#fff',
-                        alignSelf: myId === msg.senderId ? 'flex-end' : 'flex-start',
-                        maxWidth: '80%',
-                        wordWrap: 'break-word',
-                      }}
-                    >
-                      {myId === msg.senderId ? (
-                        <strong>{msg.sender}:</strong>
-                      ) : (
-                        <span>{msg.sender}:</span>
-                      )}{' '}
-                      {msg.message}
-                    </div>
-                  ))}
+                  .map((msg, idx) => {
+                    if (msg.system) {
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            fontStyle: 'italic',
+                            textAlign: 'center',
+                            color: '#555',
+                            padding: '0.25rem 0.5rem',
+                          }}
+                        >
+                          {msg.message}
+                        </div>
+                      );
+                    }
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: 4,
+                          background: '#fff',
+                          alignSelf: myId === msg.senderId ? 'flex-end' : 'flex-start',
+                          maxWidth: '80%',
+                          wordWrap: 'break-word',
+                        }}
+                      >
+                        {myId === msg.senderId ? (
+                          <strong>{msg.sender}:</strong>
+                        ) : (
+                          <span>{msg.sender}:</span>
+                        )}{' '}
+                        {msg.message}
+                      </div>
+                    );
+                  })}
               </div>
               <div style={{ borderTop: '1px solid #ccc', padding: 10 }}>
                 <form

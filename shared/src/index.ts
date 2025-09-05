@@ -15,6 +15,7 @@ export type ChatMessage = {
   sender: string;
   senderId: string; // stable pid
   message: string;
+  system?: boolean;
 };
 // Game Mechanics
 export const MAX_PLAYERS_PER_GAME = 10;
