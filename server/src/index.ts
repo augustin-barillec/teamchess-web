@@ -380,6 +380,7 @@ async function tryMatchAndMerge() {
   lobbyStates.delete(gameB_Id);
   setTimeout(() => {
     broadcastPlayers(newGameId);
+    sendSystemMessage(newGameId, 'Teams merged! Welcome to the new lobby.');
   }, 100);
 }
 

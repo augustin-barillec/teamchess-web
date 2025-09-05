@@ -344,7 +344,6 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
       setChatMessages([]); // Reset chat for the new lobby
       setGameStatus(GameStatus.Lobby); // <-- THE FIX IS HERE
-      toast.success('Teams merged! Welcome to the new lobby.');
     });
     (window as any).socket = s;
 
