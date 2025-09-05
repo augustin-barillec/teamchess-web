@@ -425,11 +425,13 @@ export default function App() {
   const findMergeableGame = () => socket?.emit('find_merge');
   const cancelMergeSearch = () => socket?.emit('cancel_merge');
   const resetGame = () => {
-    const s = socket;
-    if (!s) return;
-    s.emit('reset_game', (res: { success: boolean; error?: string }) => {
-      if (res.error) return alert(res.error);
-    });
+    if (window.confirm('Are you sure you want to reset the game?')) {
+      const s = socket;
+      if (!s) return;
+      s.emit('reset_game', (res: { success: boolean; error?: string }) => {
+        if (res.error) return alert(res.error);
+      });
+    }
   };
 
   function needsPromotion(from: string, to: string) {
