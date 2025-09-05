@@ -13,7 +13,6 @@ import {
   GameStatus,
   MAX_PLAYERS_PER_GAME,
 } from '@teamchess/shared';
-
 // Constants and Helpers
 const STORAGE_KEYS = {
   pid: 'tc:pid',
@@ -30,7 +29,7 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.DrawRule]: () => `🤝 Game drawn by rule (e.g. fifty-move).`,
   [EndReason.Resignation]: winner =>
     `🏳️ Resignation!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
-  [EndReason.DrawAgreement]: () => `🤝 Draw agreed by both players.`,
+  [EndReason.DrawAgreement]: () => `🤝 Draw agreed.`,
   [EndReason.Timeout]: winner => `⏱️ Time!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
 };
 const pieceToFigurineWhite: Record<string, string> = {
@@ -78,7 +77,6 @@ export default function App() {
       </g>
     </svg>
   );
-
   // State Management
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket>();
@@ -109,6 +107,7 @@ export default function App() {
   const [clocks, setClocks] = useState({ whiteTime: 0, blackTime: 0 });
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
   const [legalSquareStyles, setLegalSquareStyles] = useState<Record<string, CSSProperties>>({});
+  const [drawOffer, setDrawOffer] = useState<'white' | 'black' | null>(null);
   // Derived State and Refs
   const movesRef = useRef<HTMLDivElement>(null);
   const current = turns[turns.length - 1];
@@ -267,6 +266,7 @@ export default function App() {
       setPgn('');
       setTurns([{ moveNumber, side, proposals: [] }]);
       setLastMoveSquares(null);
+      setDrawOffer(null);
     });
     s.on('game_reset', () => {
       setGameStatus(GameStatus.Lobby);
@@ -278,6 +278,7 @@ export default function App() {
       setPosition(chess.fen());
       setClocks({ whiteTime: 0, blackTime: 0 });
       setLastMoveSquares(null);
+      setDrawOffer(null);
     });
     s.on('clock_update', ({ whiteTime, blackTime }) => setClocks({ whiteTime, blackTime }));
     s.on('position_update', ({ fen }) => {
@@ -324,6 +325,7 @@ export default function App() {
         setWinner(winner);
         setEndReason(reason);
         setPgn(pgn);
+        setDrawOffer(null);
       },
     );
     s.on('chat_message', (msg: ChatMessage) => {
@@ -331,6 +333,12 @@ export default function App() {
     });
     s.on('game_status_update', ({ status }: { status: GameStatus }) => {
       setGameStatus(status);
+    });
+    s.on('draw_offer_update', ({ side }: { side: 'white' | 'black' | null }) => {
+      setDrawOffer(side);
+      if (side) {
+        toast(`${side[0].toUpperCase() + side.slice(1)} offered a draw.`);
+      }
     });
     s.on('merge_success', ({ newGameId }: { newGameId: string }) => {
       setGameId(newGameId);
@@ -419,6 +427,23 @@ export default function App() {
   const resignGame = () => {
     if (window.confirm('Are you sure you want to resign in the name of your team?')) {
       (window as any).socket.emit('resign');
+    }
+  };
+  const offerDraw = () => {
+    if (window.confirm('Are you sure you want to offer a draw in the name of your team?')) {
+      socket?.emit('offer_draw');
+    }
+  };
+
+  const acceptDraw = () => {
+    if (window.confirm('Accept the draw offer in the name of your team?')) {
+      socket?.emit('accept_draw');
+    }
+  };
+
+  const rejectDraw = () => {
+    if (window.confirm('Reject the draw offer in the name of your team?')) {
+      socket?.emit('reject_draw');
     }
   };
   const startGame = () => (window as any).socket.emit('start_game');
@@ -646,9 +671,29 @@ export default function App() {
                 </button>
               )}
               {gameStatus === GameStatus.Active && (
-                <button onClick={resignGame} style={{ marginLeft: 5 }}>
-                  Resign
-                </button>
+                <>
+                  {drawOffer && drawOffer !== side ? (
+                    <>
+                      <button onClick={acceptDraw} style={{ marginLeft: 5 }}>
+                        Accept Draw
+                      </button>
+                      <button onClick={rejectDraw} style={{ marginLeft: 5 }}>
+                        Reject Draw
+                      </button>
+                    </>
+                  ) : drawOffer === side ? (
+                    <span style={{ marginLeft: 5, fontStyle: 'italic' }}>Draw offered...</span>
+                  ) : (
+                    <>
+                      <button onClick={resignGame} style={{ marginLeft: 5 }}>
+                        Resign
+                      </button>
+                      <button onClick={offerDraw} style={{ marginLeft: 5 }}>
+                        Offer Draw
+                      </button>
+                    </>
+                  )}
+                </>
               )}
             </div>
           )}

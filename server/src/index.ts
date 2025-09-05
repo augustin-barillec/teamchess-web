@@ -45,6 +45,7 @@ interface GameState {
   status: GameStatus.Active | GameStatus.Over;
   endReason?: string;
   endWinner?: string | null;
+  drawOffer?: 'white' | 'black';
 }
 
 // In-Memory State
@@ -61,7 +62,6 @@ const io = new Server(server, {
   pingInterval: 5000,
   pingTimeout: 5000,
 });
-
 // Helper Functions
 const loadEngine = require('../load_engine.cjs') as (enginePath: string) => {
   send(cmd: string, cb?: (data: string) => void, stream?: (data: string) => void): void;
@@ -132,8 +132,10 @@ function endGame(gameId: string, reason: string, winner: string | null = null) {
   state.status = GameStatus.Over;
   state.endReason = reason;
   state.endWinner = winner;
+  state.drawOffer = undefined; // Clear any pending draw offers
   const pgn = getCleanPgn(state.chess);
   io.in(gameId).emit('game_over', { reason, winner, pgn });
+  io.in(gameId).emit('draw_offer_update', { side: null });
 }
 
 function startClock(gameId: string) {
@@ -313,14 +315,12 @@ async function tryMatchAndMerge() {
   let gameA_Id: string | null = null;
   let gameB_Id: string | null = null;
   let foundMatch = false;
-
   for (let i = 0; i < queueAsArray.length; i++) {
     for (let j = i + 1; j < queueAsArray.length; j++) {
       const id1 = queueAsArray[i];
       const id2 = queueAsArray[j];
       const count1 = countPlayersInGame(id1);
       const count2 = countPlayersInGame(id2);
-
       if (count1 + count2 <= MAX_PLAYERS_PER_GAME) {
         gameA_Id = id1;
         gameB_Id = id2;
@@ -358,7 +358,6 @@ async function tryMatchAndMerge() {
 
     socket.leave(sess.gameId!);
     socket.join(newGameId);
-
     sess.gameId = newGameId;
     sess.side = 'spectator';
     socket.data.gameId = newGameId;
@@ -369,7 +368,6 @@ async function tryMatchAndMerge() {
 
   lobbyStates.delete(gameA_Id);
   lobbyStates.delete(gameB_Id);
-
   setTimeout(() => {
     broadcastPlayers(newGameId);
   }, 100);
@@ -463,6 +461,9 @@ io.on('connection', (socket: Socket) => {
       }
       socket.emit('position_update', { fen: state.chess.fen() });
       socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
+      if (state.drawOffer) {
+        socket.emit('draw_offer_update', { side: state.drawOffer });
+      }
       if (state.status === GameStatus.Over) {
         socket.emit('game_over', {
           reason: state.endReason,
@@ -571,7 +572,6 @@ io.on('connection', (socket: Socket) => {
     broadcastPlayers(gameId);
     cb?.({ success: true });
   });
-
   socket.on('start_game', (cb?: (res: { success: boolean; error?: string }) => void) => {
     const gameId = socket.data.gameId as string | undefined;
     const lobby = gameId ? lobbyStates.get(gameId) : undefined;
@@ -615,7 +615,6 @@ io.on('connection', (socket: Socket) => {
     startClock(gameId);
     cb?.({ success: true });
   });
-
   socket.on('reset_game', (cb?: (res: { success: boolean; error?: string }) => void) => {
     const gameId = socket.data.gameId as string | undefined;
     const state = gameId && gameStates.get(gameId);
@@ -632,7 +631,6 @@ io.on('connection', (socket: Socket) => {
     io.in(gameId).emit('game_reset');
     cb?.({ success: true });
   });
-
   socket.on('play_move', (lan: string, cb) => {
     const gameId = socket.data.gameId as string | undefined;
     const state = gameStates.get(gameId!);
@@ -677,7 +675,6 @@ io.on('connection', (socket: Socket) => {
       message: message.trim(),
     });
   });
-
   socket.on('resign', () => {
     const gameId = socket.data.gameId as string | undefined;
     const side = socket.data.side as 'white' | 'black' | 'spectator' | undefined;
@@ -690,7 +687,50 @@ io.on('connection', (socket: Socket) => {
     const winner = side === 'white' ? 'black' : 'white';
     endGame(gameId, EndReason.Resignation, winner);
   });
+  socket.on('offer_draw', () => {
+    const gameId = socket.data.gameId as string | undefined;
+    const side = socket.data.side as 'white' | 'black' | 'spectator' | undefined;
+    const state = gameId ? gameStates.get(gameId) : undefined;
 
+    if (!state || state.status !== GameStatus.Active || !side || side === 'spectator') {
+      return;
+    }
+    if (state.drawOffer) return;
+
+    state.drawOffer = side;
+    io.in(gameId).emit('draw_offer_update', { side });
+  });
+
+  socket.on('accept_draw', () => {
+    const gameId = socket.data.gameId as string | undefined;
+    const side = socket.data.side as 'white' | 'black' | 'spectator' | undefined;
+    const state = gameId ? gameStates.get(gameId) : undefined;
+
+    if (!state || state.status !== GameStatus.Active || !side || side === 'spectator') {
+      return;
+    }
+    if (!state.drawOffer || state.drawOffer === side) {
+      return;
+    }
+
+    endGame(gameId, EndReason.DrawAgreement, null);
+  });
+
+  socket.on('reject_draw', () => {
+    const gameId = socket.data.gameId as string | undefined;
+    const side = socket.data.side as 'white' | 'black' | 'spectator' | undefined;
+    const state = gameId ? gameStates.get(gameId) : undefined;
+
+    if (!state || state.status !== GameStatus.Active || !side || side === 'spectator') {
+      return;
+    }
+    if (!state.drawOffer || state.drawOffer === side) {
+      return;
+    }
+
+    state.drawOffer = undefined;
+    io.in(gameId).emit('draw_offer_update', { side: null });
+  });
   socket.on('find_merge', () => {
     const gameId = socket.data.gameId as string | undefined;
     const lobby = gameId ? lobbyStates.get(gameId) : undefined;
@@ -700,7 +740,6 @@ io.on('connection', (socket: Socket) => {
     io.in(gameId!).emit('game_status_update', { status: lobby.status });
     tryMatchAndMerge();
   });
-
   socket.on('cancel_merge', () => {
     const gameId = socket.data.gameId as string | undefined;
     const lobby = gameId ? lobbyStates.get(gameId) : undefined;
@@ -709,7 +748,6 @@ io.on('connection', (socket: Socket) => {
     mergeQueue.delete(gameId!);
     io.in(gameId!).emit('game_status_update', { status: lobby.status });
   });
-
   socket.on('exit_game', () => leave.call(socket, true));
   socket.on('disconnect', () => leave.call(socket, false));
 });
