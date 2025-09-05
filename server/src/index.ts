@@ -33,8 +33,7 @@ interface LobbyState {
 
 interface GameState {
   whiteIds: Set<string>; // pids
-  blackIds: Set<string>;
-  // pids
+  blackIds: Set<string>; // pids
   moveNumber: number;
   side: PlayerSide;
   proposals: Map<string, string>; // pid -> lan
@@ -228,7 +227,14 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
       if (selLan.length === 5) params.promotion = selLan[4];
 
       const move = state.chess.move(params);
-      if (!move) return;
+      if (!move) {
+        // This case should ideally not be reached if validation is correct,
+        // but it's a safeguard to prevent a crash.
+        console.error(
+          `CRITICAL: An illegal move was selected. GameID: ${gameId}, FEN: ${currentFen}, Move: ${selLan}`,
+        );
+        return;
+      }
       const fen = state.chess.fen();
 
       if (state.side === 'white') state.whiteTime += 5;
@@ -536,14 +542,20 @@ io.on('connection', (socket: Socket) => {
           pgn: getCleanPgn(state.chess),
         });
       else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
+
+      // ---- CHANGE #1 START: Use temporary chess instance for replaying proposals ----
+      const tempChessForReplay = new Chess(state.chess.fen());
       for (const [pid, lan] of state.proposals.entries()) {
         const from = lan.slice(0, 2);
         const to = lan.slice(2, 4);
         const params: any = { from, to };
         if (lan.length === 5) params.promotion = lan[4];
-        const move = state.chess.move(params);
+
+        // Validate on the temp instance to get the SAN
+        const move = tempChessForReplay.move(params);
         if (!move) continue;
-        state.chess.undo();
+        tempChessForReplay.undo(); // Undo on temp instance to evaluate next proposal from same board state
+
         const proposal = {
           id: pid,
           name: sessions.get(pid)?.name || 'Player',
@@ -554,6 +566,7 @@ io.on('connection', (socket: Socket) => {
         };
         socket.emit('move_submitted', proposal);
       }
+      // ---- CHANGE #1 END ----
     } else {
       const lobby = lobbyStates.get(gameId);
       socket.emit('game_status_update', { status: lobby!.status });
@@ -654,13 +667,19 @@ io.on('connection', (socket: Socket) => {
     if (!active.has(pid)) return cb?.({ error: 'Not your turn.' });
     if (state.proposals.has(pid)) return cb?.({ error: 'Already moved.' });
 
+    // ---- CHANGE #2 START: Use temporary chess instance for move validation ----
     const from = lan.slice(0, 2);
     const to = lan.slice(2, 4);
     const params: any = { from, to };
     if (lan.length === 5) params.promotion = lan[4];
-    const move = state.chess.move(params);
+
+    // Create a temporary instance for validation
+    const tempChess = new Chess(state.chess.fen());
+    const move = tempChess.move(params);
+
     if (!move) return cb?.({ error: 'Illegal move.' });
-    state.chess.undo();
+    // No longer need state.chess.undo()
+    // ---- CHANGE #2 END ----
 
     state.proposals.set(pid, lan);
     io.in(gameId!).emit('move_submitted', {
