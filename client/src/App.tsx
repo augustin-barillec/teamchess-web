@@ -416,6 +416,11 @@ export default function App() {
   };
 
   const joinSpectator = () => joinSide('spectator');
+  const resignGame = () => {
+    if (window.confirm('Are you sure you want to resign in the name of your team?')) {
+      (window as any).socket.emit('resign');
+    }
+  };
   const startGame = () => (window as any).socket.emit('start_game');
   const findMergeableGame = () => socket?.emit('find_merge');
   const cancelMergeSearch = () => socket?.emit('cancel_merge');
@@ -636,6 +641,11 @@ export default function App() {
                   style={{ marginLeft: 5 }}
                 >
                   Switch to {side === 'white' ? 'Black' : 'White'}
+                </button>
+              )}
+              {gameStatus === GameStatus.Active && (
+                <button onClick={resignGame} style={{ marginLeft: 5 }}>
+                  Resign
                 </button>
               )}
             </div>

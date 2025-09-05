@@ -678,6 +678,19 @@ io.on('connection', (socket: Socket) => {
     });
   });
 
+  socket.on('resign', () => {
+    const gameId = socket.data.gameId as string | undefined;
+    const side = socket.data.side as 'white' | 'black' | 'spectator' | undefined;
+    const state = gameId ? gameStates.get(gameId) : undefined;
+
+    if (!state || state.status !== GameStatus.Active || !side || side === 'spectator') {
+      return;
+    }
+
+    const winner = side === 'white' ? 'black' : 'white';
+    endGame(gameId, EndReason.Resignation, winner);
+  });
+
   socket.on('find_merge', () => {
     const gameId = socket.data.gameId as string | undefined;
     const lobby = gameId ? lobbyStates.get(gameId) : undefined;
