@@ -31,6 +31,8 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
     `🏳️ Resignation!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
   [EndReason.DrawAgreement]: () => `🤝 Draw agreed.`,
   [EndReason.Timeout]: winner => `⏱️ Time!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
+  [EndReason.Abandonment]: winner =>
+    `🚫 Forfeit!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins as the opposing team is empty.`,
 };
 const pieceToFigurineWhite: Record<string, string> = {
   K: '♔',

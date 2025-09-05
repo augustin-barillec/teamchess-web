@@ -47,4 +47,5 @@ export enum EndReason {
   Resignation = 'resignation',
   DrawAgreement = 'draw by agreement',
   Timeout = 'timeout',
+  Abandonment = 'abandonment',
 }

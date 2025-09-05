@@ -298,7 +298,7 @@ function endIfOneSided(gameId: string, state: GameState) {
   if (whiteAlive && blackAlive) return;
 
   const winner = whiteAlive ? 'white' : blackAlive ? 'black' : null;
-  endGame(gameId, EndReason.Resignation, winner);
+  endGame(gameId, EndReason.Abandonment, winner);
 }
 
 function removePlayerPidFromSide(state: GameState, pid: string, side: Side) {
