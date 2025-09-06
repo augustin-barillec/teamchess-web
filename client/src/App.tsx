@@ -13,6 +13,8 @@ import {
   GameStatus,
   MAX_PLAYERS_PER_GAME,
 } from '@teamchess/shared';
+import ReloadPrompt from './ReloadPrompt'; // <-- IMPORT PWA PROMPT
+
 // Constants and Helpers
 const STORAGE_KEYS = {
   pid: 'tc:pid',
@@ -110,6 +112,28 @@ export default function App() {
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
   const [legalSquareStyles, setLegalSquareStyles] = useState<Record<string, CSSProperties>>({});
   const [drawOffer, setDrawOffer] = useState<'white' | 'black' | null>(null);
+
+  // --- RESPONSIVE BOARD STATE ---
+  const boardContainerRef = useRef<HTMLDivElement>(null);
+  const [boardWidth, setBoardWidth] = useState(600);
+
+  useEffect(() => {
+    const observer = new ResizeObserver(entries => {
+      if (entries[0]) {
+        setBoardWidth(entries[0].contentRect.width);
+      }
+    });
+
+    if (boardContainerRef.current) {
+      observer.observe(boardContainerRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+  // --- END RESPONSIVE BOARD STATE ---
+
   // Derived State and Refs
   const movesRef = useRef<HTMLDivElement>(null);
   const current = turns[turns.length - 1];
@@ -345,7 +369,7 @@ export default function App() {
       setSide('spectator');
       sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
       setChatMessages([]); // Reset chat for the new lobby
-      setGameStatus(GameStatus.Lobby); // <-- THE FIX IS HERE
+      setGameStatus(GameStatus.Lobby);
     });
     (window as any).socket = s;
 
@@ -502,7 +526,7 @@ export default function App() {
           }
         : {}),
     },
-    boardWidth: 600,
+    boardWidth: boardWidth, // <-- USE RESPONSIVE STATE
     onPieceDrag: ({ square }: PieceHandlerArgs) => {
       const moves = chess.moves({ square: square, verbose: true });
       const highlights: Record<string, CSSProperties> = {};
@@ -544,19 +568,12 @@ export default function App() {
   };
   // Render Logic
   return (
-    <div style={{ padding: 20, fontFamily: 'sans-serif' }}>
+    <div className="app-container">
       <Toaster position="top-right" />
+      <ReloadPrompt /> {/* <-- ADD PWA RELOAD PROMPT */}
       <h1>TeamChess</h1>
       {amDisconnected && (
-        <div
-          style={{
-            padding: '6px 10px',
-            background: '#ffe3e3',
-            border: '1px solid #ffb3b3',
-            borderRadius: 6,
-            marginBottom: 8,
-          }}
-        >
+        <div className="offline-banner">
           You’re offline. Try refreshing or wait for auto-reconnect…
         </div>
       )}
@@ -572,35 +589,26 @@ export default function App() {
               }}
             />
           </div>
-          <div style={{ marginTop: 5 }}>
+          <div className="input-group">
             <button onClick={createGame}>Create Game</button>
-            <button onClick={() => setShowJoin(s => !s)} style={{ marginLeft: 5 }}>
-              Join Game
-            </button>
+            <button onClick={() => setShowJoin(s => !s)}>Join Game</button>
           </div>
           {showJoin && (
-            <div style={{ marginTop: 5 }}>
+            <div className="input-group">
               <input
                 placeholder="Game ID"
                 value={gameId}
                 onChange={e => setGameId(e.target.value)}
               />
-              <button onClick={joinGame} style={{ marginLeft: 5 }}>
-                Submit
-              </button>
+              <button onClick={joinGame}>Submit</button>
             </div>
           )}
         </div>
       ) : (
         <>
-          <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <p className="game-id-bar">
             <strong>Game ID:</strong>
-            <input
-              style={{ width: gameId.length + 'ch' }}
-              value={gameId}
-              readOnly
-              onFocus={e => e.currentTarget.select()}
-            />
+            <input readOnly value={gameId} onFocus={e => e.currentTarget.select()} />
             <button
               onClick={() => {
                 const input = document.createElement('input');
@@ -625,7 +633,7 @@ export default function App() {
           </p>
 
           {gameStatus === GameStatus.Lobby && (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div className="lobby-actions">
               {players.whitePlayers.length > 0 && players.blackPlayers.length > 0 && (
                 <button onClick={startGame}>Start Game</button>
               )}
@@ -636,7 +644,7 @@ export default function App() {
           )}
 
           {gameStatus === GameStatus.SearchingForMerge && (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div className="searching-banner">
               <p style={{ margin: 0 }}>
                 🔎 Searching for another team of at most {MAX_PLAYERS_PER_GAME - playerCount}{' '}
                 players...
@@ -646,25 +654,22 @@ export default function App() {
           )}
 
           {(gameStatus === GameStatus.Active || gameStatus === GameStatus.Over) && (
-            <div style={{ marginTop: 10, display: 'flex', gap: '0.5rem' }}>
+            <div className="game-actions">
               <button onClick={resetGame}>Reset Game</button>
             </div>
           )}
           {gameStatus !== GameStatus.Over && side === 'spectator' && (
-            <div style={{ marginTop: 10 }}>
+            <div className="side-actions">
               <button onClick={autoAssign}>Auto Assign</button>
               <button onClick={() => joinSide('white')}>Join White</button>
               <button onClick={() => joinSide('black')}>Join Black</button>
             </div>
           )}
           {gameStatus !== GameStatus.Over && (side === 'white' || side === 'black') && (
-            <div style={{ marginTop: 10 }}>
+            <div className="side-actions">
               <button onClick={joinSpectator}>Join Spectators</button>
               {gameStatus === GameStatus.Lobby && (
-                <button
-                  onClick={() => joinSide(side === 'white' ? 'black' : 'white')}
-                  style={{ marginLeft: 5 }}
-                >
+                <button onClick={() => joinSide(side === 'white' ? 'black' : 'white')}>
                   Switch to {side === 'white' ? 'Black' : 'White'}
                 </button>
               )}
@@ -672,45 +677,30 @@ export default function App() {
                 <>
                   {drawOffer && drawOffer !== side ? (
                     <>
-                      <button onClick={acceptDraw} style={{ marginLeft: 5 }}>
-                        Accept Draw
-                      </button>
-                      <button onClick={rejectDraw} style={{ marginLeft: 5 }}>
-                        Reject Draw
-                      </button>
+                      <button onClick={acceptDraw}>Accept Draw</button>
+                      <button onClick={rejectDraw}>Reject Draw</button>
                     </>
                   ) : drawOffer === side ? (
                     <span style={{ marginLeft: 5, fontStyle: 'italic' }}>Draw offered...</span>
                   ) : (
                     <>
-                      <button onClick={resignGame} style={{ marginLeft: 5 }}>
-                        Resign
-                      </button>
-                      <button onClick={offerDraw} style={{ marginLeft: 5 }}>
-                        Offer Draw
-                      </button>
+                      <button onClick={resignGame}>Resign</button>
+                      <button onClick={offerDraw}>Offer Draw</button>
                     </>
                   )}
                 </>
               )}
             </div>
           )}
-          <div style={{ display: 'flex', gap: '2rem' }}>
+          <div className="player-lists-container">
             <div>
               <h3>Spectators</h3>
-              <ul>
+              <ul className="player-list">
                 {players.spectators.map(p => {
                   const isMe = p.id === myId;
                   const disconnected = isMe ? amDisconnected : !p.connected;
                   return (
-                    <li
-                      key={p.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                      }}
-                    >
+                    <li key={p.id}>
                       {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
                       {disconnected && <DisconnectedIcon />}
                     </li>
@@ -720,19 +710,12 @@ export default function App() {
             </div>
             <div>
               <h3>White</h3>
-              <ul>
+              <ul className="player-list">
                 {players.whitePlayers.map(p => {
                   const isMe = p.id === myId;
                   const disconnected = isMe ? amDisconnected : !p.connected;
                   return (
-                    <li
-                      key={p.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                      }}
-                    >
+                    <li key={p.id}>
                       {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
                       {disconnected && <DisconnectedIcon />}
                       {hasPlayed(p.id) && <span>✔️</span>}
@@ -743,19 +726,12 @@ export default function App() {
             </div>
             <div>
               <h3>Black</h3>
-              <ul>
+              <ul className="player-list">
                 {players.blackPlayers.map(p => {
                   const isMe = p.id === myId;
                   const disconnected = isMe ? amDisconnected : !p.connected;
                   return (
-                    <li
-                      key={p.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                      }}
-                    >
+                    <li key={p.id}>
                       {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
                       {disconnected && <DisconnectedIcon />}
                       {hasPlayed(p.id) && <span>✔️</span>}
@@ -765,221 +741,134 @@ export default function App() {
               </ul>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginTop: 20 }}>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <div style={{ flexShrink: 0, width: 600 }}>
+
+          <div className="main-content">
+            <div className="main-column">
+              {/* This new ref wrapper will be observed for its width */}
+              <div ref={boardContainerRef} className="board-wrapper">
                 <Chessboard options={boardOptions} />
               </div>
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: orientation === 'white' ? 'column-reverse' : 'column',
-                  justifyContent: 'center',
-                  gap: '1rem',
-                  fontFamily: 'monospace',
-                  fontSize: '2rem',
-                  minWidth: 140,
-                  height: 600,
-                }}
-              >
+              <div className="clock-container" data-orientation={orientation}>
                 <div
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 6,
-                    background:
-                      current?.side === 'white' && gameStatus === GameStatus.Active
-                        ? '#3a5f0b'
-                        : '#333',
-                    color: '#fff',
-                    fontWeight:
-                      current?.side === 'white' && gameStatus === GameStatus.Active
-                        ? 'bold'
-                        : 'normal',
-                    textAlign: 'center',
-                  }}
+                  className={
+                    'clock-box ' +
+                    (current?.side === 'white' && gameStatus === GameStatus.Active ? 'active' : '')
+                  }
                 >
                   {String(Math.floor(clocks.whiteTime / 60)).padStart(2, '0')}:
                   {String(clocks.whiteTime % 60).padStart(2, '0')}
                 </div>
                 <div
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: 6,
-                    background:
-                      current?.side === 'black' && gameStatus === GameStatus.Active
-                        ? '#3a5f0b'
-                        : '#333',
-                    color: '#fff',
-                    fontWeight:
-                      current?.side === 'black' && gameStatus === GameStatus.Active
-                        ? 'bold'
-                        : 'normal',
-                    textAlign: 'center',
-                  }}
+                  className={
+                    'clock-box ' +
+                    (current?.side === 'black' && gameStatus === GameStatus.Active ? 'active' : '')
+                  }
                 >
                   {String(Math.floor(clocks.blackTime / 60)).padStart(2, '0')}:
                   {String(clocks.blackTime % 60).padStart(2, '0')}
                 </div>
               </div>
             </div>
-            {turns.some(t => t.selection) && (
-              <div
-                ref={movesRef}
-                style={{
-                  width: 180,
-                  height: 550,
-                  overflowY: 'auto',
-                  border: '1px solid #ccc',
-                  padding: '8px',
-                  background: '#fafafa',
-                }}
-              >
-                {turns
-                  .filter(t => t.selection)
-                  .map(t => (
-                    <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
-                      <strong>
-                        Move {t.moveNumber} ({t.side})
-                      </strong>
-                      <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
-                        {t.proposals.map(p => {
-                          const isSel = t.selection!.lan === p.lan;
-                          const fan = p.san ? sanToFan(p.san, t.side) : '';
-                          return (
-                            <li key={p.id}>
-                              {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
-                              {isSel ? <span style={{ color: 'green' }}>{p.lan}</span> : p.lan}
-                              {fan && ` (${fan})`}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))}
-              </div>
-            )}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                width: 300,
-                border: '1px solid #ccc',
-                borderRadius: 8,
-                height: 600,
-                boxSizing: 'border-box',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  flexGrow: 1,
-                  padding: 10,
-                  overflowY: 'auto',
-                  display: 'flex',
-                  flexDirection: 'column-reverse',
-                  gap: '0.5rem',
-                }}
-              >
-                {chatMessages
-                  .slice()
-                  .reverse()
-                  .map((msg, idx) => {
-                    if (msg.system) {
+
+            <div className="sidebar-column">
+              {turns.some(t => t.selection) && (
+                <div ref={movesRef} className="moves-list">
+                  {turns
+                    .filter(t => t.selection)
+                    .map(t => (
+                      <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
+                        <strong>
+                          Move {t.moveNumber} ({t.side})
+                        </strong>
+                        <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
+                          {t.proposals.map(p => {
+                            const isSel = t.selection!.lan === p.lan;
+                            const fan = p.san ? sanToFan(p.san, t.side) : '';
+                            return (
+                              <li key={p.id}>
+                                {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
+                                {isSel ? <span className="moves-list-item">{p.lan}</span> : p.lan}
+                                {fan && ` (${fan})`}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))}
+                </div>
+              )}
+              <div className="chat-box-container">
+                <div className="chat-messages">
+                  {chatMessages
+                    .slice()
+                    .reverse()
+                    .map((msg, idx) => {
+                      if (msg.system) {
+                        return (
+                          <div key={idx} className="chat-message-item system">
+                            {msg.message}
+                          </div>
+                        );
+                      }
                       return (
                         <div
                           key={idx}
-                          style={{
-                            fontStyle: 'italic',
-                            textAlign: 'center',
-                            color: '#555',
-                            padding: '0.25rem 0.5rem',
-                          }}
+                          className={
+                            'chat-message-item ' + (myId === msg.senderId ? 'own' : 'other')
+                          }
                         >
+                          {myId === msg.senderId ? (
+                            <strong>{msg.sender}:</strong>
+                          ) : (
+                            <span>{msg.sender}:</span>
+                          )}{' '}
                           {msg.message}
                         </div>
                       );
-                    }
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          borderRadius: 4,
-                          background: '#fff',
-                          alignSelf: myId === msg.senderId ? 'flex-end' : 'flex-start',
-                          maxWidth: '80%',
-                          wordWrap: 'break-word',
-                        }}
-                      >
-                        {myId === msg.senderId ? (
-                          <strong>{msg.sender}:</strong>
-                        ) : (
-                          <span>{msg.sender}:</span>
-                        )}{' '}
-                        {msg.message}
-                      </div>
-                    );
-                  })}
-              </div>
-              <div style={{ borderTop: '1px solid #ccc', padding: 10 }}>
-                <form
-                  onSubmit={e => {
-                    e.preventDefault();
-                    const form = e.target as HTMLFormElement;
-                    const input = form.elements.namedItem('chatInput') as HTMLInputElement;
-                    const message = input.value;
-                    if (message.trim()) {
-                      socket?.emit('chat_message', message);
-                      input.value = '';
-                    }
-                  }}
-                >
-                  <input
-                    type="text"
-                    name="chatInput"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    spellCheck="false"
-                    placeholder="Type a message..."
-                    style={{
-                      width: '100%',
-                      padding: 8,
-                      boxSizing: 'border-box',
-                      border: '1px solid #ccc',
-                      borderRadius: 4,
+                    })}
+                </div>
+                <div className="chat-form">
+                  <form
+                    onSubmit={e => {
+                      e.preventDefault();
+                      const form = e.target as HTMLFormElement;
+                      const input = form.elements.namedItem('chatInput') as HTMLInputElement;
+                      const message = input.value;
+                      if (message.trim()) {
+                        socket?.emit('chat_message', message);
+                        input.value = '';
+                      }
                     }}
-                  />
-                </form>
+                  >
+                    <input
+                      type="text"
+                      name="chatInput"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
+                      placeholder="Type a message..."
+                    />
+                  </form>
+                </div>
               </div>
             </div>
           </div>
-          <div style={{ marginTop: 10, fontSize: '2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+
+          <div className="material-balance">
+            <div className="material-balance-row">
               <span
-                style={{
-                  display: 'inline-block',
-                  minWidth: '3ch',
-                  marginRight: '0.5rem',
-                  fontSize: '0.75em',
-                  textAlign: 'right',
-                  visibility: materialBalance === 0 ? 'hidden' : 'visible',
-                }}
+                className="material-adv-label"
+                style={{ visibility: materialBalance === 0 ? 'hidden' : 'visible' }}
               >
                 {materialBalance > 0 ? `+${materialBalance}` : ''}
               </span>
               <span>{lostWhitePieces.join(' ')}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="material-balance-row">
               <span
-                style={{
-                  display: 'inline-block',
-                  minWidth: '3ch',
-                  marginRight: '0.5rem',
-                  fontSize: '0.75em',
-                  textAlign: 'right',
-                  visibility: materialBalance === 0 ? 'hidden' : 'visible',
-                }}
+                className="material-adv-label"
+                style={{ visibility: materialBalance === 0 ? 'hidden' : 'visible' }}
               >
                 {materialBalance < 0 ? `+${-materialBalance}` : ''}
               </span>
@@ -987,36 +876,19 @@ export default function App() {
             </div>
           </div>
           {gameStatus === GameStatus.Over && (
-            <div style={{ marginTop: 20 }}>
-              <p style={{ fontSize: '1.2em', margin: 0, marginBottom: '1rem' }}>
+            <div className="game-over-info">
+              <p>
                 {endReason && reasonMessages[endReason]
                   ? reasonMessages[endReason](winner)
                   : `🎉 Game over! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`}
               </p>
               {pgn && (
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div className="pgn-header">
                     <strong>PGN</strong>
                     <button onClick={copyPgn}>Copy</button>
                   </div>
-                  <pre
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      boxSizing: 'border-box',
-                      marginTop: 5,
-                      background: '#fafafa',
-                      border: '1px solid #ccc',
-                      borderRadius: 4,
-                      fontFamily: 'monospace',
-                      fontSize: '0.9em',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      margin: 0,
-                    }}
-                  >
-                    {pgn}
-                  </pre>
+                  <pre>{pgn}</pre>
                 </div>
               )}
             </div>

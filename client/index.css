@@ -1,0 +1,370 @@
+/* Global Resets and Base Styles */
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f8f8f8;
+  color: #333;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button {
+  cursor: pointer;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 4px;
+  font-size: 0.9em;
+  margin: 2px;
+}
+button:hover {
+  background-color: #f4f4f4;
+}
+
+input[type='text'] {
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+pre {
+  width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+  margin-top: 5px;
+  background: #fafafa;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+/* App.tsx Layout */
+.app-container {
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.offline-banner {
+  padding: 6px 10px;
+  background: #ffe3e3;
+  border: 1px solid #ffb3b3;
+  border-radius: 6;
+  margin-bottom: 8px;
+}
+
+.input-group {
+  margin-top: 5px;
+}
+.input-group button {
+  margin-left: 5px;
+}
+
+.game-id-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.game-id-bar input[readonly] {
+  border: 1px solid transparent;
+  background: none;
+}
+
+.lobby-actions,
+.searching-banner,
+.game-actions,
+.side-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.player-lists-container {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.player-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.main-content {
+  display: flex;
+  align-items: flex-start; /* Align to top */
+  gap: 1.5rem;
+  margin-top: 20px;
+}
+
+.main-column {
+  display: flex;
+  gap: 1rem;
+  flex-grow: 1; /* Allow this column to grow */
+  min-width: 0; /* Important for flex-shrink */
+}
+
+.board-wrapper {
+  flex-grow: 1; /* Allow board wrapper to grow and shrink */
+  /* We set a max-width to match the original fixed size, but it can shrink */
+  max-width: 600px;
+  width: 100%; /* Make it responsive */
+}
+
+.clock-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+  font-family: monospace;
+  font-size: 2rem;
+  min-width: 140px;
+  height: 600px;
+}
+.clock-container[data-orientation='white'] {
+  flex-direction: column-reverse;
+}
+
+.clock-box {
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: #fff;
+  text-align: center;
+  background: #333;
+  font-weight: normal;
+}
+.clock-box.active {
+  background: #3a5f0b;
+  font-weight: bold;
+}
+
+.sidebar-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  /* Give it a fixed width on desktop, but allow it to wrap */
+  width: 300px;
+}
+
+.moves-list {
+  width: 100%; /* Overridden from original 180px */
+  max-height: 550px; /* Original height was fixed */
+  height: auto;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 8px;
+  background: #fafafa;
+}
+.moves-list-item strong {
+  color: green;
+}
+
+.chat-box-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%; /* Original 300px */
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  height: 600px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.chat-messages {
+  flex-grow: 1;
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+  background: #fdfdfd;
+}
+
+.chat-message-item {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background: #fff;
+  max-width: 80%;
+  word-wrap: break-word;
+  border: 1px solid #eee;
+  align-self: flex-start;
+}
+.chat-message-item.system {
+  font-style: italic;
+  text-align: center;
+  color: #555;
+  padding: 0.25rem 0.5rem;
+  background: none;
+  border: none;
+  align-self: center;
+}
+.chat-message-item.own {
+  align-self: flex-end;
+  background: #e1f5fe;
+}
+
+.chat-form {
+  border-top: 1px solid #ccc;
+  padding: 10px;
+  background: #fff;
+}
+.chat-form input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.material-balance {
+  margin-top: 10px;
+  font-size: 2rem;
+}
+.material-balance-row {
+  display: flex;
+  align-items: center;
+}
+.material-adv-label {
+  display: inline-block;
+  min-width: 3ch;
+  margin-right: 0.5rem;
+  font-size: 0.75em;
+  text-align: right;
+}
+
+.game-over-info {
+  margin-top: 20px;
+}
+.game-over-info p {
+  font-size: 1.2em;
+  margin: 0 0 1rem 0;
+}
+.pgn-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* PWA Reload Prompt Styles */
+.pwa-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.pwa-toast-message {
+  margin: 0;
+  padding: 0;
+}
+
+.pwa-toast button {
+  background: #007aff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 8px 12px;
+}
+.pwa-toast button:hover {
+  background: #0056b3;
+}
+.pwa-toast button.cancel {
+  background: #555;
+}
+.pwa-toast button.cancel:hover {
+  background: #444;
+}
+
+/* -------------------------- */
+/* --- Responsive Layout --- */
+/* -------------------------- */
+
+@media (max-width: 1200px) {
+  /* Stack the main content and sidebar columns */
+  .main-content {
+    flex-direction: column;
+    align-items: stretch; /* Make children full-width */
+  }
+
+  /* Make sidebar items full width */
+  .sidebar-column {
+    width: 100%;
+    flex-direction: row; /* Lay out moves/chat side-by-side if they fit */
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .chat-box-container {
+    flex-grow: 1;
+    min-width: 300px; /* Give it a min-width to be useful */
+  }
+
+  .moves-list {
+    flex-grow: 1;
+    height: 600px; /* Match chat height for a clean look */
+    min-width: 250px;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    padding: 10px;
+  }
+
+  /* Stack clocks above the board */
+  .main-column {
+    flex-direction: column;
+  }
+
+  .clock-container {
+    flex-direction: row; /* Horizontal clocks */
+    height: auto;
+    width: 100%;
+    font-size: 1.5rem; /* Smaller clock font */
+  }
+  .clock-container[data-orientation='white'] {
+    flex-direction: row-reverse; /* Still keep white on left (visually) */
+  }
+  .clock-box {
+    flex-grow: 1; /* Make clocks share space */
+  }
+
+  /* Stack the moves list and chat box */
+  .sidebar-column {
+    flex-direction: column;
+  }
+
+  .moves-list,
+  .chat-box-container {
+    width: 100%;
+    height: 400px; /* Reduce height for mobile screens */
+  }
+
+  .material-balance {
+    font-size: 1.5rem; /* Smaller piece font */
+  }
+}
