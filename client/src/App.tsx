@@ -827,7 +827,7 @@ export default function App() {
                 ref={movesRef}
                 style={{
                   width: 180,
-                  height: 300,
+                  height: 550,
                   overflowY: 'auto',
                   border: '1px solid #ccc',
                   padding: '8px',
