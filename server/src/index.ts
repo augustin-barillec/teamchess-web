@@ -667,19 +667,24 @@ io.on('connection', (socket: Socket) => {
     if (!active.has(pid)) return cb?.({ error: 'Not your turn.' });
     if (state.proposals.has(pid)) return cb?.({ error: 'Already moved.' });
 
-    // ---- CHANGE #2 START: Use temporary chess instance for move validation ----
+    if (state.drawOffer && state.drawOffer !== state.side) {
+      state.drawOffer = undefined;
+      io.in(gameId).emit('draw_offer_update', { side: null });
+      sendSystemMessage(
+        gameId,
+        `${socket.data.name} proposed a move, automatically rejecting the draw offer.`,
+      );
+    }
+
     const from = lan.slice(0, 2);
     const to = lan.slice(2, 4);
     const params: any = { from, to };
     if (lan.length === 5) params.promotion = lan[4];
 
-    // Create a temporary instance for validation
     const tempChess = new Chess(state.chess.fen());
     const move = tempChess.move(params);
 
     if (!move) return cb?.({ error: 'Illegal move.' });
-    // No longer need state.chess.undo()
-    // ---- CHANGE #2 END ----
 
     state.proposals.set(pid, lan);
     io.in(gameId!).emit('move_submitted', {
