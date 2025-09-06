@@ -1,9 +1,4 @@
 {
   "references": [{ "path": "shared" }, { "path": "server" }, { "path": "client" }],
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@teamchess/shared": ["shared/src"]
-    }
-  }
+  "compilerOptions": {}
 }
