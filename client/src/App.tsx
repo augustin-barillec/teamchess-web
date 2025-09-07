@@ -577,7 +577,7 @@ export default function App() {
       )}
       {!joined ? (
         <div>
-          <div>
+          <div className="input-group">
             <input
               placeholder="Your name"
               value={name}

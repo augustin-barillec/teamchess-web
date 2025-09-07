@@ -69,9 +69,11 @@ pre {
 
 .input-group {
   margin-top: 5px;
-}
-.input-group button {
   margin-left: 5px;
+}
+
+.input-group input {
+  margin: 2px;
 }
 
 .game-id-bar {
