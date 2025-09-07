@@ -146,6 +146,7 @@ pre {
   width: 100%;
   max-width: 800px; /* Board can be larger now */
   margin: 0 auto; /* Center board in its column */
+  touch-action: none;
 }
 .game-player-info {
   display: flex;
