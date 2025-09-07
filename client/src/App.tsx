@@ -111,11 +111,9 @@ export default function App() {
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
   const [legalSquareStyles, setLegalSquareStyles] = useState<Record<string, CSSProperties>>({});
   const [drawOffer, setDrawOffer] = useState<'white' | 'black' | null>(null);
-
   // --- RESPONSIVE BOARD STATE ---
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(600);
-
   useEffect(() => {
     const observer = new ResizeObserver(entries => {
       if (entries[0]) {
@@ -133,11 +131,13 @@ export default function App() {
   }, []);
   // --- END RESPONSIVE BOARD STATE ---
 
+  // --- NEW SIMPLIFIED LAYOUT STATE ---
+  const [activeTab, setActiveTab] = useState<'chat' | 'moves' | 'players'>('chat');
+
   // Derived State and Refs
   const movesRef = useRef<HTMLDivElement>(null);
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
-
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: 'k', color: chess.turn() };
@@ -201,7 +201,7 @@ export default function App() {
   // Side Effects
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
-  }, [turns]);
+  }, [turns, activeTab]); // Re-check scroll when moves tab becomes active
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some(p => p.id === myId)
@@ -369,6 +369,7 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
       setChatMessages([]); // Reset chat for the new lobby
       setGameStatus(GameStatus.Lobby);
+      setActiveTab('chat'); // Switch to chat tab in new lobby
     });
     (window as any).socket = s;
 
@@ -565,18 +566,48 @@ export default function App() {
       return false;
     },
   };
-  // Render Logic
+
+  // --- Helper components for new layout ---
+  const PlayerInfoBox = ({
+    clockTime,
+    lostPieces,
+    materialAdv,
+    isActive,
+  }: {
+    clockTime: number;
+    lostPieces: string[];
+    materialAdv: number;
+    isActive: boolean;
+  }) => (
+    <div className="game-player-info">
+      <div className={'clock-box ' + (isActive ? 'active' : '')}>
+        {String(Math.floor(clockTime / 60)).padStart(2, '0')}:
+        {String(clockTime % 60).padStart(2, '0')}
+      </div>
+      <div className="material-display">
+        <span>{lostPieces.join(' ')}</span>
+        <span
+          className="material-adv-label"
+          style={{ visibility: materialAdv === 0 ? 'hidden' : 'visible' }}
+        >
+          {materialAdv > 0 ? `+${materialAdv}` : ''}
+        </span>
+      </div>
+    </div>
+  );
+
+  // --- Render Logic ---
   return (
     <div className="app-container">
       <Toaster position="top-right" />
-      <h1>TeamChess</h1>
       {amDisconnected && (
         <div className="offline-banner">
           You’re offline. Try refreshing or wait for auto-reconnect…
         </div>
       )}
       {!joined ? (
-        <div>
+        <div className="login-box">
+          <h1>TeamChess</h1>
           <div className="input-group">
             <input
               placeholder="Your name"
@@ -604,293 +635,331 @@ export default function App() {
         </div>
       ) : (
         <>
-          <p className="game-id-bar">
-            <strong>Game ID:</strong>
-            <input readOnly value={gameId} onFocus={e => e.currentTarget.select()} />
-            <button
-              onClick={() => {
-                const input = document.createElement('input');
-                input.value = gameId;
-                document.body.appendChild(input);
-                input.select();
-                try {
-                  const success = document.execCommand('copy');
-                  toast.success(success ? 'Game ID copied' : 'Copy failed');
-                } catch {
-                  toast.error('Copy not supported');
-                }
-                document.body.removeChild(input);
-              }}
-            >
-              Copy
-            </button>
-            <button onClick={exitGame}>Exit Game</button>
-            <span style={{ marginLeft: '1.5rem' }}>
-              <strong>Players:</strong> {playerCount}/{MAX_PLAYERS_PER_GAME}
-            </span>
-          </p>
-
-          {gameStatus === GameStatus.Lobby && (
-            <div className="lobby-actions">
-              {players.whitePlayers.length > 0 && players.blackPlayers.length > 0 && (
-                <button onClick={startGame}>Start Game</button>
-              )}
-              {playerCount < MAX_PLAYERS_PER_GAME && (
-                <button onClick={findMergeableGame}>Find More Players</button>
-              )}
+          {/* === NEW CONSOLIDATED HEADER === */}
+          <div className="header-bar">
+            <h1>TeamChess</h1>
+            <div className="game-id-bar">
+              <strong>Game ID:</strong>
+              <input readOnly value={gameId} onFocus={e => e.currentTarget.select()} />
+              <button
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.value = gameId;
+                  document.body.appendChild(input);
+                  input.select();
+                  try {
+                    const success = document.execCommand('copy');
+                    toast.success(success ? 'Game ID copied' : 'Copy failed');
+                  } catch {
+                    toast.error('Copy not supported');
+                  }
+                  document.body.removeChild(input);
+                }}
+              >
+                Copy
+              </button>
+              <span>
+                {playerCount}/{MAX_PLAYERS_PER_GAME} Players
+              </span>
             </div>
-          )}
 
+            <div className="action-panel">
+              {/* --- LOBBY ACTIONS --- */}
+              {gameStatus === GameStatus.Lobby && (
+                <>
+                  {players.whitePlayers.length > 0 && players.blackPlayers.length > 0 && (
+                    <button onClick={startGame}>Start Game</button>
+                  )}
+                  {playerCount < MAX_PLAYERS_PER_GAME && (
+                    <button onClick={findMergeableGame}>Find More Players</button>
+                  )}
+                </>
+              )}
+              {gameStatus === GameStatus.SearchingForMerge && (
+                <button onClick={cancelMergeSearch}>Cancel Search</button>
+              )}
+
+              {/* --- GAME STATE ACTIONS --- */}
+              {(gameStatus === GameStatus.Active || gameStatus === GameStatus.Over) && (
+                <button onClick={resetGame}>Reset Game</button>
+              )}
+
+              {/* --- SIDE/IN-GAME ACTIONS --- */}
+              {gameStatus !== GameStatus.Over && (
+                <>
+                  {side === 'spectator' && (
+                    <>
+                      <button onClick={autoAssign}>Auto Assign</button>
+                      <button onClick={() => joinSide('white')}>Join White</button>
+                      <button onClick={() => joinSide('black')}>Join Black</button>
+                    </>
+                  )}
+                  {(side === 'white' || side === 'black') && (
+                    <>
+                      <button onClick={joinSpectator}>Join Spectators</button>
+                      {gameStatus === GameStatus.Lobby && (
+                        <button onClick={() => joinSide(side === 'white' ? 'black' : 'white')}>
+                          Switch to {side === 'white' ? 'Black' : 'White'}
+                        </button>
+                      )}
+                      {gameStatus === GameStatus.Active && (
+                        <>
+                          {drawOffer && drawOffer !== side ? (
+                            <>
+                              <button onClick={acceptDraw}>Accept Draw</button>
+                              <button onClick={rejectDraw}>Reject Draw</button>
+                            </>
+                          ) : drawOffer === side ? (
+                            <span style={{ fontStyle: 'italic' }}>Draw offered...</span>
+                          ) : (
+                            <>
+                              <button onClick={resignGame}>Resign</button>
+                              <button onClick={offerDraw}>Offer Draw</button>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+              <button onClick={exitGame}>Exit Game</button>
+            </div>
+          </div>
           {gameStatus === GameStatus.SearchingForMerge && (
             <div className="searching-banner">
               <p style={{ margin: 0 }}>
                 🔎 Searching for another team of at most {MAX_PLAYERS_PER_GAME - playerCount}{' '}
                 players...
               </p>{' '}
-              <button onClick={cancelMergeSearch}>Cancel Search</button>
             </div>
           )}
 
-          {(gameStatus === GameStatus.Active || gameStatus === GameStatus.Over) && (
-            <div className="game-actions">
-              <button onClick={resetGame}>Reset Game</button>
-            </div>
-          )}
-          {gameStatus !== GameStatus.Over && side === 'spectator' && (
-            <div className="side-actions">
-              <button onClick={autoAssign}>Auto Assign</button>
-              <button onClick={() => joinSide('white')}>Join White</button>
-              <button onClick={() => joinSide('black')}>Join Black</button>
-            </div>
-          )}
-          {gameStatus !== GameStatus.Over && (side === 'white' || side === 'black') && (
-            <div className="side-actions">
-              <button onClick={joinSpectator}>Join Spectators</button>
-              {gameStatus === GameStatus.Lobby && (
-                <button onClick={() => joinSide(side === 'white' ? 'black' : 'white')}>
-                  Switch to {side === 'white' ? 'Black' : 'White'}
-                </button>
-              )}
-              {gameStatus === GameStatus.Active && (
-                <>
-                  {drawOffer && drawOffer !== side ? (
-                    <>
-                      <button onClick={acceptDraw}>Accept Draw</button>
-                      <button onClick={rejectDraw}>Reject Draw</button>
-                    </>
-                  ) : drawOffer === side ? (
-                    <span style={{ marginLeft: 5, fontStyle: 'italic' }}>Draw offered...</span>
-                  ) : (
-                    <>
-                      <button onClick={resignGame}>Resign</button>
-                      <button onClick={offerDraw}>Offer Draw</button>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-          <div className="player-lists-container">
-            <div>
-              <h3>Spectators</h3>
-              <ul className="player-list">
-                {players.spectators.map(p => {
-                  const isMe = p.id === myId;
-                  const disconnected = isMe ? amDisconnected : !p.connected;
-                  return (
-                    <li key={p.id}>
-                      {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
-                      {disconnected && <DisconnectedIcon />}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-            <div>
-              <h3>White</h3>
-              <ul className="player-list">
-                {players.whitePlayers.map(p => {
-                  const isMe = p.id === myId;
-                  const disconnected = isMe ? amDisconnected : !p.connected;
-                  return (
-                    <li key={p.id}>
-                      {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
-                      {disconnected && <DisconnectedIcon />}
-                      {hasPlayed(p.id) && <span>✔️</span>}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-            <div>
-              <h3>Black</h3>
-              <ul className="player-list">
-                {players.blackPlayers.map(p => {
-                  const isMe = p.id === myId;
-                  const disconnected = isMe ? amDisconnected : !p.connected;
-                  return (
-                    <li key={p.id}>
-                      {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
-                      {disconnected && <DisconnectedIcon />}
-                      {hasPlayed(p.id) && <span>✔️</span>}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
+          {/* === NEW 2-COLUMN LAYOUT === */}
+          <div className="main-layout">
+            {/* === COLUMN 1: GAME === */}
+            <div className="game-column">
+              <PlayerInfoBox
+                clockTime={orientation === 'white' ? clocks.blackTime : clocks.whiteTime}
+                lostPieces={orientation === 'white' ? lostBlackPieces : lostWhitePieces}
+                materialAdv={orientation === 'white' ? -materialBalance : materialBalance}
+                isActive={
+                  gameStatus === GameStatus.Active &&
+                  current?.side === (orientation === 'white' ? 'black' : 'white')
+                }
+              />
 
-          <div className="main-content">
-            <div className="main-column">
-              {/* This new ref wrapper will be observed for its width */}
               <div ref={boardContainerRef} className="board-wrapper">
                 <Chessboard options={boardOptions} />
               </div>
-              <div className="clock-container" data-orientation={orientation}>
-                <div
-                  className={
-                    'clock-box ' +
-                    (current?.side === 'white' && gameStatus === GameStatus.Active ? 'active' : '')
-                  }
-                >
-                  {String(Math.floor(clocks.whiteTime / 60)).padStart(2, '0')}:
-                  {String(clocks.whiteTime % 60).padStart(2, '0')}
-                </div>
-                <div
-                  className={
-                    'clock-box ' +
-                    (current?.side === 'black' && gameStatus === GameStatus.Active ? 'active' : '')
-                  }
-                >
-                  {String(Math.floor(clocks.blackTime / 60)).padStart(2, '0')}:
-                  {String(clocks.blackTime % 60).padStart(2, '0')}
-                </div>
-              </div>
-            </div>
 
-            <div className="sidebar-column">
-              {turns.some(t => t.selection) && (
-                <div ref={movesRef} className="moves-list">
-                  {turns
-                    .filter(t => t.selection)
-                    .map(t => (
-                      <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
-                        <strong>
-                          Move {t.moveNumber} ({t.side})
-                        </strong>
-                        <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
-                          {t.proposals.map(p => {
-                            const isSel = t.selection!.lan === p.lan;
-                            const fan = p.san ? sanToFan(p.san, t.side) : '';
-                            return (
-                              <li key={p.id}>
-                                {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
-                                {isSel ? <span className="moves-list-item">{p.lan}</span> : p.lan}
-                                {fan && ` (${fan})`}
-                              </li>
-                            );
-                          })}
-                        </ul>
+              <PlayerInfoBox
+                clockTime={orientation === 'white' ? clocks.whiteTime : clocks.blackTime}
+                lostPieces={orientation === 'white' ? lostWhitePieces : lostBlackPieces}
+                materialAdv={orientation === 'white' ? materialBalance : -materialBalance}
+                isActive={
+                  gameStatus === GameStatus.Active &&
+                  current?.side === (orientation === 'white' ? 'white' : 'black')
+                }
+              />
+
+              {gameStatus === GameStatus.Over && (
+                <div className="game-over-info">
+                  <p>
+                    {endReason && reasonMessages[endReason]
+                      ? reasonMessages[endReason](winner)
+                      : `🎉 Game over! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`}
+                  </p>
+                  {pgn && (
+                    <div>
+                      <div className="pgn-header">
+                        <strong>PGN</strong>
+                        <button onClick={copyPgn}>Copy</button>
                       </div>
-                    ))}
+                      <pre>{pgn}</pre>
+                    </div>
+                  )}
                 </div>
               )}
-              <div className="chat-box-container">
-                <div className="chat-messages">
-                  {chatMessages
-                    .slice()
-                    .reverse()
-                    .map((msg, idx) => {
-                      if (msg.system) {
-                        return (
-                          <div key={idx} className="chat-message-item system">
-                            {msg.message}
-                          </div>
-                        );
-                      }
-                      return (
-                        <div
-                          key={idx}
-                          className={
-                            'chat-message-item ' + (myId === msg.senderId ? 'own' : 'other')
+            </div>
+
+            {/* === COLUMN 2: INFO (TABS) === */}
+            <div className="info-column">
+              <nav className="info-tabs-nav">
+                <button
+                  className={activeTab === 'chat' ? 'active' : ''}
+                  onClick={() => setActiveTab('chat')}
+                >
+                  Chat
+                </button>
+                <button
+                  className={activeTab === 'moves' ? 'active' : ''}
+                  onClick={() => setActiveTab('moves')}
+                >
+                  Moves
+                </button>
+                <button
+                  className={activeTab === 'players' ? 'active' : ''}
+                  onClick={() => setActiveTab('players')}
+                >
+                  Players
+                </button>
+              </nav>
+
+              <div className="info-tabs-content">
+                {/* --- CHAT TAB PANEL --- */}
+                <div className={'tab-panel ' + (activeTab === 'chat' ? 'active' : '')}>
+                  <div className="chat-box-container">
+                    <div className="chat-messages">
+                      {chatMessages
+                        .slice()
+                        .reverse()
+                        .map((msg, idx) => {
+                          if (msg.system) {
+                            return (
+                              <div key={idx} className="chat-message-item system">
+                                {msg.message}
+                              </div>
+                            );
                           }
-                        >
-                          {myId === msg.senderId ? (
-                            <strong>{msg.sender}:</strong>
-                          ) : (
-                            <span>{msg.sender}:</span>
-                          )}{' '}
-                          {msg.message}
-                        </div>
-                      );
-                    })}
+                          return (
+                            <div
+                              key={idx}
+                              className={
+                                'chat-message-item ' + (myId === msg.senderId ? 'own' : 'other')
+                              }
+                            >
+                              {myId === msg.senderId ? (
+                                <strong>{msg.sender}:</strong>
+                              ) : (
+                                <span>{msg.sender}:</span>
+                              )}{' '}
+                              {msg.message}
+                            </div>
+                          );
+                        })}
+                    </div>
+                    <div className="chat-form">
+                      <form
+                        onSubmit={e => {
+                          e.preventDefault();
+                          const form = e.target as HTMLFormElement;
+                          const input = form.elements.namedItem('chatInput') as HTMLInputElement;
+                          const message = input.value;
+                          if (message.trim()) {
+                            socket?.emit('chat_message', message);
+                            input.value = '';
+                          }
+                        }}
+                      >
+                        <input
+                          type="text"
+                          name="chatInput"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="off"
+                          spellCheck="false"
+                          placeholder="Type a message..."
+                        />
+                      </form>
+                    </div>
+                  </div>
                 </div>
-                <div className="chat-form">
-                  <form
-                    onSubmit={e => {
-                      e.preventDefault();
-                      const form = e.target as HTMLFormElement;
-                      const input = form.elements.namedItem('chatInput') as HTMLInputElement;
-                      const message = input.value;
-                      if (message.trim()) {
-                        socket?.emit('chat_message', message);
-                        input.value = '';
-                      }
-                    }}
-                  >
-                    <input
-                      type="text"
-                      name="chatInput"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="off"
-                      spellCheck="false"
-                      placeholder="Type a message..."
-                    />
-                  </form>
+
+                {/* --- MOVES TAB PANEL --- */}
+                <div className={'tab-panel ' + (activeTab === 'moves' ? 'active' : '')}>
+                  {turns.some(t => t.selection) ? (
+                    <div ref={movesRef} className="moves-list">
+                      {turns
+                        .filter(t => t.selection)
+                        .map(t => (
+                          <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
+                            <strong>
+                              Move {t.moveNumber} ({t.side})
+                            </strong>
+                            <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
+                              {t.proposals.map(p => {
+                                const isSel = t.selection!.lan === p.lan;
+                                const fan = p.san ? sanToFan(p.san, t.side) : '';
+                                return (
+                                  <li key={p.id}>
+                                    {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
+                                    {isSel ? (
+                                      <span className="moves-list-item">{p.lan}</span>
+                                    ) : (
+                                      p.lan
+                                    )}
+                                    {fan && ` (${fan})`}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <p style={{ padding: '10px', fontStyle: 'italic' }}>No moves played yet.</p>
+                  )}
+                </div>
+
+                {/* --- PLAYERS TAB PANEL --- */}
+                <div className={'tab-panel ' + (activeTab === 'players' ? 'active' : '')}>
+                  <div className="player-lists-container">
+                    <div>
+                      <h3>Spectators</h3>
+                      <ul className="player-list">
+                        {players.spectators.map(p => {
+                          const isMe = p.id === myId;
+                          const disconnected = isMe ? amDisconnected : !p.connected;
+                          return (
+                            <li key={p.id}>
+                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
+                              {disconnected && <DisconnectedIcon />}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                    <div>
+                      <h3>White</h3>
+                      <ul className="player-list">
+                        {players.whitePlayers.map(p => {
+                          const isMe = p.id === myId;
+                          const disconnected = isMe ? amDisconnected : !p.connected;
+                          return (
+                            <li key={p.id}>
+                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
+                              {disconnected && <DisconnectedIcon />}
+                              {hasPlayed(p.id) && <span>✔️</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                    <div>
+                      <h3>Black</h3>
+                      <ul className="player-list">
+                        {players.blackPlayers.map(p => {
+                          const isMe = p.id === myId;
+                          const disconnected = isMe ? amDisconnected : !p.connected;
+                          return (
+                            <li key={p.id}>
+                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
+                              {disconnected && <DisconnectedIcon />}
+                              {hasPlayed(p.id) && <span>✔️</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               </div>
+              {/* End tabs content */}
             </div>
+            {/* End info column */}
           </div>
-
-          <div className="material-balance">
-            <div className="material-balance-row">
-              <span
-                className="material-adv-label"
-                style={{ visibility: materialBalance === 0 ? 'hidden' : 'visible' }}
-              >
-                {materialBalance > 0 ? `+${materialBalance}` : ''}
-              </span>
-              <span>{lostWhitePieces.join(' ')}</span>
-            </div>
-            <div className="material-balance-row">
-              <span
-                className="material-adv-label"
-                style={{ visibility: materialBalance === 0 ? 'hidden' : 'visible' }}
-              >
-                {materialBalance < 0 ? `+${-materialBalance}` : ''}
-              </span>
-              <span>{lostBlackPieces.join(' ')}</span>
-            </div>
-          </div>
-          {gameStatus === GameStatus.Over && (
-            <div className="game-over-info">
-              <p>
-                {endReason && reasonMessages[endReason]
-                  ? reasonMessages[endReason](winner)
-                  : `🎉 Game over! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`}
-              </p>
-              {pgn && (
-                <div>
-                  <div className="pgn-header">
-                    <strong>PGN</strong>
-                    <button onClick={copyPgn}>Copy</button>
-                  </div>
-                  <pre>{pgn}</pre>
-                </div>
-              )}
-            </div>
-          )}
+          {/* End main layout */}
         </>
       )}
     </div>
