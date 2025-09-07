@@ -640,7 +640,6 @@ export default function App() {
             <h1>TeamChess</h1>
             <div className="game-id-bar">
               <strong>Game ID:</strong>
-              <input readOnly value={gameId} onFocus={e => e.currentTarget.select()} />
               <button
                 onClick={() => {
                   const input = document.createElement('input');
@@ -656,7 +655,7 @@ export default function App() {
                   document.body.removeChild(input);
                 }}
               >
-                Copy
+                {gameId}
               </button>
               <span>
                 {playerCount}/{MAX_PLAYERS_PER_GAME} Players
