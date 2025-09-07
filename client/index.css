@@ -135,17 +135,21 @@ pre {
 
 /* 3. Game Column (Left) */
 .game-column {
-  flex: 2; /* Takes up 2/3 of space */
+  flex: 2;
+  /* Takes up 2/3 of space */
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  min-width: 0; /* Critical for flex-shrinking */
+  min-width: 0;
+  /* Critical for flex-shrinking */
   max-width: 100%;
 }
 .board-wrapper {
   width: 100%;
-  max-width: 800px; /* Board can be larger now */
-  margin: 0 auto; /* Center board in its column */
+  max-width: 800px;
+  /* Board can be larger now */
+  margin: 0 auto;
+  /* Center board in its column */
   touch-action: none;
 }
 .game-player-info {
@@ -157,7 +161,8 @@ pre {
   background: #eee;
   border-radius: 6px;
   width: 100%;
-  max-width: 800px; /* Match board wrapper */
+  max-width: 800px;
+  /* Match board wrapper */
   margin: 0 auto;
 }
 .clock-box {
@@ -204,10 +209,12 @@ pre {
 
 /* 4. Info Column (Right - TABS) */
 .info-column {
-  flex: 1; /* Takes up 1/3 of space */
+  flex: 1;
+  /* Takes up 1/3 of space */
   min-width: 300px;
   max-width: 450px;
-  position: sticky; /* Sticks to top when scrolling on large screens */
+  position: sticky;
+  /* Sticks to top when scrolling on large screens */
   top: 20px;
   background: #fdfdfd;
   border: 1px solid #ccc;
@@ -242,12 +249,24 @@ pre {
   border-bottom: 3px solid #3a5f0b;
 }
 
+.unread-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: #007bff; /* Blue indicator */
+  border-radius: 50%;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
 /* Tab Content */
 .info-tabs-content .tab-panel {
-  display: none; /* Hide all panels by default */
+  display: none;
+  /* Hide all panels by default */
 }
 .info-tabs-content .tab-panel.active {
-  display: block; /* Show only the active one */
+  display: block;
+  /* Show only the active one */
 }
 
 /* Tab 1: Chat */
@@ -257,7 +276,8 @@ pre {
   width: 100%;
   border: none; /* Container is now the tab panel */
   border-radius: 0;
-  height: 600px; /* Fixed height for content area */
+  height: 600px;
+  /* Fixed height for content area */
   box-sizing: border-box;
 }
 .chat-messages {
@@ -345,15 +365,18 @@ pre {
 
   .game-column {
     width: 100%;
-    max-width: 800px; /* Allow game column to be wide */
+    max-width: 800px;
+    /* Allow game column to be wide */
     order: 1;
   }
 
   .info-column {
     order: 2;
     width: 100%;
-    max-width: 800px; /* Match game column width */
-    position: relative; /* Remove sticky positioning */
+    max-width: 800px;
+    /* Match game column width */
+    position: relative;
+    /* Remove sticky positioning */
     top: 0;
   }
 }
@@ -369,17 +392,20 @@ pre {
   }
 
   .clock-box {
-    font-size: 1.5rem; /* Smaller clock font */
+    font-size: 1.5rem;
+    /* Smaller clock font */
     min-width: 100px;
   }
 
   .material-display {
-    font-size: 1.5rem; /* Smaller piece font */
+    font-size: 1.5rem;
+    /* Smaller piece font */
   }
 
   .moves-list,
   .chat-box-container,
   .player-lists-container {
-    height: 400px; /* Reduce height for mobile screens */
+    height: 400px;
+    /* Reduce height for mobile screens */
   }
 }

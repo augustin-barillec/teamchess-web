@@ -133,9 +133,11 @@ export default function App() {
 
   // --- NEW SIMPLIFIED LAYOUT STATE ---
   const [activeTab, setActiveTab] = useState<'chat' | 'moves' | 'players'>('chat');
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
   // Derived State and Refs
   const movesRef = useRef<HTMLDivElement>(null);
+  const activeTabRef = useRef(activeTab); // Ref to track active tab for socket listener
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
   const kingInCheckSquare = useMemo(() => {
@@ -201,7 +203,13 @@ export default function App() {
   // Side Effects
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
-  }, [turns, activeTab]); // Re-check scroll when moves tab becomes active
+  }, [turns, activeTab]);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  // Re-check scroll when moves tab becomes active
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some(p => p.id === myId)
@@ -355,6 +363,9 @@ export default function App() {
     );
     s.on('chat_message', (msg: ChatMessage) => {
       setChatMessages(msgs => [...msgs, msg]);
+      if (!msg.system && activeTabRef.current !== 'chat') {
+        setHasUnreadMessages(true);
+      }
     });
     s.on('game_status_update', ({ status }: { status: GameStatus }) => {
       setGameStatus(status);
@@ -566,7 +577,6 @@ export default function App() {
       return false;
     },
   };
-
   // --- Helper components for new layout ---
   const PlayerInfoBox = ({
     clockTime,
@@ -595,7 +605,6 @@ export default function App() {
       </div>
     </div>
   );
-
   // --- Render Logic ---
   return (
     <div className="app-container">
@@ -787,9 +796,12 @@ export default function App() {
               <nav className="info-tabs-nav">
                 <button
                   className={activeTab === 'chat' ? 'active' : ''}
-                  onClick={() => setActiveTab('chat')}
+                  onClick={() => {
+                    setActiveTab('chat');
+                    setHasUnreadMessages(false);
+                  }}
                 >
-                  Chat
+                  Chat {hasUnreadMessages && <span className="unread-dot"></span>}
                 </button>
                 <button
                   className={activeTab === 'moves' ? 'active' : ''}
