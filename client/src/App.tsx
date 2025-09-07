@@ -132,7 +132,7 @@ export default function App() {
   // --- END RESPONSIVE BOARD STATE ---
 
   // --- NEW SIMPLIFIED LAYOUT STATE ---
-  const [activeTab, setActiveTab] = useState<'chat' | 'moves' | 'players'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'moves' | 'players'>('players');
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
   // Derived State and Refs
@@ -204,11 +204,9 @@ export default function App() {
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
-
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
-
   // Re-check scroll when moves tab becomes active
   useEffect(() => {
     if (!myId) return;
@@ -795,13 +793,10 @@ export default function App() {
             <div className="info-column">
               <nav className="info-tabs-nav">
                 <button
-                  className={activeTab === 'chat' ? 'active' : ''}
-                  onClick={() => {
-                    setActiveTab('chat');
-                    setHasUnreadMessages(false);
-                  }}
+                  className={activeTab === 'players' ? 'active' : ''}
+                  onClick={() => setActiveTab('players')}
                 >
-                  Chat {hasUnreadMessages && <span className="unread-dot"></span>}
+                  Players
                 </button>
                 <button
                   className={activeTab === 'moves' ? 'active' : ''}
@@ -810,14 +805,106 @@ export default function App() {
                   Moves
                 </button>
                 <button
-                  className={activeTab === 'players' ? 'active' : ''}
-                  onClick={() => setActiveTab('players')}
+                  className={activeTab === 'chat' ? 'active' : ''}
+                  onClick={() => {
+                    setActiveTab('chat');
+                    setHasUnreadMessages(false);
+                  }}
                 >
-                  Players
+                  Chat {hasUnreadMessages && <span className="unread-dot"></span>}
                 </button>
               </nav>
 
               <div className="info-tabs-content">
+                {/* --- PLAYERS TAB PANEL --- */}
+                <div className={'tab-panel ' + (activeTab === 'players' ? 'active' : '')}>
+                  <div className="player-lists-container">
+                    <div>
+                      <h3>Spectators</h3>
+                      <ul className="player-list">
+                        {players.spectators.map(p => {
+                          const isMe = p.id === myId;
+                          const disconnected = isMe ? amDisconnected : !p.connected;
+                          return (
+                            <li key={p.id}>
+                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
+                              {disconnected && <DisconnectedIcon />}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                    <div>
+                      <h3>White</h3>
+                      <ul className="player-list">
+                        {players.whitePlayers.map(p => {
+                          const isMe = p.id === myId;
+                          const disconnected = isMe ? amDisconnected : !p.connected;
+                          return (
+                            <li key={p.id}>
+                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
+                              {disconnected && <DisconnectedIcon />}
+                              {hasPlayed(p.id) && <span>✔️</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                    <div>
+                      <h3>Black</h3>
+                      <ul className="player-list">
+                        {players.blackPlayers.map(p => {
+                          const isMe = p.id === myId;
+                          const disconnected = isMe ? amDisconnected : !p.connected;
+                          return (
+                            <li key={p.id}>
+                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
+                              {disconnected && <DisconnectedIcon />}
+                              {hasPlayed(p.id) && <span>✔️</span>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* --- MOVES TAB PANEL --- */}
+                <div className={'tab-panel ' + (activeTab === 'moves' ? 'active' : '')}>
+                  {turns.some(t => t.selection) ? (
+                    <div ref={movesRef} className="moves-list">
+                      {turns
+                        .filter(t => t.selection)
+                        .map(t => (
+                          <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
+                            <strong>
+                              Move {t.moveNumber} ({t.side})
+                            </strong>
+                            <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
+                              {t.proposals.map(p => {
+                                const isSel = t.selection!.lan === p.lan;
+                                const fan = p.san ? sanToFan(p.san, t.side) : '';
+                                return (
+                                  <li key={p.id}>
+                                    {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
+                                    {isSel ? (
+                                      <span className="moves-list-item">{p.lan}</span>
+                                    ) : (
+                                      p.lan
+                                    )}
+                                    {fan && ` (${fan})`}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <p style={{ padding: '10px', fontStyle: 'italic' }}>No moves played yet.</p>
+                  )}
+                </div>
+
                 {/* --- CHAT TAB PANEL --- */}
                 <div className={'tab-panel ' + (activeTab === 'chat' ? 'active' : '')}>
                   <div className="chat-box-container">
@@ -873,95 +960,6 @@ export default function App() {
                           placeholder="Type a message..."
                         />
                       </form>
-                    </div>
-                  </div>
-                </div>
-
-                {/* --- MOVES TAB PANEL --- */}
-                <div className={'tab-panel ' + (activeTab === 'moves' ? 'active' : '')}>
-                  {turns.some(t => t.selection) ? (
-                    <div ref={movesRef} className="moves-list">
-                      {turns
-                        .filter(t => t.selection)
-                        .map(t => (
-                          <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
-                            <strong>
-                              Move {t.moveNumber} ({t.side})
-                            </strong>
-                            <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
-                              {t.proposals.map(p => {
-                                const isSel = t.selection!.lan === p.lan;
-                                const fan = p.san ? sanToFan(p.san, t.side) : '';
-                                return (
-                                  <li key={p.id}>
-                                    {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
-                                    {isSel ? (
-                                      <span className="moves-list-item">{p.lan}</span>
-                                    ) : (
-                                      p.lan
-                                    )}
-                                    {fan && ` (${fan})`}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        ))}
-                    </div>
-                  ) : (
-                    <p style={{ padding: '10px', fontStyle: 'italic' }}>No moves played yet.</p>
-                  )}
-                </div>
-
-                {/* --- PLAYERS TAB PANEL --- */}
-                <div className={'tab-panel ' + (activeTab === 'players' ? 'active' : '')}>
-                  <div className="player-lists-container">
-                    <div>
-                      <h3>Spectators</h3>
-                      <ul className="player-list">
-                        {players.spectators.map(p => {
-                          const isMe = p.id === myId;
-                          const disconnected = isMe ? amDisconnected : !p.connected;
-                          return (
-                            <li key={p.id}>
-                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
-                              {disconnected && <DisconnectedIcon />}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                    <div>
-                      <h3>White</h3>
-                      <ul className="player-list">
-                        {players.whitePlayers.map(p => {
-                          const isMe = p.id === myId;
-                          const disconnected = isMe ? amDisconnected : !p.connected;
-                          return (
-                            <li key={p.id}>
-                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
-                              {disconnected && <DisconnectedIcon />}
-                              {hasPlayed(p.id) && <span>✔️</span>}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                    <div>
-                      <h3>Black</h3>
-                      <ul className="player-list">
-                        {players.blackPlayers.map(p => {
-                          const isMe = p.id === myId;
-                          const disconnected = isMe ? amDisconnected : !p.connected;
-                          return (
-                            <li key={p.id}>
-                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
-                              {disconnected && <DisconnectedIcon />}
-                              {hasPlayed(p.id) && <span>✔️</span>}
-                            </li>
-                          );
-                        })}
-                      </ul>
                     </div>
                   </div>
                 </div>
