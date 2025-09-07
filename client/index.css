@@ -261,44 +261,6 @@ pre {
   gap: 0.5rem;
 }
 
-/* PWA Reload Prompt Styles */
-.pwa-toast {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  background: rgba(0, 0, 0, 0.85);
-  color: white;
-  padding: 12px 16px;
-  border-radius: 8px;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.pwa-toast-message {
-  margin: 0;
-  padding: 0;
-}
-
-.pwa-toast button {
-  background: #007aff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  padding: 8px 12px;
-}
-.pwa-toast button:hover {
-  background: #0056b3;
-}
-.pwa-toast button.cancel {
-  background: #555;
-}
-.pwa-toast button.cancel:hover {
-  background: #444;
-}
-
 /* -------------------------- */
 /* --- Responsive Layout --- */
 /* -------------------------- */

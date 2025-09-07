@@ -13,7 +13,6 @@ import {
   GameStatus,
   MAX_PLAYERS_PER_GAME,
 } from '@teamchess/shared';
-import ReloadPrompt from './ReloadPrompt'; // <-- IMPORT PWA PROMPT
 
 // Constants and Helpers
 const STORAGE_KEYS = {
@@ -570,7 +569,6 @@ export default function App() {
   return (
     <div className="app-container">
       <Toaster position="top-right" />
-      <ReloadPrompt /> {/* <-- ADD PWA RELOAD PROMPT */}
       <h1>TeamChess</h1>
       {amDisconnected && (
         <div className="offline-banner">
