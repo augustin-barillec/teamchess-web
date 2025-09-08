@@ -253,7 +253,8 @@ pre {
   display: inline-block;
   width: 8px;
   height: 8px;
-  background-color: #007bff; /* Blue indicator */
+  background-color: #007bff;
+  /* Blue indicator */
   border-radius: 50%;
   margin-left: 5px;
   vertical-align: middle;
@@ -407,5 +408,84 @@ pre {
   .player-lists-container {
     height: 400px;
     /* Reduce height for mobile screens */
+  }
+}
+
+/* ======================================= */
+/* === NEW: DESKTOP 4-COLUMN HORIZONTAL === */
+/* ======================================= */
+
+/* This rule applies ONLY to desktop screens (wider than the mobile breakpoint) */
+@media (min-width: 900.01px) {
+  /* 1. Make the .info-column wrapper "disappear", promoting its children */
+  .info-column {
+    display: contents;
+    /* This makes its children (.info-tabs-nav, .info-tabs-content) 
+       become direct flex children of .main-layout */
+  }
+
+  /* 2. We don't want the tab nav bar, so hide it */
+  .info-tabs-nav {
+    display: none;
+  }
+
+  /* 3. Make the .info-tabs-content wrapper "disappear" too */
+  .info-tabs-content {
+    display: contents;
+    /* This makes ITS children (.tab-panel x 3)
+       become direct flex children of .main-layout */
+  }
+
+  /* At this point, .main-layout has 4 direct children:
+     - .game-column
+     - .tab-panel (players)
+     - .tab-panel (moves)
+     - .tab-panel (chat)
+  */
+
+  /* 4. Force all 3 panels to be visible (overriding .display-none default) */
+  .tab-panel {
+    display: block !important; /* Override the default and .active logic */
+
+    /* Re-apply the container styles from the old .info-column */
+    background: #fdfdfd;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    overflow: hidden;
+
+    /* Make each panel its own sticky column */
+    position: sticky;
+    top: 20px;
+  }
+
+  /* 5. Size the 4 columns based on your request */
+  .game-column {
+    flex-grow: 2;
+    flex-shrink: 1;
+    flex-basis: 40%; /* Smaller board */
+    max-width: 600px; /* Cap the board size */
+    min-width: 350px;
+  }
+
+  .tab-panel {
+    /* This selector now targets all 3 info panels */
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 20%; /* Each info panel gets 20% */
+    min-width: 260px; /* Don't let them get TOO thin */
+  }
+
+  /* 6. Style the <h3> tags (from App.tsx) as new column headers */
+  .tab-panel > h3 {
+    font-size: 1.2em;
+    margin: 0;
+    padding: 10px 10px 8px 10px;
+    border-bottom: 1px solid #ccc;
+    background: #f4f4f4; /* Match the old tab nav bg */
+  }
+
+  /* 7. Hide the unread dot (redundant on desktop) */
+  .unread-dot {
+    display: none;
   }
 }

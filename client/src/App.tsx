@@ -818,6 +818,7 @@ export default function App() {
               <div className="info-tabs-content">
                 {/* --- PLAYERS TAB PANEL --- */}
                 <div className={'tab-panel ' + (activeTab === 'players' ? 'active' : '')}>
+                  <h3>Players</h3> {/* <-- MODIFICATION HERE */}
                   <div className="player-lists-container">
                     <div>
                       <h3>Spectators</h3>
@@ -871,6 +872,7 @@ export default function App() {
 
                 {/* --- MOVES TAB PANEL --- */}
                 <div className={'tab-panel ' + (activeTab === 'moves' ? 'active' : '')}>
+                  <h3>Moves</h3> {/* <-- MODIFICATION HERE */}
                   {turns.some(t => t.selection) ? (
                     <div ref={movesRef} className="moves-list">
                       {turns
@@ -907,6 +909,7 @@ export default function App() {
 
                 {/* --- CHAT TAB PANEL --- */}
                 <div className={'tab-panel ' + (activeTab === 'chat' ? 'active' : '')}>
+                  <h3>Chat</h3> {/* <-- MODIFICATION HERE */}
                   <div className="chat-box-container">
                     <div className="chat-messages">
                       {chatMessages
