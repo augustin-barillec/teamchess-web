@@ -270,6 +270,11 @@ pre {
   /* Show only the active one */
 }
 
+/* Hide panel titles by default (for mobile tab view) */
+.tab-panel > h3 {
+  display: none;
+}
+
 /* Tab 1: Chat */
 .chat-box-container {
   display: flex;
@@ -477,6 +482,7 @@ pre {
 
   /* 6. Style the <h3> tags (from App.tsx) as new column headers */
   .tab-panel > h3 {
+    display: block; /* Show the title, overriding the default hide */
     font-size: 1.2em;
     margin: 0;
     padding: 10px 10px 8px 10px;
