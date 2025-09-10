@@ -145,6 +145,7 @@ pre {
   max-width: 100%;
 }
 .board-wrapper {
+  position: relative; /* ADD THIS to contain the absolute dialog */
   width: 100%;
   max-width: 800px;
   /* Board can be larger now */
@@ -205,6 +206,49 @@ pre {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* --- Promotion Dialog --- */
+.promotion-dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid #555;
+  border-radius: 8px;
+  padding: 1rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.promotion-dialog h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.2em;
+  color: #333;
+}
+
+.promotion-choices {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.promotion-choices button {
+  font-size: 4rem;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+  transition: background-color 0.2s;
+}
+
+.promotion-choices button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
 }
 
 /* 4. Info Column (Right - TABS) */

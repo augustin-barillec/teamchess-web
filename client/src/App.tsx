@@ -13,7 +13,6 @@ import {
   GameStatus,
   MAX_PLAYERS_PER_GAME,
 } from '@teamchess/shared';
-
 // Constants and Helpers
 const STORAGE_KEYS = {
   pid: 'tc:pid',
@@ -62,7 +61,7 @@ export default function App() {
   const DisconnectedIcon = () => (
     <svg
       viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
+      xmlns="http://www.w.org/2000/svg"
       style={{
         width: '16px',
         height: '16px',
@@ -110,6 +109,7 @@ export default function App() {
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
   const [legalSquareStyles, setLegalSquareStyles] = useState<Record<string, CSSProperties>>({});
   const [drawOffer, setDrawOffer] = useState<'white' | 'black' | null>(null);
+  const [promotionMove, setPromotionMove] = useState<{ from: string; to: string } | null>(null);
   // --- RESPONSIVE BOARD STATE ---
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(600);
@@ -489,6 +489,40 @@ export default function App() {
     }
   };
 
+  const onPromote = (promotionPiece: 'q' | 'r' | 'b' | 'n') => {
+    if (!promotionMove) return;
+    const { from, to } = promotionMove;
+
+    const lan = from + to + promotionPiece;
+
+    (window as any).socket.emit('play_move', lan, (res: any) => {
+      if (res?.error) alert(res.error);
+    });
+
+    setPromotionMove(null); // Close the dialog
+  };
+
+  const PromotionDialog = () => {
+    if (!promotionMove) return null;
+
+    const turnColor = chess.turn(); // 'w' or 'b'
+    const promotionPieces = ['Q', 'R', 'B', 'N'];
+    const pieceMap = turnColor === 'w' ? pieceToFigurineWhite : pieceToFigurineBlack;
+
+    return (
+      <div className="promotion-dialog">
+        <h3>Promote to:</h3>
+        <div className="promotion-choices">
+          {promotionPieces.map(p => (
+            <button key={p} onClick={() => onPromote(p.toLowerCase() as 'q' | 'r' | 'b' | 'n')}>
+              {pieceMap[p]}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== 'p') return false;
@@ -552,26 +586,37 @@ export default function App() {
       const to = targetSquare;
 
       if (gameStatus !== GameStatus.Active || side !== current.side) return false;
-      let promotion: 'q' | 'r' | 'b' | 'n' | undefined;
-      if (needsPromotion(from, to)) {
-        const choice = prompt('Promote pawn to (q, r, b, n)', 'q');
-        if (!choice || !['q', 'r', 'b', 'n'].includes(choice)) {
-          alert('Invalid promotion piece. Move canceled.');
-          return false;
-        }
-        promotion = choice as 'q' | 'r' | 'b' | 'n';
+
+      const isPromotion = needsPromotion(from, to);
+
+      // To check for legality, we must try a move. For promotions, any piece is fine.
+      const move = chess.move({
+        from,
+        to,
+        promotion: isPromotion ? 'q' : undefined,
+      });
+
+      // If the move is illegal, chess.js returns null.
+      if (!move) {
+        return false;
       }
 
-      const m = chess.move({ from, to, promotion });
-      if (m) {
-        chess.undo();
-        const lan = from + to + (m.promotion || '');
+      // Since the move was legal, we immediately undo it on the local board.
+      // The server will send the new position.
+      chess.undo();
+
+      // Now handle the UI part.
+      if (isPromotion) {
+        setPromotionMove({ from, to });
+      } else {
+        const lan = from + to;
         (window as any).socket.emit('play_move', lan, (res: any) => {
           if (res?.error) alert(res.error);
         });
-        return true;
       }
-      return false;
+
+      // We've handled the move, so return true.
+      return true;
     },
   };
   // --- Helper components for new layout ---
@@ -756,6 +801,7 @@ export default function App() {
 
               <div ref={boardContainerRef} className="board-wrapper">
                 <Chessboard options={boardOptions} />
+                <PromotionDialog />
               </div>
 
               <PlayerInfoBox
