@@ -925,10 +925,12 @@ export default function App() {
                       {turns
                         .filter(t => t.selection)
                         .map(t => (
-                          <div key={`${t.side}-${t.moveNumber}`} style={{ marginBottom: '0.5rem' }}>
-                            <strong>
-                              Move {t.moveNumber} ({t.side})
-                            </strong>
+                          <div
+                            key={`${t.side}-${t.moveNumber}`}
+                            className="move-turn-header"
+                            style={{ marginBottom: '1rem' }}
+                          >
+                            <strong>{t.moveNumber}</strong>
                             <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
                               {t.proposals.map(p => {
                                 const isSel = t.selection!.lan === p.lan;

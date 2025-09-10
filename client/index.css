@@ -386,6 +386,10 @@ pre {
 .moves-list-item {
   color: green;
 }
+.move-turn-header > strong {
+  display: block;
+  text-align: center;
+}
 
 /* Tab 3: Players */
 .player-lists-container {
