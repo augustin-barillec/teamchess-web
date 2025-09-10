@@ -887,16 +887,14 @@ export default function App() {
                             <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
                               {t.proposals.map(p => {
                                 const isSel = t.selection!.lan === p.lan;
-                                const fan = p.san ? sanToFan(p.san, t.side) : '';
                                 return (
                                   <li key={p.id}>
                                     {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
                                     {isSel ? (
-                                      <span className="moves-list-item">{p.lan}</span>
+                                      <span className="moves-list-item">{p.san}</span>
                                     ) : (
-                                      p.lan
+                                      p.san
                                     )}
-                                    {fan && ` (${fan})`}
                                   </li>
                                 );
                               })}
