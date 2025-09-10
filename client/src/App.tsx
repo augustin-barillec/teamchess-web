@@ -83,8 +83,7 @@ export default function App() {
   // State Management
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket>();
-  const [myId, setMyId] = useState<string>('');
-  // stable pid, not socket.id
+  const [myId, setMyId] = useState<string>(sessionStorage.getItem(STORAGE_KEYS.pid) || '');
   const [name, setName] = useState(sessionStorage.getItem(STORAGE_KEYS.name) || '');
   const [showJoin, setShowJoin] = useState(false);
   const [gameId, setGameId] = useState(sessionStorage.getItem(STORAGE_KEYS.gameId) || '');
