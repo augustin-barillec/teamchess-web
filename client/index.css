@@ -280,7 +280,8 @@ pre {
   display: flex;
   flex-direction: column;
   width: 100%;
-  border: none; /* Container is now the tab panel */
+  border: none;
+  /* Container is now the tab panel */
   border-radius: 0;
   height: 600px;
   /* Fixed height for content area */
@@ -450,7 +451,8 @@ pre {
 
   /* 4. Force all 3 panels to be visible (overriding .display-none default) */
   .tab-panel {
-    display: block !important; /* Override the default and .active logic */
+    display: block !important;
+    /* Override the default and .active logic */
 
     /* Re-apply the container styles from the old .info-column */
     background: #fdfdfd;
@@ -465,29 +467,38 @@ pre {
 
   /* 5. Size the 4 columns based on your request */
   .game-column {
-    flex-grow: 2;
+    flex-grow: 0;
     flex-shrink: 1;
     flex-basis: 40%; /* Smaller board */
-    max-width: 600px; /* Cap the board size */
+    max-width: 600px;
     min-width: 350px;
   }
 
   .tab-panel {
     /* This selector now targets all 3 info panels */
-    flex-grow: 1;
+    flex-grow: 0;
     flex-shrink: 1;
     flex-basis: 20%; /* Each info panel gets 20% */
-    min-width: 260px; /* Don't let them get TOO thin */
+    min-width: 260px;
+    /* Don't let them get TOO thin */
+  }
+
+  .players-panel,
+  .moves-panel {
+    flex-basis: 10%;
+    min-width: 130px;
   }
 
   /* 6. Style the <h3> tags (from App.tsx) as new column headers */
   .tab-panel > h3 {
-    display: block; /* Show the title, overriding the default hide */
+    display: block;
+    /* Show the title, overriding the default hide */
     font-size: 1.2em;
     margin: 0;
     padding: 10px 10px 8px 10px;
     border-bottom: 1px solid #ccc;
-    background: #f4f4f4; /* Match the old tab nav bg */
+    background: #f4f4f4;
+    /* Match the old tab nav bg */
   }
 
   /* 7. Hide the unread dot (redundant on desktop) */

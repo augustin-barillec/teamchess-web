@@ -817,7 +817,9 @@ export default function App() {
 
               <div className="info-tabs-content">
                 {/* --- PLAYERS TAB PANEL --- */}
-                <div className={'tab-panel ' + (activeTab === 'players' ? 'active' : '')}>
+                <div
+                  className={'tab-panel players-panel ' + (activeTab === 'players' ? 'active' : '')}
+                >
                   <h3>Players</h3> {/* <-- MODIFICATION HERE */}
                   <div className="player-lists-container">
                     <div>
@@ -871,7 +873,7 @@ export default function App() {
                 </div>
 
                 {/* --- MOVES TAB PANEL --- */}
-                <div className={'tab-panel ' + (activeTab === 'moves' ? 'active' : '')}>
+                <div className={'tab-panel moves-panel ' + (activeTab === 'moves' ? 'active' : '')}>
                   <h3>Moves</h3> {/* <-- MODIFICATION HERE */}
                   {turns.some(t => t.selection) ? (
                     <div ref={movesRef} className="moves-list">
