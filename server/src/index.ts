@@ -36,7 +36,10 @@ interface GameState {
   blackIds: Set<string>; // pids
   moveNumber: number;
   side: PlayerSide;
-  proposals: Map<string, string>; // pid -> lan
+  // --- CHANGE START ---
+  // Store the LAN and SAN together. This is the core of the fix.
+  proposals: Map<string, { lan: string; san: string }>; // pid -> move info
+  // --- CHANGE END ---
   whiteTime: number;
   blackTime: number;
   timerInterval?: NodeJS.Timeout;
@@ -220,7 +223,8 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
       state.timerInterval = undefined;
     }
 
-    const candidates = entries.map(([, lan]) => lan);
+    // CHANGED: Extract just the LAN for the engine candidates
+    const candidates = entries.map(([, { lan }]) => lan);
     const currentFen = state.chess.fen();
     chooseBestMove(state.engine, currentFen, candidates, 15).then(selLan => {
       const from = selLan.slice(0, 2);
@@ -247,7 +251,8 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
         blackTime: state.blackTime,
       });
 
-      const [selPid] = entries.find(([, v]) => v === selLan)!;
+      // CHANGED: Find the selected proposal by its LAN
+      const [selPid] = entries.find(([, { lan }]) => lan === selLan)!;
       let selName: string | undefined;
       for (const sid of room) {
         const sock = io.sockets.sockets.get(sid);
@@ -257,7 +262,6 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
         }
       }
       if (!selName) selName = sessions.get(selPid)?.name || 'Player';
-
       io.in(gameId).emit('move_selected', {
         id: selPid,
         name: selName,
@@ -545,30 +549,21 @@ io.on('connection', (socket: Socket) => {
         });
       else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
 
-      // ---- CHANGE #1 START: Use temporary chess instance for replaying proposals ----
-      const tempChessForReplay = new Chess(state.chess.fen());
-      for (const [pid, lan] of state.proposals.entries()) {
-        const from = lan.slice(0, 2);
-        const to = lan.slice(2, 4);
-        const params: any = { from, to };
-        if (lan.length === 5) params.promotion = lan[4];
-
-        // Validate on the temp instance to get the SAN
-        const move = tempChessForReplay.move(params);
-        if (!move) continue;
-        tempChessForReplay.undo(); // Undo on temp instance to evaluate next proposal from same board state
-
+      // --- CHANGE START ---
+      // Replay existing proposals to the joining client without re-validating them.
+      // This is safer and avoids the race condition crash.
+      for (const [pid, { lan, san }] of state.proposals.entries()) {
         const proposal = {
           id: pid,
           name: sessions.get(pid)?.name || 'Player',
           moveNumber: state.moveNumber,
           side: state.side,
           lan,
-          san: move.san,
+          san,
         };
         socket.emit('move_submitted', proposal);
       }
-      // ---- CHANGE #1 END ----
+      // --- CHANGE END ---
     } else {
       const lobby = lobbyStates.get(gameId);
       socket.emit('game_status_update', { status: lobby!.status });
@@ -688,7 +683,8 @@ io.on('connection', (socket: Socket) => {
 
     if (!move) return cb?.({ error: 'Illegal move.' });
 
-    state.proposals.set(pid, lan);
+    // CHANGED: Store the full proposal object with SAN
+    state.proposals.set(pid, { lan, san: move.san });
     io.in(gameId!).emit('move_submitted', {
       id: pid,
       name: socket.data.name,
