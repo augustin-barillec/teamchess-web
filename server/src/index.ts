@@ -178,29 +178,22 @@ async function chooseBestMove(
   engine: ReturnType<typeof loadEngine>,
   fen: string,
   candidates: string[],
-  depth = 15,
-  timeoutMs = 5000,
+  movetimeMs = 1000,
 ) {
   if (new Set(candidates).size === 1) {
     return candidates[0];
   }
   return new Promise<string>(resolve => {
-    let done = false;
     engine.send(`position fen ${fen}`);
-    engine.send(`go depth ${depth} searchmoves ${candidates.join(' ')}`, (output: string) => {
-      if (done) return;
-      if (output.startsWith('bestmove')) {
-        done = true;
-        resolve(output.split(' ')[1]);
-      }
-    });
-    setTimeout(() => {
-      if (!done) {
-        done = true;
-        const randomCandidate = candidates[Math.floor(Math.random() * candidates.length)];
-        resolve(randomCandidate);
-      }
-    }, timeoutMs);
+    engine.send(
+      `go movetime ${movetimeMs} searchmoves ${candidates.join(' ')}`,
+      (output: string) => {
+        if (output.startsWith('bestmove')) {
+          const bestMoveFound = output.split(' ')[1];
+          resolve(bestMoveFound);
+        }
+      },
+    );
   });
 }
 
@@ -223,10 +216,9 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
       state.timerInterval = undefined;
     }
 
-    // CHANGED: Extract just the LAN for the engine candidates
     const candidates = entries.map(([, { lan }]) => lan);
     const currentFen = state.chess.fen();
-    chooseBestMove(state.engine, currentFen, candidates, 15).then(selLan => {
+    chooseBestMove(state.engine, currentFen, candidates).then(selLan => {
       const from = selLan.slice(0, 2);
       const to = selLan.slice(2, 4);
       const params: any = { from, to };
@@ -251,7 +243,6 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
         blackTime: state.blackTime,
       });
 
-      // CHANGED: Find the selected proposal by its LAN
       const [selPid] = entries.find(([, { lan }]) => lan === selLan)!;
       let selName: string | undefined;
       for (const sid of room) {
