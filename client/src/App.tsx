@@ -13,7 +13,7 @@ import {
   GameStatus,
   MAX_PLAYERS_PER_GAME,
 } from '@teamchess/shared';
-// Constants and Helpers
+
 const STORAGE_KEYS = {
   pid: 'tc:pid',
   name: 'tc:name',
@@ -32,7 +32,9 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.DrawAgreement]: () => `🤝 Draw agreed.`,
   [EndReason.Timeout]: winner => `⏱️ Time!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
   [EndReason.Abandonment]: winner =>
-    `🚫 Forfeit!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins as the opposing team is empty.`,
+    `🚫 Forfeit!\n${
+      winner?.[0].toUpperCase() + winner?.slice(1)
+    } wins as the opposing team is empty.`,
 };
 const pieceToFigurineWhite: Record<string, string> = {
   K: '♔',
@@ -55,13 +57,11 @@ function sanToFan(san: string, side: 'white' | 'black'): string {
   return san.replace(/[KQRBNP]/g, m => map[m]);
 }
 
-// App Component
 export default function App() {
-  // Icon Component for Disconnected Status
   const DisconnectedIcon = () => (
     <svg
       viewBox="0 0 24 24"
-      xmlns="http://www.w.org/2000/svg"
+      xmlns="http://www.w3.org/2000/svg"
       style={{
         width: '16px',
         height: '16px',
@@ -79,7 +79,6 @@ export default function App() {
       </g>
     </svg>
   );
-  // State Management
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket>();
   const [myId, setMyId] = useState<string>(sessionStorage.getItem(STORAGE_KEYS.pid) || '');
@@ -110,7 +109,6 @@ export default function App() {
   const [legalSquareStyles, setLegalSquareStyles] = useState<Record<string, CSSProperties>>({});
   const [drawOffer, setDrawOffer] = useState<'white' | 'black' | null>(null);
   const [promotionMove, setPromotionMove] = useState<{ from: string; to: string } | null>(null);
-  // --- RESPONSIVE BOARD STATE ---
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(600);
   useEffect(() => {
@@ -128,15 +126,12 @@ export default function App() {
       observer.disconnect();
     };
   }, []);
-  // --- END RESPONSIVE BOARD STATE ---
 
-  // --- NEW SIMPLIFIED LAYOUT STATE ---
   const [activeTab, setActiveTab] = useState<'chat' | 'moves' | 'players'>('players');
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
-  // Derived State and Refs
   const movesRef = useRef<HTMLDivElement>(null);
-  const activeTabRef = useRef(activeTab); // Ref to track active tab for socket listener
+  const activeTabRef = useRef(activeTab);
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
   const kingInCheckSquare = useMemo(() => {
@@ -186,7 +181,7 @@ export default function App() {
     lostB.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
     const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
-    const materialBalance = blackLostValue - whiteLostValue; // + = White up
+    const materialBalance = blackLostValue - whiteLostValue;
 
     return {
       lostWhitePieces: lostW.map(p => p.figurine),
@@ -199,14 +194,12 @@ export default function App() {
     () => players.spectators.length + players.whitePlayers.length + players.blackPlayers.length,
     [players],
   );
-  // Side Effects
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
-  // Re-check scroll when moves tab becomes active
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some(p => p.id === myId)
@@ -233,7 +226,6 @@ export default function App() {
     });
     setSocket(s);
 
-    // Browser connectivity
     const onOffline = () => {
       setAmDisconnected(true);
       if (s.connected) s.disconnect();
@@ -244,7 +236,6 @@ export default function App() {
     window.addEventListener('offline', onOffline);
     window.addEventListener('online', onOnline);
 
-    // Socket.IO event listeners
     s.on('session', ({ id, name }: { id: string; name: string }) => {
       setMyId(id);
       sessionStorage.setItem(STORAGE_KEYS.pid, id);
@@ -370,15 +361,6 @@ export default function App() {
     s.on('draw_offer_update', ({ side }: { side: 'white' | 'black' | null }) => {
       setDrawOffer(side);
     });
-    s.on('merge_success', ({ newGameId }: { newGameId: string }) => {
-      setGameId(newGameId);
-      sessionStorage.setItem(STORAGE_KEYS.gameId, newGameId);
-      setSide('spectator');
-      sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
-      setChatMessages([]); // Reset chat for the new lobby
-      setGameStatus(GameStatus.Lobby);
-      setActiveTab('chat'); // Switch to chat tab in new lobby
-    });
     (window as any).socket = s;
 
     return () => {
@@ -388,7 +370,6 @@ export default function App() {
     };
   }, [chess]);
 
-  // Event Handlers and Functions
   const resetLocalGameState = () => {
     setGameStatus(GameStatus.Lobby);
     setWinner(null);
@@ -477,8 +458,6 @@ export default function App() {
     }
   };
   const startGame = () => (window as any).socket.emit('start_game');
-  const findMergeableGame = () => socket?.emit('find_merge');
-  const cancelMergeSearch = () => socket?.emit('cancel_merge');
   const resetGame = () => {
     if (window.confirm('Are you sure you want to reset the game?')) {
       const s = socket;
@@ -494,21 +473,17 @@ export default function App() {
     const { from, to } = promotionMove;
 
     const lan = from + to + promotionPiece;
-
     (window as any).socket.emit('play_move', lan, (res: any) => {
       if (res?.error) alert(res.error);
     });
-
-    setPromotionMove(null); // Close the dialog
+    setPromotionMove(null);
   };
 
   const PromotionDialog = () => {
     if (!promotionMove) return null;
-
-    const turnColor = chess.turn(); // 'w' or 'b'
+    const turnColor = chess.turn();
     const promotionPieces = ['Q', 'R', 'B', 'N'];
     const pieceMap = turnColor === 'w' ? pieceToFigurineWhite : pieceToFigurineBlack;
-
     return (
       <div className="promotion-dialog">
         <h3>Promote to:</h3>
@@ -522,7 +497,6 @@ export default function App() {
       </div>
     );
   };
-
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== 'p') return false;
@@ -568,7 +542,7 @@ export default function App() {
           }
         : {}),
     },
-    boardWidth: boardWidth, // <-- USE RESPONSIVE STATE
+    boardWidth: boardWidth,
     onPieceDrag: ({ square }: PieceHandlerArgs) => {
       const moves = chess.moves({ square: square, verbose: true });
       const highlights: Record<string, CSSProperties> = {};
@@ -586,26 +560,19 @@ export default function App() {
       const to = targetSquare;
 
       if (gameStatus !== GameStatus.Active || side !== current.side) return false;
-
       const isPromotion = needsPromotion(from, to);
 
-      // To check for legality, we must try a move. For promotions, any piece is fine.
       const move = chess.move({
         from,
         to,
         promotion: isPromotion ? 'q' : undefined,
       });
-
-      // If the move is illegal, chess.js returns null.
       if (!move) {
         return false;
       }
 
-      // Since the move was legal, we immediately undo it on the local board.
-      // The server will send the new position.
       chess.undo();
 
-      // Now handle the UI part.
       if (isPromotion) {
         setPromotionMove({ from, to });
       } else {
@@ -615,11 +582,9 @@ export default function App() {
         });
       }
 
-      // We've handled the move, so return true.
       return true;
     },
   };
-  // --- Helper components for new layout ---
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -647,7 +612,6 @@ export default function App() {
       </div>
     </div>
   );
-  // --- Render Logic ---
   return (
     <div className="app-container">
       <Toaster position="top-right" />
@@ -686,7 +650,6 @@ export default function App() {
         </div>
       ) : (
         <>
-          {/* === NEW CONSOLIDATED HEADER === */}
           <div className="header-bar">
             <h1>TeamChess</h1>
             <div className="game-id-bar">
@@ -714,27 +677,18 @@ export default function App() {
             </div>
 
             <div className="action-panel">
-              {/* --- LOBBY ACTIONS --- */}
               {gameStatus === GameStatus.Lobby && (
                 <>
                   {players.whitePlayers.length > 0 && players.blackPlayers.length > 0 && (
                     <button onClick={startGame}>Start Game</button>
                   )}
-                  {playerCount < MAX_PLAYERS_PER_GAME && (
-                    <button onClick={findMergeableGame}>Find More Players</button>
-                  )}
                 </>
               )}
-              {gameStatus === GameStatus.SearchingForMerge && (
-                <button onClick={cancelMergeSearch}>Cancel Search</button>
-              )}
 
-              {/* --- GAME STATE ACTIONS --- */}
               {(gameStatus === GameStatus.Active || gameStatus === GameStatus.Over) && (
                 <button onClick={resetGame}>Reset Game</button>
               )}
 
-              {/* --- SIDE/IN-GAME ACTIONS --- */}
               {gameStatus !== GameStatus.Over && (
                 <>
                   {side === 'spectator' && (
@@ -776,18 +730,8 @@ export default function App() {
               <button onClick={exitGame}>Exit Game</button>
             </div>
           </div>
-          {gameStatus === GameStatus.SearchingForMerge && (
-            <div className="searching-banner">
-              <p style={{ margin: 0 }}>
-                🔎 Searching for another team of at most {MAX_PLAYERS_PER_GAME - playerCount}{' '}
-                players...
-              </p>{' '}
-            </div>
-          )}
 
-          {/* === NEW 2-COLUMN LAYOUT === */}
           <div className="main-layout">
-            {/* === COLUMN 1: GAME === */}
             <div className="game-column">
               <PlayerInfoBox
                 clockTime={orientation === 'white' ? clocks.blackTime : clocks.whiteTime}
@@ -834,7 +778,6 @@ export default function App() {
               )}
             </div>
 
-            {/* === COLUMN 2: INFO (TABS) === */}
             <div className="info-column">
               <nav className="info-tabs-nav">
                 <button
@@ -861,11 +804,10 @@ export default function App() {
               </nav>
 
               <div className="info-tabs-content">
-                {/* --- PLAYERS TAB PANEL --- */}
                 <div
                   className={'tab-panel players-panel ' + (activeTab === 'players' ? 'active' : '')}
                 >
-                  <h3>Players</h3> {/* <-- MODIFICATION HERE */}
+                  <h3>Players</h3>
                   <div className="player-lists-container">
                     <div>
                       <h3>Spectators</h3>
@@ -917,9 +859,8 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* --- MOVES TAB PANEL --- */}
                 <div className={'tab-panel moves-panel ' + (activeTab === 'moves' ? 'active' : '')}>
-                  <h3>Moves</h3> {/* <-- MODIFICATION HERE */}
+                  <h3>Moves</h3>
                   {turns.some(t => t.selection) ? (
                     <div ref={movesRef} className="moves-list">
                       {turns
@@ -954,9 +895,8 @@ export default function App() {
                   )}
                 </div>
 
-                {/* --- CHAT TAB PANEL --- */}
                 <div className={'tab-panel ' + (activeTab === 'chat' ? 'active' : '')}>
-                  <h3>Chat</h3> {/* <-- MODIFICATION HERE */}
+                  <h3>Chat</h3>
                   <div className="chat-box-container">
                     <div className="chat-messages">
                       {chatMessages
@@ -1014,11 +954,8 @@ export default function App() {
                   </div>
                 </div>
               </div>
-              {/* End tabs content */}
             </div>
-            {/* End info column */}
           </div>
-          {/* End main layout */}
         </>
       )}
     </div>

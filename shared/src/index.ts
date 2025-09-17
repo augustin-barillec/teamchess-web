@@ -1,6 +1,4 @@
-// Player and Chat
 export interface Player {
-  /** Stable player id (pid), not the transient socket.id */
   id: string;
   name: string;
   connected: boolean;
@@ -13,27 +11,25 @@ export type Players = {
 };
 export type ChatMessage = {
   sender: string;
-  senderId: string; // stable pid
+  senderId: string;
   message: string;
   system?: boolean;
 };
-// Game Mechanics
+
 export const MAX_PLAYERS_PER_GAME = 10;
 export type GameInfo = { moveNumber: number; side: 'white' | 'black' };
 export type Proposal = {
-  id: string; // stable pid of who proposed
+  id: string;
   name: string;
-  // their DISPLAY name
   moveNumber: number;
   side: 'white' | 'black';
   lan: string;
   san?: string;
 };
 export type Selection = Proposal & { fen: string };
-// Game State
+
 export enum GameStatus {
   Lobby = 'Lobby',
-  SearchingForMerge = 'SearchingForMerge',
   Active = 'Active',
   Over = 'Over',
 }
