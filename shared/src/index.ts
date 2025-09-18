@@ -9,7 +9,6 @@ export type Players = {
   whitePlayers: Player[];
   blackPlayers: Player[];
 };
-
 export type ChatMessage = {
   sender: string;
   senderId: string;
@@ -18,7 +17,6 @@ export type ChatMessage = {
 };
 
 export const MAX_PLAYERS_PER_GAME = 10;
-
 export enum GameVisibility {
   Public = 'Public',
   Private = 'Private',
@@ -36,7 +34,6 @@ export type GameInfo = {
   side: 'white' | 'black';
   visibility?: GameVisibility;
 };
-
 export type Proposal = {
   id: string;
   name: string;
@@ -47,7 +44,6 @@ export type Proposal = {
 };
 
 export type Selection = Proposal & { fen: string };
-
 export enum GameStatus {
   Lobby = 'Lobby',
   Active = 'Active',
@@ -65,3 +61,15 @@ export enum EndReason {
   Timeout = 'timeout',
   Abandonment = 'abandonment',
 }
+
+export type GlobalStats = {
+  totalUsers: number;
+  loginUsers: number;
+  publicGameUsers: number;
+  privateGameUsers: number;
+  closedGameUsers: number;
+  totalGames: number;
+  publicGames: number;
+  privateGames: number;
+  closedGames: number;
+};
