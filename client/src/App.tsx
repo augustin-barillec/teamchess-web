@@ -85,7 +85,6 @@ export default function App() {
       </g>
     </svg>
   );
-
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket>();
   const [myId, setMyId] = useState<string>(sessionStorage.getItem(STORAGE_KEYS.pid) || '');
@@ -136,7 +135,6 @@ export default function App() {
       observer.disconnect();
     };
   }, []);
-
   const [activeTab, setActiveTab] = useState<'chat' | 'moves' | 'players'>('players');
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
@@ -191,7 +189,6 @@ export default function App() {
 
     lostW.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     lostB.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
-
     const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
     const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
     const materialBalance = blackLostValue - whiteLostValue;
@@ -425,16 +422,28 @@ export default function App() {
     });
   };
 
-  const joinGame = () => {
+  const joinGame = (id?: string) => {
+    const idToJoin = id || gameId;
+
+    if (!name.trim()) {
+      alert('Please enter your name first.');
+      return;
+    }
+    if (!idToJoin.trim()) {
+      alert('Please enter a Game ID.');
+      return;
+    }
+
     resetLocalGameState();
-    if (!name.trim() || !gameId.trim()) return alert('Enter name & game ID.');
     sessionStorage.setItem(STORAGE_KEYS.name, name);
-    (window as any).socket.emit('join_game', { gameId, name }, (res: any) => {
-      if (res.error) alert(res.error);
-      else {
+    (window as any).socket.emit('join_game', { gameId: idToJoin, name }, (res: any) => {
+      if (res.error) {
+        alert(res.error);
+      } else {
+        setGameId(idToJoin); // Ensure state is updated
         setJoined(true);
         setSide('spectator');
-        sessionStorage.setItem(STORAGE_KEYS.gameId, gameId);
+        sessionStorage.setItem(STORAGE_KEYS.gameId, idToJoin);
         sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
       }
     });
@@ -687,7 +696,7 @@ export default function App() {
                 value={gameId}
                 onChange={e => setGameId(e.target.value)}
               />
-              <button onClick={joinGame}>Submit</button>
+              <button onClick={() => joinGame()}>Submit</button>
             </div>
           )}
           {publicGames.length > 0 && (
@@ -699,14 +708,7 @@ export default function App() {
                     <span>
                       Game {g.gameId} ({g.playerCount}/{MAX_PLAYERS_PER_GAME})
                     </span>
-                    <button
-                      onClick={() => {
-                        setGameId(g.gameId);
-                        setShowJoin(true);
-                      }}
-                    >
-                      Join
-                    </button>
+                    <button onClick={() => joinGame(g.gameId)}>Join</button>
                   </li>
                 ))}
               </ul>
