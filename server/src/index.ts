@@ -766,7 +766,7 @@ io.on('connection', (socket: Socket) => {
     }
 
     for (const [gameId, state] of gameStates.entries()) {
-      if (state.visibility === GameVisibility.Public && state.status !== GameStatus.Over) {
+      if (state.visibility === GameVisibility.Public) {
         publicGames.push({
           gameId,
           playerCount: countPlayersInGame(gameId),
