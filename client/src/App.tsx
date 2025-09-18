@@ -116,7 +116,8 @@ export default function App() {
   const [visibility, setVisibility] = useState<GameVisibility>(GameVisibility.Private);
   const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
-  const [showStats, setShowStats] = useState(false); // For the in-game modal/popover
+  const [showStats, setShowStats] = useState(false);
+  // For the in-game modal/popover
   useEffect(() => {
     const observer = new ResizeObserver(entries => {
       if (entries[0]) {
@@ -382,15 +383,16 @@ export default function App() {
     s.on('global_stats_update', (stats: GlobalStats) => {
       setGlobalStats(stats);
     });
+    s.on('public_games_update', (games: PublicGame[]) => {
+      setPublicGames(games);
+    });
     (window as any).socket = s;
-
     return () => {
       window.removeEventListener('offline', onOffline);
       window.removeEventListener('online', onOnline);
       s.disconnect();
     };
   }, [chess]);
-
   const resetLocalGameState = () => {
     setGameStatus(GameStatus.Lobby);
     setWinner(null);
@@ -450,9 +452,6 @@ export default function App() {
     resetLocalGameState();
     sessionStorage.removeItem(STORAGE_KEYS.gameId);
     sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
-    socket?.emit('request_public_games', (games: PublicGame[]) => {
-      setPublicGames(games);
-    });
   };
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
     (window as any).socket.emit('join_side', { side: s }, (res: any) => {

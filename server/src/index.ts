@@ -377,7 +377,6 @@ function getGlobalStats(): GlobalStats {
     ...Array.from(lobbyStates.entries()),
     ...Array.from(gameStates.entries()),
   ]);
-
   const stats: GlobalStats = {
     totalUsers: sessions.size,
     loginUsers: 0,
@@ -389,7 +388,6 @@ function getGlobalStats(): GlobalStats {
     privateGames: 0,
     closedGames: 0,
   };
-
   // Calculate game visibility counts
   for (const [, state] of allGames) {
     if (state.visibility === GameVisibility.Public) stats.publicGames++;
@@ -410,6 +408,31 @@ function getGlobalStats(): GlobalStats {
   }
 
   return stats;
+}
+
+function getPublicGames(): PublicGame[] {
+  const publicGames: PublicGame[] = [];
+
+  for (const [gameId, state] of lobbyStates.entries()) {
+    if (state.visibility === GameVisibility.Public) {
+      publicGames.push({
+        gameId,
+        playerCount: countPlayersInGame(gameId),
+        status: state.status,
+      });
+    }
+  }
+
+  for (const [gameId, state] of gameStates.entries()) {
+    if (state.visibility === GameVisibility.Public) {
+      publicGames.push({
+        gameId,
+        playerCount: countPlayersInGame(gameId),
+        status: state.status,
+      });
+    }
+  }
+  return publicGames;
 }
 
 io.on('connection', (socket: Socket) => {
@@ -769,35 +792,16 @@ io.on('connection', (socket: Socket) => {
     }
   });
   socket.on('request_public_games', cb => {
-    const publicGames: PublicGame[] = [];
-
-    for (const [gameId, state] of lobbyStates.entries()) {
-      if (state.visibility === GameVisibility.Public) {
-        publicGames.push({
-          gameId,
-          playerCount: countPlayersInGame(gameId),
-          status: state.status,
-        });
-      }
-    }
-
-    for (const [gameId, state] of gameStates.entries()) {
-      if (state.visibility === GameVisibility.Public) {
-        publicGames.push({
-          gameId,
-          playerCount: countPlayersInGame(gameId),
-          status: state.status,
-        });
-      }
-    }
-    cb(publicGames);
+    cb(getPublicGames());
   });
   socket.on('exit_game', () => leave.call(socket, true));
   socket.on('disconnect', () => leave.call(socket, false));
 });
 server.listen(3001, () => console.log('Socket.IO chess server listening on port 3001'));
-
 setInterval(() => {
   const stats = getGlobalStats();
   io.emit('global_stats_update', stats);
-}, 5000); // Broadcast every 5 seconds
+  const publicGames = getPublicGames();
+  io.emit('public_games_update', publicGames);
+}, 5000);
+// Broadcast every 5 seconds
