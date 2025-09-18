@@ -410,13 +410,23 @@ export default function App() {
     resetLocalGameState();
     if (!name.trim()) return alert('Enter your name.');
     sessionStorage.setItem(STORAGE_KEYS.name, name);
-    (window as any).socket.emit('create_game', { name }, ({ gameId }: any) => {
-      setGameId(gameId);
-      setJoined(true);
-      setSide('spectator');
-      sessionStorage.setItem(STORAGE_KEYS.gameId, gameId);
-      sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
-    });
+    (window as any).socket.emit(
+      'create_game',
+      { name },
+      (res: { gameId?: string; error?: string }) => {
+        if (res.error) {
+          alert(res.error);
+          return;
+        }
+        if (res.gameId) {
+          setGameId(res.gameId);
+          setJoined(true);
+          setSide('spectator');
+          sessionStorage.setItem(STORAGE_KEYS.gameId, res.gameId);
+          sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
+        }
+      },
+    );
   };
 
   const joinGame = (id?: string) => {
@@ -659,7 +669,7 @@ export default function App() {
       </ul>
       <ul>
         <li>
-          <strong>Total Games:</strong> {stats.totalGames}
+          <strong>Total Games:</strong> {stats.totalGames}/{stats.maxGames}
         </li>
         <li>
           Public Games: {stats.publicGames} ({stats.publicGameUsers} users)

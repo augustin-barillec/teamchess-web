@@ -72,4 +72,5 @@ export type GlobalStats = {
   publicGames: number;
   privateGames: number;
   closedGames: number;
+  maxGames: number;
 };

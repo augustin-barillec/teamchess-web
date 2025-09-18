@@ -14,8 +14,8 @@ import {
   PublicGame,
   GlobalStats,
 } from '@teamchess/shared';
-
 const DISCONNECT_GRACE_MS = 20000;
+const MAX_GAMES = 2;
 const stockfishPath = path.join(
   __dirname,
   '..',
@@ -387,6 +387,7 @@ function getGlobalStats(): GlobalStats {
     publicGames: 0,
     privateGames: 0,
     closedGames: 0,
+    maxGames: MAX_GAMES,
   };
   // Calculate game visibility counts
   for (const [, state] of allGames) {
@@ -412,7 +413,6 @@ function getGlobalStats(): GlobalStats {
 
 function getPublicGames(): PublicGame[] {
   const publicGames: PublicGame[] = [];
-
   for (const [gameId, state] of lobbyStates.entries()) {
     if (state.visibility === GameVisibility.Public) {
       publicGames.push({
@@ -496,6 +496,10 @@ io.on('connection', (socket: Socket) => {
   }
 
   socket.on('create_game', ({ name }, cb) => {
+    if (lobbyStates.size + gameStates.size >= MAX_GAMES) {
+      cb?.({ error: 'Server is at full capacity. Cannot create a new game.' });
+      return;
+    }
     const gameId = generateUniqueGameId();
     lobbyStates.set(gameId, { status: GameStatus.Lobby, visibility: GameVisibility.Private });
     socket.join(gameId);
