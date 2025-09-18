@@ -28,6 +28,7 @@ export enum GameVisibility {
 export type PublicGame = {
   gameId: string;
   playerCount: number;
+  status: GameStatus;
 };
 
 export type GameInfo = {

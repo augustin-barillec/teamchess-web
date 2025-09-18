@@ -760,6 +760,7 @@ io.on('connection', (socket: Socket) => {
         publicGames.push({
           gameId,
           playerCount: countPlayersInGame(gameId),
+          status: state.status,
         });
       }
     }
@@ -769,6 +770,7 @@ io.on('connection', (socket: Socket) => {
         publicGames.push({
           gameId,
           playerCount: countPlayersInGame(gameId),
+          status: state.status,
         });
       }
     }

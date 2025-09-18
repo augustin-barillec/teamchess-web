@@ -706,7 +706,7 @@ export default function App() {
                 {publicGames.map(g => (
                   <li key={g.gameId}>
                     <span>
-                      Game {g.gameId} ({g.playerCount}/{MAX_PLAYERS_PER_GAME})
+                      Game {g.gameId} ({g.playerCount}/{MAX_PLAYERS_PER_GAME}) - {g.status}
                     </span>
                     <button onClick={() => joinGame(g.gameId)}>Join</button>
                   </li>
