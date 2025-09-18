@@ -243,6 +243,10 @@ export default function App() {
     window.addEventListener('offline', onOffline);
     window.addEventListener('online', onOnline);
 
+    s.on('error', (data: { message: string }) => {
+      alert(data.message);
+    });
+
     s.on('session', ({ id, name }: { id: string; name: string }) => {
       setMyId(id);
       sessionStorage.setItem(STORAGE_KEYS.pid, id);
@@ -663,7 +667,7 @@ export default function App() {
       <h4>Server Stats 📊</h4>
       <ul>
         <li>
-          <strong>Total Users:</strong> {stats.totalUsers}
+          <strong>Total Users:</strong> {stats.totalUsers}/{stats.maxUsers}
         </li>
         <li>Lobby Users: {stats.loginUsers}</li>
       </ul>

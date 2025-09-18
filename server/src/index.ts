@@ -16,6 +16,7 @@ import {
 } from '@teamchess/shared';
 const DISCONNECT_GRACE_MS = 20000;
 const MAX_GAMES = 2;
+const MAX_USERS = 3;
 const stockfishPath = path.join(
   __dirname,
   '..',
@@ -349,7 +350,6 @@ function leave(this: Socket, explicit = false) {
   // CASE 2: The user IS in a game.
   // (The rest of this is your original logic, now correctly scoped).
   const state = gameStates.get(gameId);
-
   const finalize = (clearSession: boolean) => {
     if (state) {
       cleanupProposalByPid(gameId, state, pid);
@@ -390,7 +390,6 @@ function leave(this: Socket, explicit = false) {
     sessions.delete(pid); // This is the line from the previous fix.
     sess.reconnectTimer = undefined;
   }, DISCONNECT_GRACE_MS);
-
   broadcastPlayers(gameId);
   if (state) tryFinalizeTurn(gameId, state);
 }
@@ -411,6 +410,7 @@ function getGlobalStats(): GlobalStats {
     privateGames: 0,
     closedGames: 0,
     maxGames: MAX_GAMES,
+    maxUsers: MAX_USERS,
   };
   // Calculate game visibility counts
   for (const [, state] of allGames) {
@@ -461,6 +461,18 @@ function getPublicGames(): PublicGame[] {
 io.on('connection', (socket: Socket) => {
   const { pid: providedPid, name: providedName } =
     (socket.handshake.auth as { pid?: string; name?: string }) || {};
+
+  // If a PID is provided and a session exists, it's a reconnection.
+  // Otherwise, it's a new connection that will create a new session.
+  if (!providedPid || !sessions.has(providedPid)) {
+    // This is a new session. Check if the server is full.
+    if (sessions.size >= MAX_USERS) {
+      socket.emit('error', { message: 'Server is full. Please try again later.' });
+      socket.disconnect(true);
+      return;
+    }
+  }
+
   const pid = providedPid && sessions.has(providedPid) ? providedPid : nanoid();
   let sess = sessions.get(pid);
 
