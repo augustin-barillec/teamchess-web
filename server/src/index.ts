@@ -5,7 +5,14 @@ import cors from 'cors';
 import { nanoid } from 'nanoid';
 import { Chess } from 'chess.js';
 import path from 'path';
-import { Player, EndReason, GameStatus, MAX_PLAYERS_PER_GAME } from '@teamchess/shared';
+import {
+  Player,
+  EndReason,
+  GameStatus,
+  MAX_PLAYERS_PER_GAME,
+  GameVisibility,
+  PublicGame,
+} from '@teamchess/shared';
 
 const DISCONNECT_GRACE_MS = 20000;
 const stockfishPath = path.join(
@@ -16,8 +23,10 @@ const stockfishPath = path.join(
   'src',
   'stockfish-nnue-16.js',
 );
+
 type Side = 'white' | 'black' | 'spectator';
 type PlayerSide = 'white' | 'black';
+
 type Session = {
   pid: string;
   name: string;
@@ -28,6 +37,7 @@ type Session = {
 
 interface LobbyState {
   status: GameStatus.Lobby;
+  visibility: GameVisibility;
 }
 
 interface GameState {
@@ -42,6 +52,7 @@ interface GameState {
   engine: ReturnType<typeof loadEngine>;
   chess: Chess;
   status: GameStatus.Active | GameStatus.Over;
+  visibility: GameVisibility;
   endReason?: string;
   endWinner?: string | null;
   drawOffer?: 'white' | 'black';
@@ -101,9 +112,11 @@ function broadcastPlayers(gameId: string) {
       .map(sid => io.sockets.sockets.get(sid)?.data.pid as string | undefined)
       .filter((pid): pid is string => Boolean(pid)),
   );
+
   const spectators: Player[] = [];
   const whitePlayers: Player[] = [];
   const blackPlayers: Player[] = [];
+
   for (const sess of sessions.values()) {
     if (sess.gameId !== gameId) continue;
     const pid = sess.pid;
@@ -148,10 +161,12 @@ function startClock(gameId: string) {
   const state = gameStates.get(gameId);
   if (!state || state.status !== GameStatus.Active) return;
   if (state.timerInterval) clearInterval(state.timerInterval);
+
   io.in(gameId).emit('clock_update', {
     whiteTime: state.whiteTime,
     blackTime: state.blackTime,
   });
+
   state.timerInterval = setInterval(() => {
     if (state.side === 'white') state.whiteTime--;
     else state.blackTime--;
@@ -200,6 +215,7 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
       .map(id => io.sockets.sockets.get(id)?.data.pid as string | undefined)
       .filter((pid): pid is string => Boolean(pid)),
   );
+
   const sideSet = state.side === 'white' ? state.whiteIds : state.blackIds;
   const activeConnected = new Set([...sideSet].filter(pid => onlinePids.has(pid)));
   const entries = [...state.proposals.entries()].filter(([pid]) => activeConnected.has(pid));
@@ -212,6 +228,7 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
 
     const candidates = entries.map(([, { lan }]) => lan);
     const currentFen = state.chess.fen();
+
     chooseBestMove(state.engine, currentFen, candidates).then(selLan => {
       const from = selLan.slice(0, 2);
       const to = selLan.slice(2, 4);
@@ -245,6 +262,7 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
         }
       }
       if (!selName) selName = sessions.get(selPid)?.name || 'Player';
+
       io.in(gameId).emit('move_selected', {
         id: selPid,
         name: selName,
@@ -254,6 +272,7 @@ function tryFinalizeTurn(gameId: string, state: GameState) {
         san: move.san,
         fen,
       });
+
       if (state.chess.isGameOver()) {
         let reason: string;
         let winner: 'white' | 'black' | null = null;
@@ -322,6 +341,7 @@ function leave(this: Socket, explicit = false) {
   const state = gameStates.get(gameId);
   const sess = sessions.get(pid);
   if (!sess) return;
+
   const finalize = (clearSession: boolean) => {
     if (state) {
       cleanupProposalByPid(gameId, state, pid);
@@ -407,12 +427,19 @@ io.on('connection', (socket: Socket) => {
           pgn: getCleanPgn(state.chess),
         });
       } else {
-        socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
+        socket.emit('game_started', {
+          moveNumber: state.moveNumber,
+          side: state.side,
+          visibility: state.visibility,
+        });
       }
     } else {
       const lobby = lobbyStates.get(sess.gameId);
       if (lobby) {
-        socket.emit('game_status_update', { status: lobby.status });
+        socket.emit('game_status_update', {
+          status: lobby.status,
+          visibility: lobby.visibility,
+        });
       }
     }
     broadcastPlayers(sess.gameId);
@@ -420,7 +447,7 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('create_game', ({ name }, cb) => {
     const gameId = generateUniqueGameId();
-    lobbyStates.set(gameId, { status: GameStatus.Lobby });
+    lobbyStates.set(gameId, { status: GameStatus.Lobby, visibility: GameVisibility.Private });
     socket.join(gameId);
     socket.data = { ...socket.data, name, gameId, side: 'spectator' };
     const s = sessions.get(socket.data.pid)!;
@@ -428,11 +455,22 @@ io.on('connection', (socket: Socket) => {
     s.gameId = gameId;
     s.side = 'spectator';
     cb?.({ gameId });
+    socket.emit('game_visibility_update', { visibility: GameVisibility.Private });
     broadcastPlayers(gameId);
   });
+
   socket.on('join_game', ({ gameId, name }, cb) => {
-    if (!lobbyStates.has(gameId) && !gameStates.has(gameId)) {
+    const lobby = lobbyStates.get(gameId);
+    const game = gameStates.get(gameId);
+    const state = game || lobby;
+
+    if (!state) {
       cb?.({ error: 'Game not found.' });
+      return;
+    }
+
+    if (state.visibility === GameVisibility.Closed) {
+      cb?.({ error: 'This game is closed and not accepting new players.' });
       return;
     }
 
@@ -449,33 +487,37 @@ io.on('connection', (socket: Socket) => {
     s.side = 'spectator';
     cb?.({ gameId });
     broadcastPlayers(gameId);
+    socket.emit('game_visibility_update', { visibility: state.visibility });
 
-    const state = gameStates.get(gameId);
-    if (state) {
-      socket.emit('position_update', { fen: state.chess.fen() });
-      socket.emit('clock_update', { whiteTime: state.whiteTime, blackTime: state.blackTime });
-      if (state.status === GameStatus.Over)
+    if (game) {
+      socket.emit('position_update', { fen: game.chess.fen() });
+      socket.emit('clock_update', { whiteTime: game.whiteTime, blackTime: game.blackTime });
+      if (game.status === GameStatus.Over)
         socket.emit('game_over', {
-          reason: state.endReason,
-          winner: state.endWinner,
-          pgn: getCleanPgn(state.chess),
+          reason: game.endReason,
+          winner: game.endWinner,
+          pgn: getCleanPgn(game.chess),
         });
-      else socket.emit('game_started', { moveNumber: state.moveNumber, side: state.side });
+      else
+        socket.emit('game_started', {
+          moveNumber: game.moveNumber,
+          side: game.side,
+          visibility: game.visibility,
+        });
 
-      for (const [pid, { lan, san }] of state.proposals.entries()) {
+      for (const [pid, { lan, san }] of game.proposals.entries()) {
         const proposal = {
           id: pid,
           name: sessions.get(pid)?.name || 'Player',
-          moveNumber: state.moveNumber,
-          side: state.side,
+          moveNumber: game.moveNumber,
+          side: game.side,
           lan,
           san,
         };
         socket.emit('move_submitted', proposal);
       }
-    } else {
-      const lobby = lobbyStates.get(gameId);
-      socket.emit('game_status_update', { status: lobby!.status });
+    } else if (lobby) {
+      socket.emit('game_status_update', { status: lobby!.status, visibility: lobby!.visibility });
     }
   });
 
@@ -502,6 +544,7 @@ io.on('connection', (socket: Socket) => {
     broadcastPlayers(gameId);
     cb?.({ success: true });
   });
+
   socket.on('start_game', (cb?: (res: { success: boolean; error?: string }) => void) => {
     const gameId = socket.data.gameId as string | undefined;
     const lobby = gameId ? lobbyStates.get(gameId) : undefined;
@@ -510,6 +553,8 @@ io.on('connection', (socket: Socket) => {
       cb?.({ success: false, error: 'Invalid game state for starting.' });
       return;
     }
+
+    const currentVisibility = lobby.visibility;
     lobbyStates.delete(gameId);
 
     const engine = loadEngine(stockfishPath);
@@ -539,13 +584,19 @@ io.on('connection', (socket: Socket) => {
       engine,
       chess,
       status: GameStatus.Active,
+      visibility: currentVisibility,
     });
-    io.in(gameId).emit('game_started', { moveNumber: 1, side: 'white' });
+    io.in(gameId).emit('game_started', {
+      moveNumber: 1,
+      side: 'white',
+      visibility: currentVisibility,
+    });
     io.in(gameId).emit('position_update', { fen: chess.fen() });
     startClock(gameId);
     sendSystemMessage(gameId, `${socket.data.name} has started the game.`);
     cb?.({ success: true });
   });
+
   socket.on('reset_game', (cb?: (res: { success: boolean; error?: string }) => void) => {
     const gameId = socket.data.gameId as string | undefined;
     const state = gameId && gameStates.get(gameId);
@@ -556,13 +607,16 @@ io.on('connection', (socket: Socket) => {
 
     if (state.timerInterval) clearInterval(state.timerInterval);
     state.engine.quit();
+    const currentVisibility = state.visibility;
     gameStates.delete(gameId);
-    lobbyStates.set(gameId, { status: GameStatus.Lobby });
+    lobbyStates.set(gameId, { status: GameStatus.Lobby, visibility: currentVisibility });
 
     io.in(gameId).emit('game_reset');
+    io.in(gameId).emit('game_visibility_update', { visibility: currentVisibility });
     sendSystemMessage(gameId, `${socket.data.name} has reset the game.`);
     cb?.({ success: true });
   });
+
   socket.on('play_move', (lan: string, cb) => {
     const gameId = socket.data.gameId as string | undefined;
     const state = gameStates.get(gameId!);
@@ -592,6 +646,7 @@ io.on('connection', (socket: Socket) => {
 
     if (!move) return cb?.({ error: 'Illegal move.' });
     state.proposals.set(pid, { lan, san: move.san });
+
     io.in(gameId!).emit('move_submitted', {
       id: pid,
       name: socket.data.name,
@@ -617,6 +672,7 @@ io.on('connection', (socket: Socket) => {
       message: message.trim(),
     });
   });
+
   socket.on('resign', () => {
     const gameId = socket.data.gameId as string | undefined;
     const side = socket.data.side as 'white' | 'black' | 'spectator' | undefined;
@@ -630,6 +686,7 @@ io.on('connection', (socket: Socket) => {
     sendSystemMessage(gameId, `${socket.data.name} resigns on behalf of the ${side} team.`);
     endGame(gameId, EndReason.Resignation, winner);
   });
+
   socket.on('offer_draw', () => {
     const gameId = socket.data.gameId as string | undefined;
     const side = socket.data.side as 'white' | 'black' | 'spectator' | undefined;
@@ -644,6 +701,7 @@ io.on('connection', (socket: Socket) => {
     io.in(gameId).emit('draw_offer_update', { side });
     sendSystemMessage(gameId, `${socket.data.name} offers a draw on behalf of the ${side} team.`);
   });
+
   socket.on('accept_draw', () => {
     const gameId = socket.data.gameId as string | undefined;
     const side = socket.data.side as 'white' | 'black' | 'spectator' | undefined;
@@ -662,6 +720,7 @@ io.on('connection', (socket: Socket) => {
     );
     endGame(gameId, EndReason.DrawAgreement, null);
   });
+
   socket.on('reject_draw', () => {
     const gameId = socket.data.gameId as string | undefined;
     const side = socket.data.side as 'white' | 'black' | 'spectator' | undefined;
@@ -678,7 +737,46 @@ io.on('connection', (socket: Socket) => {
     io.in(gameId).emit('draw_offer_update', { side: null });
     sendSystemMessage(gameId, `${socket.data.name} rejects the draw offer.`);
   });
+
+  socket.on('set_game_visibility', ({ visibility }) => {
+    const gameId = socket.data.gameId as string | undefined;
+    if (!gameId) return;
+
+    const state = gameStates.get(gameId) || lobbyStates.get(gameId);
+    if (!state) return;
+
+    if (Object.values(GameVisibility).includes(visibility)) {
+      state.visibility = visibility;
+      io.in(gameId).emit('game_visibility_update', { visibility });
+      sendSystemMessage(gameId, `${socket.data.name} set the game visibility to ${visibility}.`);
+    }
+  });
+
+  socket.on('request_public_games', cb => {
+    const publicGames: PublicGame[] = [];
+
+    for (const [gameId, state] of lobbyStates.entries()) {
+      if (state.visibility === GameVisibility.Public) {
+        publicGames.push({
+          gameId,
+          playerCount: countPlayersInGame(gameId),
+        });
+      }
+    }
+
+    for (const [gameId, state] of gameStates.entries()) {
+      if (state.visibility === GameVisibility.Public && state.status !== GameStatus.Over) {
+        publicGames.push({
+          gameId,
+          playerCount: countPlayersInGame(gameId),
+        });
+      }
+    }
+    cb(publicGames);
+  });
+
   socket.on('exit_game', () => leave.call(socket, true));
   socket.on('disconnect', () => leave.call(socket, false));
 });
+
 server.listen(3001, () => console.log('Socket.IO chess server listening on port 3001'));

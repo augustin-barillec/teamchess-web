@@ -24,7 +24,8 @@ button:hover {
   background-color: #f4f4f4;
 }
 
-input[type='text'] {
+input[type='text'],
+select {
   padding: 8px 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -87,6 +88,32 @@ pre {
   flex-grow: 1;
 }
 
+.public-games-list {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.public-games-list h3 {
+  margin: 0 0 10px 0;
+  font-size: 1.1em;
+}
+
+.public-games-list ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.public-games-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
 /* --- NEW SIMPLIFIED LAYOUT --- */
 
 /* 1. Header Bar */
@@ -125,6 +152,26 @@ pre {
   flex-wrap: wrap;
 }
 
+.visibility-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: #f9f9f9;
+}
+.visibility-control label {
+  font-size: 0.9em;
+  font-weight: 500;
+}
+.visibility-control select {
+  border-color: transparent;
+  background: none;
+  font-weight: bold;
+  padding: 2px;
+}
+
 /* 2. Main Layout (2 Columns) */
 .main-layout {
   display: flex;
@@ -145,7 +192,8 @@ pre {
   max-width: 100%;
 }
 .board-wrapper {
-  position: relative; /* ADD THIS to contain the absolute dialog */
+  position: relative;
+  /* ADD THIS to contain the absolute dialog */
   width: 100%;
   max-width: 800px;
   /* Board can be larger now */
@@ -397,7 +445,8 @@ pre {
   flex-direction: column;
   gap: 1rem;
   padding: 10px;
-  height: 600px; /* Match chat height */
+  height: 600px;
+  /* Match chat height */
   overflow-y: auto;
   background: #fff;
 }

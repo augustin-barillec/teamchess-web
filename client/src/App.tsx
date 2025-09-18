@@ -12,6 +12,8 @@ import {
   ChatMessage,
   GameStatus,
   MAX_PLAYERS_PER_GAME,
+  GameVisibility,
+  PublicGame,
 } from '@teamchess/shared';
 
 const STORAGE_KEYS = {
@@ -20,6 +22,7 @@ const STORAGE_KEYS = {
   gameId: 'tc:game',
   side: 'tc:side',
 } as const;
+
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
@@ -36,6 +39,7 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
+
 const pieceToFigurineWhite: Record<string, string> = {
   K: '♔',
   Q: '♕',
@@ -44,6 +48,7 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: '♘',
   P: '♙',
 };
+
 const pieceToFigurineBlack: Record<string, string> = {
   K: '♚',
   Q: '♛',
@@ -52,6 +57,7 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: '♞',
   P: '♟',
 };
+
 function sanToFan(san: string, side: 'white' | 'black'): string {
   const map = side === 'white' ? pieceToFigurineWhite : pieceToFigurineBlack;
   return san.replace(/[KQRBNP]/g, m => map[m]);
@@ -79,6 +85,7 @@ export default function App() {
       </g>
     </svg>
   );
+
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket>();
   const [myId, setMyId] = useState<string>(sessionStorage.getItem(STORAGE_KEYS.pid) || '');
@@ -111,6 +118,9 @@ export default function App() {
   const [promotionMove, setPromotionMove] = useState<{ from: string; to: string } | null>(null);
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(600);
+  const [visibility, setVisibility] = useState<GameVisibility>(GameVisibility.Private);
+  const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
+
   useEffect(() => {
     const observer = new ResizeObserver(entries => {
       if (entries[0]) {
@@ -134,6 +144,7 @@ export default function App() {
   const activeTabRef = useRef(activeTab);
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
+
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: 'k', color: chess.turn() };
@@ -147,6 +158,7 @@ export default function App() {
     });
     return square;
   }, [position]);
+
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1 };
     const currWhite: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
@@ -179,6 +191,7 @@ export default function App() {
 
     lostW.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     lostB.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+
     const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
     const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
     const materialBalance = blackLostValue - whiteLostValue;
@@ -194,12 +207,15 @@ export default function App() {
     () => players.spectators.length + players.whitePlayers.length + players.blackPlayers.length,
     [players],
   );
+
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
+
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some(p => p.id === myId)
@@ -212,6 +228,7 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId]);
+
   useEffect(() => {
     const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
     const storedName = sessionStorage.getItem(STORAGE_KEYS.name) || undefined;
@@ -263,6 +280,10 @@ export default function App() {
             }
           }
         });
+      } else {
+        s.emit('request_public_games', (games: PublicGame[]) => {
+          setPublicGames(games);
+        });
       }
     });
     s.on('connect_error', showOffline);
@@ -280,7 +301,7 @@ export default function App() {
       }
     });
     s.on('players', (p: Players) => setPlayers(p));
-    s.on('game_started', ({ moveNumber, side }: GameInfo) => {
+    s.on('game_started', ({ moveNumber, side, visibility }: GameInfo) => {
       setGameStatus(GameStatus.Active);
       setWinner(null);
       setEndReason(null);
@@ -288,6 +309,7 @@ export default function App() {
       setTurns([{ moveNumber, side, proposals: [] }]);
       setLastMoveSquares(null);
       setDrawOffer(null);
+      if (visibility) setVisibility(visibility);
     });
     s.on('game_reset', () => {
       setGameStatus(GameStatus.Lobby);
@@ -355,11 +377,18 @@ export default function App() {
         setHasUnreadMessages(true);
       }
     });
-    s.on('game_status_update', ({ status }: { status: GameStatus }) => {
-      setGameStatus(status);
-    });
+    s.on(
+      'game_status_update',
+      ({ status, visibility }: { status: GameStatus; visibility?: GameVisibility }) => {
+        setGameStatus(status);
+        if (visibility) setVisibility(visibility);
+      },
+    );
     s.on('draw_offer_update', ({ side }: { side: 'white' | 'black' | null }) => {
       setDrawOffer(side);
+    });
+    s.on('game_visibility_update', ({ visibility }: { visibility: GameVisibility }) => {
+      setVisibility(visibility);
     });
     (window as any).socket = s;
 
@@ -382,6 +411,7 @@ export default function App() {
     setLastMoveSquares(null);
     setChatMessages([]);
   };
+
   const createGame = () => {
     resetLocalGameState();
     if (!name.trim()) return alert('Enter your name.');
@@ -417,13 +447,18 @@ export default function App() {
     resetLocalGameState();
     sessionStorage.removeItem(STORAGE_KEYS.gameId);
     sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
+    socket?.emit('request_public_games', (games: PublicGame[]) => {
+      setPublicGames(games);
+    });
   };
+
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
     (window as any).socket.emit('join_side', { side: s }, (res: any) => {
       if (res.error) alert(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
+
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -435,11 +470,13 @@ export default function App() {
   };
 
   const joinSpectator = () => joinSide('spectator');
+
   const resignGame = () => {
     if (window.confirm('Are you sure you want to resign in the name of your team?')) {
       (window as any).socket.emit('resign');
     }
   };
+
   const offerDraw = () => {
     if (window.confirm('Are you sure you want to offer a draw in the name of your team?')) {
       socket?.emit('offer_draw');
@@ -457,7 +494,9 @@ export default function App() {
       socket?.emit('reject_draw');
     }
   };
+
   const startGame = () => (window as any).socket.emit('start_game');
+
   const resetGame = () => {
     if (window.confirm('Are you sure you want to reset the game?')) {
       const s = socket;
@@ -497,6 +536,7 @@ export default function App() {
       </div>
     );
   };
+
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== 'p') return false;
@@ -505,6 +545,7 @@ export default function App() {
   }
 
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
+
   const copyPgn = () => {
     if (!pgn) return;
     const textArea = document.createElement('textarea');
@@ -522,6 +563,7 @@ export default function App() {
     }
     document.body.removeChild(textArea);
   };
+
   const boardOptions = {
     position,
     boardOrientation: orientation,
@@ -572,7 +614,6 @@ export default function App() {
       }
 
       chess.undo();
-
       if (isPromotion) {
         setPromotionMove({ from, to });
       } else {
@@ -585,6 +626,7 @@ export default function App() {
       return true;
     },
   };
+
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -612,6 +654,7 @@ export default function App() {
       </div>
     </div>
   );
+
   return (
     <div className="app-container">
       <Toaster position="top-right" />
@@ -647,6 +690,28 @@ export default function App() {
               <button onClick={joinGame}>Submit</button>
             </div>
           )}
+          {publicGames.length > 0 && (
+            <div className="public-games-list">
+              <h3>Public Games</h3>
+              <ul>
+                {publicGames.map(g => (
+                  <li key={g.gameId}>
+                    <span>
+                      Game {g.gameId} ({g.playerCount}/{MAX_PLAYERS_PER_GAME})
+                    </span>
+                    <button
+                      onClick={() => {
+                        setGameId(g.gameId);
+                        setShowJoin(true);
+                      }}
+                    >
+                      Join
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -677,6 +742,23 @@ export default function App() {
             </div>
 
             <div className="action-panel">
+              <div className="visibility-control">
+                <label htmlFor="visibility-select">Visibility:</label>
+                <select
+                  id="visibility-select"
+                  value={visibility}
+                  onChange={e => {
+                    const newVisibility = e.target.value as GameVisibility;
+                    setVisibility(newVisibility);
+                    socket?.emit('set_game_visibility', { visibility: newVisibility });
+                  }}
+                >
+                  <option value={GameVisibility.Public}>Public</option>
+                  <option value={GameVisibility.Private}>Private</option>
+                  <option value={GameVisibility.Closed}>Closed</option>
+                </select>
+              </div>
+
               {gameStatus === GameStatus.Lobby && (
                 <>
                   {players.whitePlayers.length > 0 && players.blackPlayers.length > 0 && (
