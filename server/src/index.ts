@@ -324,11 +324,32 @@ function leave(this: Socket, explicit = false) {
   const socket = this;
   const pid = socket.data.pid as string | undefined;
   const gameId = socket.data.gameId as string | undefined;
-  if (!pid || !gameId) return;
 
-  const state = gameStates.get(gameId);
+  if (!pid) return; // A session should always have a PID
+
   const sess = sessions.get(pid);
-  if (!sess) return;
+  if (!sess) return; // Session not found, nothing to do
+
+  // CASE 1: The user is NOT in a game (i.e., in the lobby).
+  if (!gameId) {
+    if (explicit) {
+      // This case is unlikely (e.g., "exit" from lobby?), but good to handle.
+      // No action needed, session persists until they close the tab.
+      return;
+    }
+    // Handle implicit disconnect (tab close) from the lobby.
+    if (sess.reconnectTimer) clearTimeout(sess.reconnectTimer);
+    sess.reconnectTimer = setTimeout(() => {
+      sessions.delete(pid); // Simply delete the session after the grace period.
+      sess.reconnectTimer = undefined;
+    }, DISCONNECT_GRACE_MS);
+    return; // Done with lobby user case.
+  }
+
+  // CASE 2: The user IS in a game.
+  // (The rest of this is your original logic, now correctly scoped).
+  const state = gameStates.get(gameId);
+
   const finalize = (clearSession: boolean) => {
     if (state) {
       cleanupProposalByPid(gameId, state, pid);
@@ -362,9 +383,11 @@ function leave(this: Socket, explicit = false) {
     return;
   }
 
+  // Handle implicit disconnect (tab close) from a game.
   if (sess.reconnectTimer) clearTimeout(sess.reconnectTimer);
   sess.reconnectTimer = setTimeout(() => {
     finalize(true);
+    sessions.delete(pid); // This is the line from the previous fix.
     sess.reconnectTimer = undefined;
   }, DISCONNECT_GRACE_MS);
 
