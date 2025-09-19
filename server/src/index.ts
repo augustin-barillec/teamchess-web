@@ -15,8 +15,8 @@ import {
   GlobalStats,
 } from '@teamchess/shared';
 const DISCONNECT_GRACE_MS = 20000;
-const MAX_GAMES = 2;
-const MAX_USERS = 3;
+const MAX_GAMES = 15;
+const MAX_USERS = 100;
 const stockfishPath = path.join(
   __dirname,
   '..',
