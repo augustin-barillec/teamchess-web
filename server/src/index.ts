@@ -15,8 +15,8 @@ import {
   GlobalStats,
 } from '@teamchess/shared';
 const DISCONNECT_GRACE_MS = 20000;
-const STOCKFISH_MOVETIME_MS = 1000000;
-const MAX_GAMES = 15;
+const STOCKFISH_SEARCH_DEPTH = 15;
+const MAX_GAMES = 10;
 const MAX_USERS = 100;
 const stockfishPath = path.join(
   __dirname,
@@ -181,7 +181,6 @@ async function chooseBestMove(
   engine: ReturnType<typeof loadEngine>,
   fen: string,
   candidates: string[],
-  movetimeMs = STOCKFISH_MOVETIME_MS,
 ) {
   if (new Set(candidates).size === 1) {
     return candidates[0];
@@ -189,7 +188,7 @@ async function chooseBestMove(
   return new Promise<string>(resolve => {
     engine.send(`position fen ${fen}`);
     engine.send(
-      `go movetime ${movetimeMs} searchmoves ${candidates.join(' ')}`,
+      `go depth ${STOCKFISH_SEARCH_DEPTH} searchmoves ${candidates.join(' ')}`,
       (output: string) => {
         if (output.startsWith('bestmove')) {
           const bestMoveFound = output.split(' ')[1];
