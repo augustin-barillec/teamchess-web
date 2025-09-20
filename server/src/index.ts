@@ -15,6 +15,7 @@ import {
   GlobalStats,
 } from '@teamchess/shared';
 const DISCONNECT_GRACE_MS = 20000;
+const STOCKFISH_MOVETIME_MS = 1000000;
 const MAX_GAMES = 15;
 const MAX_USERS = 100;
 const stockfishPath = path.join(
@@ -180,7 +181,7 @@ async function chooseBestMove(
   engine: ReturnType<typeof loadEngine>,
   fen: string,
   candidates: string[],
-  movetimeMs = 1000,
+  movetimeMs = STOCKFISH_MOVETIME_MS,
 ) {
   if (new Set(candidates).size === 1) {
     return candidates[0];
@@ -326,29 +327,23 @@ function leave(this: Socket, explicit = false) {
   const pid = socket.data.pid as string | undefined;
   const gameId = socket.data.gameId as string | undefined;
 
-  if (!pid) return; // A session should always have a PID
+  if (!pid) return;
 
   const sess = sessions.get(pid);
-  if (!sess) return; // Session not found, nothing to do
+  if (!sess) return;
 
-  // CASE 1: The user is NOT in a game (i.e., in the lobby).
   if (!gameId) {
     if (explicit) {
-      // This case is unlikely (e.g., "exit" from lobby?), but good to handle.
-      // No action needed, session persists until they close the tab.
       return;
     }
-    // Handle implicit disconnect (tab close) from the lobby.
     if (sess.reconnectTimer) clearTimeout(sess.reconnectTimer);
     sess.reconnectTimer = setTimeout(() => {
-      sessions.delete(pid); // Simply delete the session after the grace period.
+      sessions.delete(pid);
       sess.reconnectTimer = undefined;
     }, DISCONNECT_GRACE_MS);
-    return; // Done with lobby user case.
+    return;
   }
 
-  // CASE 2: The user IS in a game.
-  // (The rest of this is your original logic, now correctly scoped).
   const state = gameStates.get(gameId);
   const finalize = (clearSession: boolean) => {
     if (state) {
@@ -490,7 +485,6 @@ io.on('connection', (socket: Socket) => {
   socket.data.pid = pid;
   socket.data.name = sess.name;
   socket.emit('session', { id: pid, name: sess.name });
-
   if (sess.gameId && (gameStates.has(sess.gameId) || lobbyStates.has(sess.gameId))) {
     socket.join(sess.gameId);
     socket.data.gameId = sess.gameId;
