@@ -16,12 +16,14 @@ import {
   PublicGame,
   GlobalStats,
 } from '@teamchess/shared';
+
 const STORAGE_KEYS = {
   pid: 'tc:pid',
   name: 'tc:name',
   gameId: 'tc:game',
   side: 'tc:side',
 } as const;
+
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
@@ -38,6 +40,7 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
+
 const pieceToFigurineWhite: Record<string, string> = {
   K: '♔',
   Q: '♕',
@@ -46,6 +49,7 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: '♘',
   P: '♙',
 };
+
 const pieceToFigurineBlack: Record<string, string> = {
   K: '♚',
   Q: '♛',
@@ -54,6 +58,7 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: '♞',
   P: '♟',
 };
+
 function sanToFan(san: string, side: 'white' | 'black'): string {
   const map = side === 'white' ? pieceToFigurineWhite : pieceToFigurineBlack;
   return san.replace(/[KQRBNP]/g, m => map[m]);
@@ -81,6 +86,7 @@ export default function App() {
       </g>
     </svg>
   );
+
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket>();
   const [myId, setMyId] = useState<string>(sessionStorage.getItem(STORAGE_KEYS.pid) || '');
@@ -117,7 +123,7 @@ export default function App() {
   const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const [showStats, setShowStats] = useState(false);
-  // For the in-game modal/popover
+
   useEffect(() => {
     const observer = new ResizeObserver(entries => {
       if (entries[0]) {
@@ -133,6 +139,7 @@ export default function App() {
       observer.disconnect();
     };
   }, []);
+
   const [activeTab, setActiveTab] = useState<'chat' | 'moves' | 'players'>('players');
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
@@ -154,6 +161,7 @@ export default function App() {
     });
     return square;
   }, [position]);
+
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1 };
     const currWhite: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
@@ -201,12 +209,15 @@ export default function App() {
     () => players.spectators.length + players.whitePlayers.length + players.blackPlayers.length,
     [players],
   );
+
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
+
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some(p => p.id === myId)
@@ -219,6 +230,7 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId]);
+
   useEffect(() => {
     const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
     const storedName = sessionStorage.getItem(STORAGE_KEYS.name) || undefined;
@@ -244,7 +256,7 @@ export default function App() {
     window.addEventListener('online', onOnline);
 
     s.on('error', (data: { message: string }) => {
-      alert(data.message);
+      toast.error(data.message);
     });
 
     s.on('session', ({ id, name }: { id: string; name: string }) => {
@@ -256,6 +268,7 @@ export default function App() {
     });
 
     const showOffline = () => setAmDisconnected(true);
+
     s.on('connect', () => {
       setAmDisconnected(false);
       const g = sessionStorage.getItem(STORAGE_KEYS.gameId);
@@ -264,7 +277,7 @@ export default function App() {
         (sessionStorage.getItem(STORAGE_KEYS.side) as 'white' | 'black' | 'spectator' | null) ||
         'spectator';
       if (g && n) {
-        s.emit('join_game', { gameId: g, name: n }, (res: any) => {
+        s.emit('join_game', { gameId: g, name: n }, (res: { error?: string }) => {
           if (!res?.error) {
             setGameId(g);
             setName(n);
@@ -280,9 +293,11 @@ export default function App() {
         });
       }
     });
+
     s.on('connect_error', showOffline);
     s.on('reconnect_attempt', showOffline);
     s.on('reconnect', () => setAmDisconnected(false));
+
     s.on('disconnect', (reason: string) => {
       setAmDisconnected(true);
       if (
@@ -294,6 +309,7 @@ export default function App() {
         }, 500);
       }
     });
+
     s.on('players', (p: Players) => setPlayers(p));
     s.on('game_started', ({ moveNumber, side, visibility }: GameInfo) => {
       setGameStatus(GameStatus.Active);
@@ -390,13 +406,14 @@ export default function App() {
     s.on('public_games_update', (games: PublicGame[]) => {
       setPublicGames(games);
     });
-    (window as any).socket = s;
+
     return () => {
       window.removeEventListener('offline', onOffline);
       window.removeEventListener('online', onOnline);
       s.disconnect();
     };
   }, [chess]);
+
   const resetLocalGameState = () => {
     setGameStatus(GameStatus.Lobby);
     setWinner(null);
@@ -411,46 +428,41 @@ export default function App() {
   };
 
   const createGame = () => {
-    resetLocalGameState();
-    if (!name.trim()) return alert('Enter your name.');
+    if (!name.trim()) return toast.error('Please enter your name first.');
     sessionStorage.setItem(STORAGE_KEYS.name, name);
-    (window as any).socket.emit(
-      'create_game',
-      { name },
-      (res: { gameId?: string; error?: string }) => {
-        if (res.error) {
-          alert(res.error);
-          return;
-        }
-        if (res.gameId) {
-          setGameId(res.gameId);
-          setJoined(true);
-          setSide('spectator');
-          sessionStorage.setItem(STORAGE_KEYS.gameId, res.gameId);
-          sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
-        }
-      },
-    );
+    socket?.emit('create_game', { name }, (res: { gameId?: string; error?: string }) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      if (res.gameId) {
+        setGameId(res.gameId);
+        setJoined(true);
+        setSide('spectator');
+        sessionStorage.setItem(STORAGE_KEYS.gameId, res.gameId);
+        sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
+      }
+    });
   };
 
   const joinGame = (id?: string) => {
     const idToJoin = id || gameId;
     if (!name.trim()) {
-      alert('Please enter your name first.');
+      toast.error('Please enter your name first.');
       return;
     }
     if (!idToJoin.trim()) {
-      alert('Please enter a Game ID.');
+      toast.error('Please enter a Game ID.');
       return;
     }
 
     resetLocalGameState();
     sessionStorage.setItem(STORAGE_KEYS.name, name);
-    (window as any).socket.emit('join_game', { gameId: idToJoin, name }, (res: any) => {
+    socket?.emit('join_game', { gameId: idToJoin, name }, (res: { error?: string }) => {
       if (res.error) {
-        alert(res.error);
+        toast.error(res.error);
       } else {
-        setGameId(idToJoin); // Ensure state is updated
+        setGameId(idToJoin);
         setJoined(true);
         setSide('spectator');
         sessionStorage.setItem(STORAGE_KEYS.gameId, idToJoin);
@@ -460,19 +472,21 @@ export default function App() {
   };
 
   const exitGame = () => {
-    (window as any).socket.emit('exit_game');
+    socket?.emit('exit_game');
     setJoined(false);
     setSide('spectator');
     resetLocalGameState();
     sessionStorage.removeItem(STORAGE_KEYS.gameId);
     sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
   };
+
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
-    (window as any).socket.emit('join_side', { side: s }, (res: any) => {
-      if (res.error) alert(res.error);
+    socket?.emit('join_side', { side: s }, (res: { error?: string }) => {
+      if (res.error) toast.error(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
+
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -484,9 +498,10 @@ export default function App() {
   };
 
   const joinSpectator = () => joinSide('spectator');
+
   const resignGame = () => {
     if (window.confirm('Are you sure you want to resign in the name of your team?')) {
-      (window as any).socket.emit('resign');
+      socket?.emit('resign');
     }
   };
 
@@ -508,25 +523,32 @@ export default function App() {
     }
   };
 
-  const startGame = () => (window as any).socket.emit('start_game');
+  const startGame = () => socket?.emit('start_game');
+
   const resetGame = () => {
     if (window.confirm('Are you sure you want to reset the game?')) {
-      const s = socket;
-      if (!s) return;
-      s.emit('reset_game', (res: { success: boolean; error?: string }) => {
-        if (res.error) return alert(res.error);
+      socket?.emit('reset_game', (res: { success: boolean; error?: string }) => {
+        if (res.error) return toast.error(res.error);
       });
     }
+  };
+
+  const submitMove = (lan: string) => {
+    if (!socket) return;
+    socket.emit('play_move', lan, (res: { error?: string }) => {
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        toast.success('Move submitted ✔️');
+      }
+    });
   };
 
   const onPromote = (promotionPiece: 'q' | 'r' | 'b' | 'n') => {
     if (!promotionMove) return;
     const { from, to } = promotionMove;
-
     const lan = from + to + promotionPiece;
-    (window as any).socket.emit('play_move', lan, (res: any) => {
-      if (res?.error) alert(res.error);
-    });
+    submitMove(lan);
     setPromotionMove(null);
   };
 
@@ -535,6 +557,7 @@ export default function App() {
     const turnColor = chess.turn();
     const promotionPieces = ['Q', 'R', 'B', 'N'];
     const pieceMap = turnColor === 'w' ? pieceToFigurineWhite : pieceToFigurineBlack;
+
     return (
       <div className="promotion-dialog">
         <h3>Promote to:</h3>
@@ -548,6 +571,7 @@ export default function App() {
       </div>
     );
   };
+
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== 'p') return false;
@@ -556,23 +580,18 @@ export default function App() {
   }
 
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
+
   const copyPgn = () => {
     if (!pgn) return;
-    const textArea = document.createElement('textarea');
-    textArea.value = pgn;
-    textArea.style.position = 'absolute';
-    textArea.style.left = '-9999px';
-    document.body.appendChild(textArea);
-    textArea.select();
-    try {
-      const success = document.execCommand('copy');
-      toast.success(success ? 'PGN copied!' : 'Copy failed.');
-    } catch (err) {
-      console.error('Failed to copy PGN:', err);
-      toast.error('Could not copy PGN.');
-    }
-    document.body.removeChild(textArea);
+    navigator.clipboard
+      .writeText(pgn)
+      .then(() => toast.success('PGN copied!'))
+      .catch(err => {
+        console.error('Failed to copy PGN:', err);
+        toast.error('Could not copy PGN.');
+      });
   };
+
   const boardOptions = {
     position,
     boardOrientation: orientation,
@@ -627,14 +646,13 @@ export default function App() {
         setPromotionMove({ from, to });
       } else {
         const lan = from + to;
-        (window as any).socket.emit('play_move', lan, (res: any) => {
-          if (res?.error) alert(res.error);
-        });
+        submitMove(lan);
       }
 
       return true;
     },
   };
+
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -662,6 +680,7 @@ export default function App() {
       </div>
     </div>
   );
+
   const StatsDisplay = ({ stats }: { stats: GlobalStats }) => (
     <div className="stats-display">
       <h4>Server Stats 📊</h4>
@@ -687,9 +706,10 @@ export default function App() {
       </ul>
     </div>
   );
+
   return (
     <div className="app-container">
-      <Toaster position="top-right" />
+      <Toaster position="top-center" />
       {amDisconnected && (
         <div className="offline-banner">
           You’re offline. Try refreshing or wait for auto-reconnect…
@@ -747,17 +767,10 @@ export default function App() {
               <strong>Game ID:</strong>
               <button
                 onClick={() => {
-                  const input = document.createElement('input');
-                  input.value = gameId;
-                  document.body.appendChild(input);
-                  input.select();
-                  try {
-                    const success = document.execCommand('copy');
-                    toast.success(success ? 'Game ID copied' : 'Copy failed');
-                  } catch {
-                    toast.error('Copy not supported');
-                  }
-                  document.body.removeChild(input);
+                  navigator.clipboard
+                    .writeText(gameId)
+                    .then(() => toast.success('Game ID copied!'))
+                    .catch(() => toast.error('Copy not supported'));
                 }}
               >
                 {gameId}
