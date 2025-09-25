@@ -555,23 +555,36 @@ io.on('connection', (socket: Socket) => {
       return;
     }
 
-    if (countPlayersInGame(gameId) >= MAX_PLAYERS_PER_GAME) {
+    const s = sessions.get(socket.data.pid)!;
+    const isReconnecting = s.gameId === gameId;
+
+    if (!isReconnecting && countPlayersInGame(gameId) >= MAX_PLAYERS_PER_GAME) {
       cb?.({ error: 'This game is full.' });
       return;
     }
 
     socket.join(gameId);
-    socket.data = { ...socket.data, name, gameId, side: 'spectator' };
-    const s = sessions.get(socket.data.pid)!;
+    socket.data.name = name;
+    socket.data.gameId = gameId;
     s.name = name;
     s.gameId = gameId;
-    s.side = 'spectator';
+
+    if (isReconnecting) {
+      // Player is already in this game, just update socket data. Do NOT reset their side.
+      socket.data.side = s.side || 'spectator';
+    } else {
+      // This is a fresh join to a new game, so default to spectator.
+      socket.data.side = 'spectator';
+      s.side = 'spectator';
+    }
+
     cb?.({ gameId });
     broadcastPlayers(gameId);
     socket.emit('game_visibility_update', { visibility: state.visibility });
 
     if (game) {
       socket.emit('position_update', { fen: game.chess.fen() });
+
       socket.emit('clock_update', { whiteTime: game.whiteTime, blackTime: game.blackTime });
       if (game.status === GameStatus.Over)
         socket.emit('game_over', {
