@@ -52,7 +52,6 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
-
 const pieceToFigurineWhite: Record<string, string> = {
   K: '♔',
   Q: '♕',
@@ -149,7 +148,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
           <path d="M10.37,6.564a12.392,12.392,0,0,1,10.71,3.93c.436.476,1.141-.233.708-.708A13.324,13.324,0,0,0,10.37,5.564c-.631.076-.638,1.077,0,1Z" />
           <path d="M13.907,10.283A8.641,8.641,0,0,1,18.349,12.9c.434.477,1.139-.232.707-.707a9.586,9.586,0,0,0-4.883-2.871c-.626-.146-.893.818-.266.965Z" />
           <circle cx="12.003" cy="16.922" r="1.12" />
-          <path d="M19.773,19.06a.5.5,0,0,1-.71.71l-5.84-5.84A4.478,4.478,0,0,0,8.7,15.24c-.43.48-1.14-.23-.71-.7a5.47,5.47,0,0,1,4.06-1.78l-2.37-2.37a8.693,8.693,0,0,0-4.03,2.53c-.43.48-1.13-.23-.7-.71A9.439,9.439,0,0,1,8.893,9.6L6.883,7.59a12.557,12.557,0,0,0-3.96,2.94.5.5,0,1,1-.7-.71,13.109,13.109,0,0,1,3.91-2.98l-1.9-1.9a.5.5,0,0,1,.71-.71Z" />
+          <path d="M19.773,19.06a.5.5,0,0,1-.71.71l-5.84-5.84A4.478,4.478,0,0,0,8.7,15.24c-.43.48-1.14-.23-.71-.7a5.47,5.47,0,0,1,4.06-1.78l-2.37-2.37a8.693,8.693,0,0,0-4.03,2.53c-.43.48-1.13-.23-.7-.71A9.439,9.439,0,0,1,8.893,9.6L6.883,7.59a12.557,12.557,0,0,0-3.96,2.94a.5.5,0,1,1-.7-.71,13.109,13.109,0,0,1,3.91-2.98l-1.9-1.9a.5.5,0,0,1,.71-.71Z" />
         </g>
       </g>
     </svg>
@@ -299,6 +298,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       reconnectionDelayMax: 2000,
       randomizationFactor: 0.2,
     });
+
     setSocket(s);
 
     const onOffline = () => {
@@ -513,16 +513,20 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     });
   };
 
-  // MODIFIED: exitGame now calls onExit to return to server browser
-  const exitGame = () => {
+  /** Takes the user out of a game room and back to the server lobby. */
+  const leaveGame = () => {
     socket?.emit('exit_game');
     setJoined(false);
     setSide('spectator');
     resetLocalGameState();
     sessionStorage.removeItem(STORAGE_KEYS.gameId);
     sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
+  };
+
+  /** Disconnects from the current server and returns to the server browser. */
+  const exitServer = () => {
     socket?.disconnect(); // Disconnect from the current game server
-    onExit(); // This takes you back to the server list!
+    onExit();
   };
 
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
@@ -543,23 +547,29 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
   };
 
   const joinSpectator = () => joinSide('spectator');
+
   const resignGame = () => {
     if (window.confirm('Are you sure you want to resign in the name of your team?'))
       socket?.emit('resign');
   };
+
   const offerDraw = () => {
     if (window.confirm('Are you sure you want to offer a draw in the name of your team?'))
       socket?.emit('offer_draw');
   };
+
   const acceptDraw = () => {
     if (window.confirm('Accept the draw offer in the name of your team?'))
       socket?.emit('accept_draw');
   };
+
   const rejectDraw = () => {
     if (window.confirm('Reject the draw offer in the name of your team?'))
       socket?.emit('reject_draw');
   };
+
   const startGame = () => socket?.emit('start_game');
+
   const resetGame = () => {
     if (window.confirm('Are you sure you want to reset the game?')) {
       socket?.emit('reset_game', (res: { success: boolean; error?: string }) => {
@@ -756,6 +766,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
           <div className="input-group">
             <button onClick={createGame}>Create Game</button>
             <button onClick={() => setShowJoin(s => !s)}>Join Game</button>
+            <button onClick={exitServer}>Exit Server</button>
           </div>
           {showJoin && (
             <div className="input-group">
@@ -883,7 +894,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
                   )}{' '}
                 </>
               )}
-              <button onClick={exitGame}>Exit Server</button> {/* Modified label */}
+              <button onClick={leaveGame}>Exit Game</button>
             </div>
           </div>
           <div className="main-layout">
