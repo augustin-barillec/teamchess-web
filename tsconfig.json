@@ -1,4 +1,9 @@
 {
-  "references": [{ "path": "shared" }, { "path": "server" }, { "path": "client" }],
+  "references": [
+    { "path": "shared" },
+    { "path": "client" },
+    { "path": "server" },
+    { "path": "master-server" }
+  ],
   "compilerOptions": {}
 }

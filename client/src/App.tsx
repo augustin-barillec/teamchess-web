@@ -17,12 +17,24 @@ import {
   GlobalStats,
 } from '@teamchess/shared';
 
+// --- NEW TYPES & CONSTANTS ---
+
 const STORAGE_KEYS = {
   pid: 'tc:pid',
   name: 'tc:name',
   gameId: 'tc:game',
   side: 'tc:side',
 } as const;
+
+// Represents a game server fetched from the master server
+type ServerInfo = {
+  name: string;
+  address: string;
+  playerCount: number;
+  maxPlayers: number;
+};
+
+// --- HELPER DICTIONARIES AND FUNCTIONS (Unchanged) ---
 
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
@@ -49,7 +61,6 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: '♘',
   P: '♙',
 };
-
 const pieceToFigurineBlack: Record<string, string> = {
   K: '♚',
   Q: '♛',
@@ -59,22 +70,79 @@ const pieceToFigurineBlack: Record<string, string> = {
   P: '♟',
 };
 
-function sanToFan(san: string, side: 'white' | 'black'): string {
-  const map = side === 'white' ? pieceToFigurineWhite : pieceToFigurineBlack;
-  return san.replace(/[KQRBNP]/g, m => map[m]);
-}
+// --- NEW TOP-LEVEL CONTROLLER COMPONENT ---
 
 export default function App() {
+  const [servers, setServers] = useState<ServerInfo[]>([]);
+  const [selectedServer, setSelectedServer] = useState<ServerInfo | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Fetch the list of servers from the master server
+    fetch('http://localhost:4000/servers')
+      .then(res => {
+        if (!res.ok) throw new Error('Could not connect to the master server.');
+        return res.json();
+      })
+      .then(data => {
+        setServers(data);
+        setError(null);
+      })
+      .catch(err => {
+        console.error('Failed to fetch server list:', err);
+        setError('Could not fetch the server list. Is the master server running?');
+      });
+  }, []);
+
+  if (selectedServer) {
+    return <GameClient server={selectedServer} onExit={() => setSelectedServer(null)} />;
+  }
+
+  return <ServerBrowser servers={servers} onSelect={setSelectedServer} error={error} />;
+}
+
+// --- NEW SERVER BROWSER COMPONENT ---
+
+function ServerBrowser({
+  servers,
+  onSelect,
+  error,
+}: {
+  servers: ServerInfo[];
+  onSelect: (server: ServerInfo) => void;
+  error: string | null;
+}) {
+  return (
+    <div className="login-box">
+      <h1>TeamChess</h1>
+      <h3>Select a Server</h3>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {!error && servers.length === 0 && <p>Searching for servers...</p>}
+      <div className="public-games-list">
+        <ul>
+          {servers.map(server => (
+            <li key={server.address}>
+              <span>
+                {server.name} ({server.playerCount}/{server.maxPlayers})
+              </span>
+              <button onClick={() => onSelect(server)}>Join Server</button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+// --- REFACTORED GAME CLIENT COMPONENT ---
+// This contains almost all the logic from your original App.tsx
+
+function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void }) {
   const DisconnectedIcon = () => (
     <svg
       viewBox="0 0 24 24"
       xmlns="http://www.w3.org/2000/svg"
-      style={{
-        width: '16px',
-        height: '16px',
-        fill: '#000000',
-        verticalAlign: 'middle',
-      }}
+      style={{ width: '16px', height: '16px', fill: '#000000', verticalAlign: 'middle' }}
     >
       <g id="Wi-Fi_Off" data-name="Wi-Fi Off">
         <g>
@@ -123,30 +191,21 @@ export default function App() {
   const [publicGames, setPublicGames] = useState<PublicGame[]>([]);
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const [showStats, setShowStats] = useState(false);
+  const [activeTab, setActiveTab] = useState<'chat' | 'moves' | 'players'>('players');
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const movesRef = useRef<HTMLDivElement>(null);
+  const activeTabRef = useRef(activeTab);
+
+  const current = turns[turns.length - 1];
+  const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
 
   useEffect(() => {
     const observer = new ResizeObserver(entries => {
-      if (entries[0]) {
-        setBoardWidth(entries[0].contentRect.width);
-      }
+      if (entries[0]) setBoardWidth(entries[0].contentRect.width);
     });
-
-    if (boardContainerRef.current) {
-      observer.observe(boardContainerRef.current);
-    }
-
-    return () => {
-      observer.disconnect();
-    };
+    if (boardContainerRef.current) observer.observe(boardContainerRef.current);
+    return () => observer.disconnect();
   }, []);
-
-  const [activeTab, setActiveTab] = useState<'chat' | 'moves' | 'players'>('players');
-  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
-
-  const movesRef = useRef<HTMLDivElement>(null);
-  const activeTabRef = useRef(activeTab);
-  const current = turns[turns.length - 1];
-  const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
 
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
@@ -166,7 +225,6 @@ export default function App() {
     const initial: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1 };
     const currWhite: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
     const currBlack: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
-
     chess
       .board()
       .flat()
@@ -177,12 +235,10 @@ export default function App() {
           else currBlack[type]++;
         }
       });
-
     const lostW: { type: string; figurine: string }[] = [];
     const lostB: { type: string; figurine: string }[] = [];
     const order = ['P', 'N', 'B', 'R', 'Q', 'K'];
     const values: Record<string, number> = { P: 1, N: 3, B: 3, R: 5, Q: 9, K: 0 };
-
     Object.entries(initial).forEach(([type, count]) => {
       const wCount = currWhite[type] || 0;
       const bCount = currBlack[type] || 0;
@@ -191,13 +247,11 @@ export default function App() {
       for (let i = 0; i < count - bCount; i++)
         lostB.push({ type, figurine: pieceToFigurineBlack[type] });
     });
-
     lostW.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     lostB.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
     const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
     const materialBalance = blackLostValue - whiteLostValue;
-
     return {
       lostWhitePieces: lostW.map(p => p.figurine),
       lostBlackPieces: lostB.map(p => p.figurine),
@@ -231,11 +285,13 @@ export default function App() {
     }
   }, [players, myId]);
 
+  // --- MAIN useEffect for Socket Connection ---
   useEffect(() => {
     const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
     const storedName = sessionStorage.getItem(STORAGE_KEYS.name) || undefined;
 
-    const s = io('/', {
+    // MODIFIED: Connect to the selected server's address
+    const s = io(server.address, {
       auth: { pid: storedPid, name: storedName },
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -255,10 +311,7 @@ export default function App() {
     window.addEventListener('offline', onOffline);
     window.addEventListener('online', onOnline);
 
-    s.on('error', (data: { message: string }) => {
-      toast.error(data.message);
-    });
-
+    s.on('error', (data: { message: string }) => toast.error(data.message));
     s.on('session', ({ id, name }: { id: string; name: string }) => {
       setMyId(id);
       sessionStorage.setItem(STORAGE_KEYS.pid, id);
@@ -288,16 +341,13 @@ export default function App() {
           }
         });
       } else {
-        s.emit('request_public_games', (games: PublicGame[]) => {
-          setPublicGames(games);
-        });
+        s.emit('request_public_games', (games: PublicGame[]) => setPublicGames(games));
       }
     });
 
     s.on('connect_error', showOffline);
     s.on('reconnect_attempt', showOffline);
     s.on('reconnect', () => setAmDisconnected(false));
-
     s.on('disconnect', (reason: string) => {
       setAmDisconnected(true);
       if (
@@ -310,6 +360,7 @@ export default function App() {
       }
     });
 
+    // All other event listeners are the same...
     s.on('players', (p: Players) => setPlayers(p));
     s.on('game_started', ({ moveNumber, side, visibility }: GameInfo) => {
       setGameStatus(GameStatus.Active);
@@ -362,15 +413,15 @@ export default function App() {
     s.on('turn_change', ({ moveNumber, side }: GameInfo) =>
       setTurns(ts => [...ts, { moveNumber, side, proposals: [] }]),
     );
-    s.on('proposal_removed', ({ moveNumber, side, id }) => {
+    s.on('proposal_removed', ({ moveNumber, side, id }) =>
       setTurns(ts =>
         ts.map(t =>
           t.moveNumber === moveNumber && t.side === side
             ? { ...t, proposals: t.proposals.filter(p => p.id !== id) }
             : t,
         ),
-      );
-    });
+      ),
+    );
     s.on(
       'game_over',
       ({ reason, winner, pgn }: { reason: string; winner: string | null; pgn: string }) => {
@@ -383,9 +434,7 @@ export default function App() {
     );
     s.on('chat_message', (msg: ChatMessage) => {
       setChatMessages(msgs => [...msgs, msg]);
-      if (!msg.system && activeTabRef.current !== 'chat') {
-        setHasUnreadMessages(true);
-      }
+      if (!msg.system && activeTabRef.current !== 'chat') setHasUnreadMessages(true);
     });
     s.on(
       'game_status_update',
@@ -394,25 +443,19 @@ export default function App() {
         if (visibility) setVisibility(visibility);
       },
     );
-    s.on('draw_offer_update', ({ side }: { side: 'white' | 'black' | null }) => {
-      setDrawOffer(side);
-    });
-    s.on('game_visibility_update', ({ visibility }: { visibility: GameVisibility }) => {
-      setVisibility(visibility);
-    });
-    s.on('global_stats_update', (stats: GlobalStats) => {
-      setGlobalStats(stats);
-    });
-    s.on('public_games_update', (games: PublicGame[]) => {
-      setPublicGames(games);
-    });
+    s.on('draw_offer_update', ({ side }: { side: 'white' | 'black' | null }) => setDrawOffer(side));
+    s.on('game_visibility_update', ({ visibility }: { visibility: GameVisibility }) =>
+      setVisibility(visibility),
+    );
+    s.on('global_stats_update', (stats: GlobalStats) => setGlobalStats(stats));
+    s.on('public_games_update', (games: PublicGame[]) => setPublicGames(games));
 
     return () => {
       window.removeEventListener('offline', onOffline);
       window.removeEventListener('online', onOnline);
       s.disconnect();
     };
-  }, [chess]);
+  }, [chess, server.address]); // MODIFIED: Dependency array includes server address
 
   const resetLocalGameState = () => {
     setGameStatus(GameStatus.Lobby);
@@ -455,7 +498,6 @@ export default function App() {
       toast.error('Please enter a Game ID.');
       return;
     }
-
     resetLocalGameState();
     sessionStorage.setItem(STORAGE_KEYS.name, name);
     socket?.emit('join_game', { gameId: idToJoin, name }, (res: { error?: string }) => {
@@ -471,6 +513,7 @@ export default function App() {
     });
   };
 
+  // MODIFIED: exitGame now calls onExit to return to server browser
   const exitGame = () => {
     socket?.emit('exit_game');
     setJoined(false);
@@ -478,6 +521,8 @@ export default function App() {
     resetLocalGameState();
     sessionStorage.removeItem(STORAGE_KEYS.gameId);
     sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
+    socket?.disconnect(); // Disconnect from the current game server
+    onExit(); // This takes you back to the server list!
   };
 
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
@@ -498,33 +543,23 @@ export default function App() {
   };
 
   const joinSpectator = () => joinSide('spectator');
-
   const resignGame = () => {
-    if (window.confirm('Are you sure you want to resign in the name of your team?')) {
+    if (window.confirm('Are you sure you want to resign in the name of your team?'))
       socket?.emit('resign');
-    }
   };
-
   const offerDraw = () => {
-    if (window.confirm('Are you sure you want to offer a draw in the name of your team?')) {
+    if (window.confirm('Are you sure you want to offer a draw in the name of your team?'))
       socket?.emit('offer_draw');
-    }
   };
-
   const acceptDraw = () => {
-    if (window.confirm('Accept the draw offer in the name of your team?')) {
+    if (window.confirm('Accept the draw offer in the name of your team?'))
       socket?.emit('accept_draw');
-    }
   };
-
   const rejectDraw = () => {
-    if (window.confirm('Reject the draw offer in the name of your team?')) {
+    if (window.confirm('Reject the draw offer in the name of your team?'))
       socket?.emit('reject_draw');
-    }
   };
-
   const startGame = () => socket?.emit('start_game');
-
   const resetGame = () => {
     if (window.confirm('Are you sure you want to reset the game?')) {
       socket?.emit('reset_game', (res: { success: boolean; error?: string }) => {
@@ -536,11 +571,8 @@ export default function App() {
   const submitMove = (lan: string) => {
     if (!socket) return;
     socket.emit('play_move', lan, (res: { error?: string }) => {
-      if (res?.error) {
-        toast.error(res.error);
-      } else {
-        toast.success('Move submitted ✔️');
-      }
+      if (res?.error) toast.error(res.error);
+      else toast.success('Move submitted ✔️');
     });
   };
 
@@ -557,14 +589,14 @@ export default function App() {
     const turnColor = chess.turn();
     const promotionPieces = ['Q', 'R', 'B', 'N'];
     const pieceMap = turnColor === 'w' ? pieceToFigurineWhite : pieceToFigurineBlack;
-
     return (
       <div className="promotion-dialog">
         <h3>Promote to:</h3>
         <div className="promotion-choices">
           {promotionPieces.map(p => (
             <button key={p} onClick={() => onPromote(p.toLowerCase() as 'q' | 'r' | 'b' | 'n')}>
-              {pieceMap[p]}
+              {' '}
+              {pieceMap[p]}{' '}
             </button>
           ))}
         </div>
@@ -628,19 +660,10 @@ export default function App() {
       setLegalSquareStyles({});
       const from = sourceSquare;
       const to = targetSquare;
-
       if (gameStatus !== GameStatus.Active || side !== current.side) return false;
       const isPromotion = needsPromotion(from, to);
-
-      const move = chess.move({
-        from,
-        to,
-        promotion: isPromotion ? 'q' : undefined,
-      });
-      if (!move) {
-        return false;
-      }
-
+      const move = chess.move({ from, to, promotion: isPromotion ? 'q' : undefined });
+      if (!move) return false;
       chess.undo();
       if (isPromotion) {
         setPromotionMove({ from, to });
@@ -648,7 +671,6 @@ export default function App() {
         const lan = from + to;
         submitMove(lan);
       }
-
       return true;
     },
   };
@@ -683,7 +705,7 @@ export default function App() {
 
   const StatsDisplay = ({ stats }: { stats: GlobalStats }) => (
     <div className="stats-display">
-      <h4>Server Stats 📊</h4>
+      <h4>{server.name} Stats 📊</h4>
       <ul>
         <li>
           <strong>Total Users:</strong> {stats.totalUsers}/{stats.maxUsers}
@@ -708,16 +730,19 @@ export default function App() {
   );
 
   return (
-    <div className="app-container">
+    // The entire JSX structure is returned here, wrapped in a fragment
+    <>
       <Toaster position="top-center" />
       {amDisconnected && (
         <div className="offline-banner">
-          You’re offline. Try refreshing or wait for auto-reconnect…
+          {' '}
+          You’re offline. Try refreshing or wait for auto-reconnect…{' '}
         </div>
       )}
       {!joined ? (
         <div className="login-box">
           <h1>TeamChess</h1>
+          <h4>Connected to: {server.name}</h4>
           <div className="input-group">
             <input
               placeholder="Your name"
@@ -746,14 +771,17 @@ export default function App() {
             <div className="public-games-list">
               <h3>Public Games</h3>
               <ul>
+                {' '}
                 {publicGames.map(g => (
                   <li key={g.gameId}>
+                    {' '}
                     <span>
-                      Game {g.gameId} ({g.playerCount}/{MAX_PLAYERS_PER_GAME}) - {g.status}
-                    </span>
-                    <button onClick={() => joinGame(g.gameId)}>Join</button>
+                      {' '}
+                      Game {g.gameId} ({g.playerCount}/{MAX_PLAYERS_PER_GAME}) - {g.status}{' '}
+                    </span>{' '}
+                    <button onClick={() => joinGame(g.gameId)}>Join</button>{' '}
                   </li>
-                ))}
+                ))}{' '}
               </ul>
             </div>
           )}
@@ -773,13 +801,14 @@ export default function App() {
                     .catch(() => toast.error('Copy not supported'));
                 }}
               >
-                {gameId}
+                {' '}
+                {gameId}{' '}
               </button>
               <span>
-                {playerCount}/{MAX_PLAYERS_PER_GAME} Players
+                {' '}
+                {playerCount}/{MAX_PLAYERS_PER_GAME} Players{' '}
               </span>
             </div>
-
             <div className="action-panel">
               <button onClick={() => setShowStats(s => !s)}>Server Stats</button>
               <div className="visibility-control">
@@ -798,66 +827,71 @@ export default function App() {
                   <option value={GameVisibility.Closed}>Closed</option>
                 </select>
               </div>
-
               {gameStatus === GameStatus.Lobby && (
                 <>
+                  {' '}
                   {players.whitePlayers.length > 0 && players.blackPlayers.length > 0 && (
                     <button onClick={startGame}>Start Game</button>
-                  )}
+                  )}{' '}
                 </>
               )}
-
               {(gameStatus === GameStatus.Active || gameStatus === GameStatus.Over) && (
                 <button onClick={resetGame}>Reset Game</button>
               )}
-
               {gameStatus !== GameStatus.Over && (
                 <>
+                  {' '}
                   {side === 'spectator' && (
                     <>
-                      <button onClick={autoAssign}>Auto Assign</button>
-                      <button onClick={() => joinSide('white')}>Join White</button>
-                      <button onClick={() => joinSide('black')}>Join Black</button>
+                      {' '}
+                      <button onClick={autoAssign}>Auto Assign</button>{' '}
+                      <button onClick={() => joinSide('white')}>Join White</button>{' '}
+                      <button onClick={() => joinSide('black')}>Join Black</button>{' '}
                     </>
-                  )}
+                  )}{' '}
                   {(side === 'white' || side === 'black') && (
                     <>
-                      <button onClick={joinSpectator}>Join Spectators</button>
+                      {' '}
+                      <button onClick={joinSpectator}>Join Spectators</button>{' '}
                       {gameStatus === GameStatus.Lobby && (
                         <button onClick={() => joinSide(side === 'white' ? 'black' : 'white')}>
-                          Switch to {side === 'white' ? 'Black' : 'White'}
+                          {' '}
+                          Switch to {side === 'white' ? 'Black' : 'White'}{' '}
                         </button>
-                      )}
+                      )}{' '}
                       {gameStatus === GameStatus.Active && (
                         <>
+                          {' '}
                           {drawOffer && drawOffer !== side ? (
                             <>
-                              <button onClick={acceptDraw}>Accept Draw</button>
-                              <button onClick={rejectDraw}>Reject Draw</button>
+                              {' '}
+                              <button onClick={acceptDraw}>Accept Draw</button>{' '}
+                              <button onClick={rejectDraw}>Reject Draw</button>{' '}
                             </>
                           ) : drawOffer === side ? (
                             <span style={{ fontStyle: 'italic' }}>Draw offered...</span>
                           ) : (
                             <>
-                              <button onClick={resignGame}>Resign</button>
-                              <button onClick={offerDraw}>Offer Draw</button>
+                              {' '}
+                              <button onClick={resignGame}>Resign</button>{' '}
+                              <button onClick={offerDraw}>Offer Draw</button>{' '}
                             </>
-                          )}
+                          )}{' '}
                         </>
-                      )}
+                      )}{' '}
                     </>
-                  )}
+                  )}{' '}
                 </>
               )}
-              <button onClick={exitGame}>Exit Game</button>
+              <button onClick={exitGame}>Exit Server</button> {/* Modified label */}
             </div>
           </div>
-
           <div className="main-layout">
             {showStats && globalStats && (
               <div className="stats-popover">
-                <StatsDisplay stats={globalStats} />
-                <button onClick={() => setShowStats(false)}>Close</button>
+                {' '}
+                <StatsDisplay stats={globalStats} />{' '}
+                <button onClick={() => setShowStats(false)}>Close</button>{' '}
               </div>
             )}
             <div className="game-column">
@@ -870,12 +904,10 @@ export default function App() {
                   current?.side === (orientation === 'white' ? 'black' : 'white')
                 }
               />
-
               <div ref={boardContainerRef} className="board-wrapper">
-                <Chessboard options={boardOptions} />
-                <PromotionDialog />
+                {' '}
+                <Chessboard options={boardOptions} /> <PromotionDialog />{' '}
               </div>
-
               <PlayerInfoBox
                 clockTime={orientation === 'white' ? clocks.whiteTime : clocks.blackTime}
                 lostPieces={orientation === 'white' ? lostWhitePieces : lostBlackPieces}
@@ -885,40 +917,43 @@ export default function App() {
                   current?.side === (orientation === 'white' ? 'white' : 'black')
                 }
               />
-
               {gameStatus === GameStatus.Over && (
                 <div className="game-over-info">
+                  {' '}
                   <p>
+                    {' '}
                     {endReason && reasonMessages[endReason]
                       ? reasonMessages[endReason](winner)
-                      : `🎉 Game over! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`}
-                  </p>
+                      : `🎉 Game over! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`}{' '}
+                  </p>{' '}
                   {pgn && (
                     <div>
+                      {' '}
                       <div className="pgn-header">
-                        <strong>PGN</strong>
-                        <button onClick={copyPgn}>Copy</button>
-                      </div>
-                      <pre>{pgn}</pre>
+                        {' '}
+                        <strong>PGN</strong> <button onClick={copyPgn}>Copy</button>{' '}
+                      </div>{' '}
+                      <pre>{pgn}</pre>{' '}
                     </div>
-                  )}
+                  )}{' '}
                 </div>
               )}
             </div>
-
             <div className="info-column">
               <nav className="info-tabs-nav">
                 <button
                   className={activeTab === 'players' ? 'active' : ''}
                   onClick={() => setActiveTab('players')}
                 >
-                  Players
+                  {' '}
+                  Players{' '}
                 </button>
                 <button
                   className={activeTab === 'moves' ? 'active' : ''}
                   onClick={() => setActiveTab('moves')}
                 >
-                  Moves
+                  {' '}
+                  Moves{' '}
                 </button>
                 <button
                   className={activeTab === 'chat' ? 'active' : ''}
@@ -927,10 +962,10 @@ export default function App() {
                     setHasUnreadMessages(false);
                   }}
                 >
-                  Chat {hasUnreadMessages && <span className="unread-dot"></span>}
+                  {' '}
+                  Chat {hasUnreadMessages && <span className="unread-dot"></span>}{' '}
                 </button>
               </nav>
-
               <div className="info-tabs-content">
                 <div
                   className={'tab-panel players-panel ' + (activeTab === 'players' ? 'active' : '')}
@@ -938,59 +973,68 @@ export default function App() {
                   <h3>Players</h3>
                   <div className="player-lists-container">
                     <div>
-                      <h3>Spectators</h3>
+                      {' '}
+                      <h3>Spectators</h3>{' '}
                       <ul className="player-list">
+                        {' '}
                         {players.spectators.map(p => {
                           const isMe = p.id === myId;
                           const disconnected = isMe ? amDisconnected : !p.connected;
                           return (
                             <li key={p.id}>
-                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
-                              {disconnected && <DisconnectedIcon />}
+                              {' '}
+                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}{' '}
+                              {disconnected && <DisconnectedIcon />}{' '}
                             </li>
                           );
-                        })}
-                      </ul>
+                        })}{' '}
+                      </ul>{' '}
                     </div>
                     <div>
-                      <h3>White</h3>
+                      {' '}
+                      <h3>White</h3>{' '}
                       <ul className="player-list">
+                        {' '}
                         {players.whitePlayers.map(p => {
                           const isMe = p.id === myId;
                           const disconnected = isMe ? amDisconnected : !p.connected;
                           return (
                             <li key={p.id}>
-                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
-                              {disconnected && <DisconnectedIcon />}
-                              {hasPlayed(p.id) && <span>✔️</span>}
+                              {' '}
+                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}{' '}
+                              {disconnected && <DisconnectedIcon />}{' '}
+                              {hasPlayed(p.id) && <span>✔️</span>}{' '}
                             </li>
                           );
-                        })}
-                      </ul>
+                        })}{' '}
+                      </ul>{' '}
                     </div>
                     <div>
-                      <h3>Black</h3>
+                      {' '}
+                      <h3>Black</h3>{' '}
                       <ul className="player-list">
+                        {' '}
                         {players.blackPlayers.map(p => {
                           const isMe = p.id === myId;
                           const disconnected = isMe ? amDisconnected : !p.connected;
                           return (
                             <li key={p.id}>
-                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}
-                              {disconnected && <DisconnectedIcon />}
-                              {hasPlayed(p.id) && <span>✔️</span>}
+                              {' '}
+                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}{' '}
+                              {disconnected && <DisconnectedIcon />}{' '}
+                              {hasPlayed(p.id) && <span>✔️</span>}{' '}
                             </li>
                           );
-                        })}
-                      </ul>
+                        })}{' '}
+                      </ul>{' '}
                     </div>
                   </div>
                 </div>
-
                 <div className={'tab-panel moves-panel ' + (activeTab === 'moves' ? 'active' : '')}>
                   <h3>Moves</h3>
                   {turns.some(t => t.selection) ? (
                     <div ref={movesRef} className="moves-list">
+                      {' '}
                       {turns
                         .filter(t => t.selection)
                         .map(t => (
@@ -999,34 +1043,37 @@ export default function App() {
                             className="move-turn-header"
                             style={{ marginBottom: '1rem' }}
                           >
-                            <strong>{t.moveNumber}</strong>
+                            {' '}
+                            <strong>{t.moveNumber}</strong>{' '}
                             <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
+                              {' '}
                               {t.proposals.map(p => {
                                 const isSel = t.selection!.lan === p.lan;
                                 return (
                                   <li key={p.id}>
+                                    {' '}
                                     {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
                                     {isSel ? (
                                       <span className="moves-list-item">{p.san}</span>
                                     ) : (
                                       p.san
-                                    )}
+                                    )}{' '}
                                   </li>
                                 );
-                              })}
-                            </ul>
+                              })}{' '}
+                            </ul>{' '}
                           </div>
-                        ))}
+                        ))}{' '}
                     </div>
                   ) : (
                     <p style={{ padding: '10px', fontStyle: 'italic' }}>No moves played yet.</p>
                   )}
                 </div>
-
                 <div className={'tab-panel ' + (activeTab === 'chat' ? 'active' : '')}>
                   <h3>Chat</h3>
                   <div className="chat-box-container">
                     <div className="chat-messages">
+                      {' '}
                       {chatMessages
                         .slice()
                         .reverse()
@@ -1034,7 +1081,8 @@ export default function App() {
                           if (msg.system) {
                             return (
                               <div key={idx} className="chat-message-item system">
-                                {msg.message}
+                                {' '}
+                                {msg.message}{' '}
                               </div>
                             );
                           }
@@ -1045,15 +1093,16 @@ export default function App() {
                                 'chat-message-item ' + (myId === msg.senderId ? 'own' : 'other')
                               }
                             >
+                              {' '}
                               {myId === msg.senderId ? (
                                 <strong>{msg.sender}:</strong>
                               ) : (
                                 <span>{msg.sender}:</span>
                               )}{' '}
-                              {msg.message}
+                              {msg.message}{' '}
                             </div>
                           );
-                        })}
+                        })}{' '}
                     </div>
                     <div className="chat-form">
                       <form
@@ -1086,6 +1135,6 @@ export default function App() {
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }

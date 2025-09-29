@@ -3,7 +3,8 @@
   "workspaces": [
     "shared",
     "client",
-    "server"
+    "server",
+    "master-server"
   ],
   "engines": {
     "node": ">=22"
@@ -11,9 +12,6 @@
   "scripts": {
     "prepare": "husky install",
     "build": "npm run build --workspaces",
-    "dev": "concurrently \"npm run dev:server\" \"wait-on tcp:3001 && npm run dev:client\"",
-    "dev:server": "npm run build --workspace=shared && npm --workspace=server run dev",
-    "dev:client": "npm --workspace=client run dev",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
   "devDependencies": {
