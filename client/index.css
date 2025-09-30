@@ -484,6 +484,25 @@ pre {
     /* Remove sticky positioning */
     top: 0;
   }
+
+  /* --- NEW: MOBILE OVERLAY CHANGES --- */
+
+  /* Hide the original tab content in the page flow on mobile */
+  .info-column > .info-tabs-content {
+    display: none;
+  }
+
+  /* The info-column itself becomes just a wrapper for the nav now */
+  .info-column {
+    background: none;
+    border: none;
+    overflow: visible;
+  }
+  .info-column .info-tabs-nav {
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    overflow: hidden;
+  }
 }
 
 /* Mobile: Reduce font sizes */
@@ -603,6 +622,64 @@ pre {
   .unread-dot {
     display: none;
   }
+}
+
+/* ======================================= */
+/* === NEW: MOBILE INFO OVERLAY      === */
+/* ======================================= */
+
+/* This is controlled by an inline style in React. We define the look here. */
+.mobile-info-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: #f8f8f8;
+  z-index: 1000;
+  flex-direction: column;
+  padding: 10px;
+  gap: 10px;
+}
+
+.mobile-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #f4f4f4;
+  flex-shrink: 0;
+}
+
+.mobile-info-header h3 {
+  margin: 0;
+  padding: 12px 0;
+  font-size: 1.1em;
+}
+
+/* Make the content area inside the overlay take up all remaining space */
+.mobile-info-overlay .info-tabs-content {
+  display: block !important; /* Override desktop's `display: contents` */
+  flex-grow: 1;
+  min-height: 0; /* Critical for flex-shrinking */
+  position: relative; /* For the active panel to fill it */
+  background: #fdfdfd;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* On mobile, the active panel should fill the content area */
+.mobile-info-overlay .tab-panel.active {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+/* And the inner lists should have 100% height to be scrollable */
+.mobile-info-overlay .moves-list,
+.mobile-info-overlay .chat-box-container,
+.mobile-info-overlay .player-lists-container {
+  height: 100%;
 }
 
 /* Stats Display Component */

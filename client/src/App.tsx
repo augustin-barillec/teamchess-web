@@ -16,7 +16,6 @@ import {
   PublicGame,
   GlobalStats,
 } from '@teamchess/shared';
-
 // --- NEW TYPES & CONSTANTS ---
 
 const STORAGE_KEYS = {
@@ -25,7 +24,6 @@ const STORAGE_KEYS = {
   gameId: 'tc:game',
   side: 'tc:side',
 } as const;
-
 // Represents a game server fetched from the master server
 type ServerInfo = {
   name: string;
@@ -46,7 +44,8 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Resignation]: winner =>
     `🏳️ Resignation!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
   [EndReason.DrawAgreement]: () => `🤝 Draw agreed.`,
-  [EndReason.Timeout]: winner => `⏱️ Time!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
+  [EndReason.Timeout]: winner => `⏱️ Time!\n${winner?.[0].toUpperCase() + winner?.slice(1)} 
+wins!`,
   [EndReason.Abandonment]: winner =>
     `🚫 Forfeit!\n${
       winner?.[0].toUpperCase() + winner?.slice(1)
@@ -68,14 +67,12 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: '♞',
   P: '♟',
 };
-
 // --- NEW TOP-LEVEL CONTROLLER COMPONENT ---
 
 export default function App() {
   const [servers, setServers] = useState<ServerInfo[]>([]);
   const [selectedServer, setSelectedServer] = useState<ServerInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     // Fetch the list of servers from the master server
     fetch('http://localhost:4000/servers')
@@ -92,7 +89,6 @@ export default function App() {
         setError('Could not fetch the server list. Is the master server running?');
       });
   }, []);
-
   if (selectedServer) {
     return <GameClient server={selectedServer} onExit={() => setSelectedServer(null)} />;
   }
@@ -153,7 +149,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       </g>
     </svg>
   );
-
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket>();
   const [myId, setMyId] = useState<string>(sessionStorage.getItem(STORAGE_KEYS.pid) || '');
@@ -195,9 +190,11 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
   const movesRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef(activeTab);
 
+  // --- NEW STATE FOR MOBILE OVERLAY ---
+  const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
+
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
-
   useEffect(() => {
     const observer = new ResizeObserver(entries => {
       if (entries[0]) setBoardWidth(entries[0].contentRect.width);
@@ -205,7 +202,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
   }, []);
-
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: 'k', color: chess.turn() };
@@ -226,6 +222,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     const currBlack: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
     chess
       .board()
+
       .flat()
       .forEach(piece => {
         if (piece) {
@@ -236,6 +233,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       });
     const lostW: { type: string; figurine: string }[] = [];
     const lostB: { type: string; figurine: string }[] = [];
+
     const order = ['P', 'N', 'B', 'R', 'Q', 'K'];
     const values: Record<string, number> = { P: 1, N: 3, B: 3, R: 5, Q: 9, K: 0 };
     Object.entries(initial).forEach(([type, count]) => {
@@ -262,15 +260,12 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     () => players.spectators.length + players.whitePlayers.length + players.blackPlayers.length,
     [players],
   );
-
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
-
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
-
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some(p => p.id === myId)
@@ -283,7 +278,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId]);
-
   // --- MAIN useEffect for Socket Connection ---
   useEffect(() => {
     const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
@@ -321,7 +315,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     });
 
     const showOffline = () => setAmDisconnected(true);
-
     s.on('connect', () => {
       setAmDisconnected(false);
       const g = sessionStorage.getItem(STORAGE_KEYS.gameId);
@@ -344,7 +337,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
         s.emit('request_public_games', (games: PublicGame[]) => setPublicGames(games));
       }
     });
-
     s.on('connect_error', showOffline);
     s.on('reconnect_attempt', showOffline);
     s.on('reconnect', () => setAmDisconnected(false));
@@ -449,13 +441,13 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     );
     s.on('global_stats_update', (stats: GlobalStats) => setGlobalStats(stats));
     s.on('public_games_update', (games: PublicGame[]) => setPublicGames(games));
-
     return () => {
       window.removeEventListener('offline', onOffline);
       window.removeEventListener('online', onOnline);
       s.disconnect();
     };
-  }, [chess, server.address]); // MODIFIED: Dependency array includes server address
+  }, [chess, server.address]);
+  // MODIFIED: Dependency array includes server address
 
   const resetLocalGameState = () => {
     setGameStatus(GameStatus.Lobby);
@@ -469,7 +461,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     setLastMoveSquares(null);
     setChatMessages([]);
   };
-
   const createGame = () => {
     if (!name.trim()) return toast.error('Please enter your name first.');
     sessionStorage.setItem(STORAGE_KEYS.name, name);
@@ -513,7 +504,8 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     });
   };
 
-  /** Takes the user out of a game room and back to the server lobby. */
+  /** Takes the user out of a game room and back to the server lobby.
+   */
   const leaveGame = () => {
     socket?.emit('exit_game');
     setJoined(false);
@@ -522,20 +514,19 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     sessionStorage.removeItem(STORAGE_KEYS.gameId);
     sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
   };
-
-  /** Disconnects from the current server and returns to the server browser. */
+  /** Disconnects from the current server and returns to the server browser.
+   */
   const exitServer = () => {
-    socket?.disconnect(); // Disconnect from the current game server
+    socket?.disconnect();
+    // Disconnect from the current game server
     onExit();
   };
-
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
     socket?.emit('join_side', { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
-
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -547,7 +538,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
   };
 
   const joinSpectator = () => joinSide('spectator');
-
   const resignGame = () => {
     if (window.confirm('Are you sure you want to resign in the name of your team?'))
       socket?.emit('resign');
@@ -593,7 +583,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     submitMove(lan);
     setPromotionMove(null);
   };
-
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
@@ -622,7 +611,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
   }
 
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
-
   const copyPgn = () => {
     if (!pgn) return;
     navigator.clipboard
@@ -684,7 +672,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       return true;
     },
   };
-
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -712,7 +699,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       </div>
     </div>
   );
-
   const StatsDisplay = ({ stats }: { stats: GlobalStats }) => (
     <div className="stats-display">
       <h4>{server.name} Stats 📊</h4>
@@ -724,7 +710,8 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       </ul>
       <ul>
         <li>
-          <strong>Total Games:</strong> {stats.totalGames}/{stats.maxGames}
+          <strong>Total Games:</strong>
+          {stats.totalGames}/{stats.maxGames}
         </li>
         <li>
           Public Games: {stats.publicGames} ({stats.publicGameUsers} users)
@@ -739,10 +726,184 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     </div>
   );
 
+  // --- REUSABLE COMPONENT FOR TAB CONTENT ---
+  const TabContent = (
+    <div className="info-tabs-content">
+      <div className={'tab-panel players-panel ' + (activeTab === 'players' ? 'active' : '')}>
+        <h3>Players</h3>
+
+        <div className="player-lists-container">
+          <div>
+            {' '}
+            <h3>Spectators</h3>{' '}
+            <ul className="player-list">
+              {' '}
+              {players.spectators.map(p => {
+                const isMe = p.id === myId;
+                const disconnected = isMe ? amDisconnected : !p.connected;
+                return (
+                  <li key={p.id}>
+                    {' '}
+                    {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}{' '}
+                    {disconnected && <DisconnectedIcon />}{' '}
+                  </li>
+                );
+              })}{' '}
+            </ul>{' '}
+          </div>
+          <div>
+            {' '}
+            <h3>White</h3>{' '}
+            <ul className="player-list">
+              {' '}
+              {players.whitePlayers.map(p => {
+                const isMe = p.id === myId;
+                const disconnected = isMe ? amDisconnected : !p.connected;
+                return (
+                  <li key={p.id}>
+                    {' '}
+                    {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}{' '}
+                    {disconnected && <DisconnectedIcon />} {hasPlayed(p.id) && <span>✔️</span>}{' '}
+                  </li>
+                );
+              })}{' '}
+            </ul>{' '}
+          </div>
+          <div>
+            {' '}
+            <h3>Black</h3>{' '}
+            <ul className="player-list">
+              {' '}
+              {players.blackPlayers.map(p => {
+                const isMe = p.id === myId;
+                const disconnected = isMe ? amDisconnected : !p.connected;
+                return (
+                  <li key={p.id}>
+                    {' '}
+                    {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}{' '}
+                    {disconnected && <DisconnectedIcon />} {hasPlayed(p.id) && <span>✔️</span>}{' '}
+                  </li>
+                );
+              })}{' '}
+            </ul>{' '}
+          </div>
+        </div>
+      </div>
+      <div className={'tab-panel moves-panel ' + (activeTab === 'moves' ? 'active' : '')}>
+        <h3>Moves</h3>
+        {turns.some(t => t.selection) ? (
+          <div ref={movesRef} className="moves-list">
+            {' '}
+            {turns
+              .filter(t => t.selection)
+
+              .map(t => (
+                <div
+                  key={`${t.side}-${t.moveNumber}`}
+                  className="move-turn-header"
+                  style={{ marginBottom: '1rem' }}
+                >
+                  {' '}
+                  <strong>{t.moveNumber}</strong>{' '}
+                  <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
+                    {' '}
+                    {t.proposals.map(p => {
+                      const isSel = t.selection!.lan === p.lan;
+                      return (
+                        <li key={p.id}>
+                          {' '}
+                          {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
+                          {isSel ? <span className="moves-list-item">{p.san}</span> : p.san}{' '}
+                        </li>
+                      );
+                    })}{' '}
+                  </ul>{' '}
+                </div>
+              ))}{' '}
+          </div>
+        ) : (
+          <p style={{ padding: '10px', fontStyle: 'italic' }}>No moves played yet.</p>
+        )}
+      </div>
+
+      <div className={'tab-panel ' + (activeTab === 'chat' ? 'active' : '')}>
+        <h3>Chat</h3>
+        <div className="chat-box-container">
+          <div className="chat-messages">
+            {' '}
+            {chatMessages
+              .slice()
+              .reverse()
+              .map((msg, idx) => {
+                if (msg.system) {
+                  return (
+                    <div key={idx} className="chat-message-item system">
+                      {' '}
+                      {msg.message}{' '}
+                    </div>
+                  );
+                }
+                return (
+                  <div
+                    key={idx}
+                    className={'chat-message-item ' + (myId === msg.senderId ? 'own' : 'other')}
+                  >
+                    {' '}
+                    {myId === msg.senderId ? (
+                      <strong>{msg.sender}:</strong>
+                    ) : (
+                      <span>{msg.sender}:</span>
+                    )}{' '}
+                    {msg.message}{' '}
+                  </div>
+                );
+              })}{' '}
+          </div>
+          <div className="chat-form">
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                const form = e.target as HTMLFormElement;
+                const input = form.elements.namedItem('chatInput') as HTMLInputElement;
+                const message = input.value;
+                if (message.trim()) {
+                  socket?.emit('chat_message', message);
+                  input.value = '';
+                }
+              }}
+            >
+              <input
+                type="text"
+                name="chatInput"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
+                placeholder="Type a message..."
+              />
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     // The entire JSX structure is returned here, wrapped in a fragment
     <>
       <Toaster position="top-center" />
+      {/* --- NEW: MOBILE OVERLAY --- */}
+      <div
+        className="mobile-info-overlay"
+        style={{ display: isMobileInfoVisible ? 'flex' : 'none' }}
+      >
+        <div className="mobile-info-header">
+          <h3>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h3>
+          <button onClick={() => setIsMobileInfoVisible(false)}>Close</button>
+        </div>
+        {TabContent}
+      </div>
+
       {amDisconnected && (
         <div className="offline-banner">
           {' '}
@@ -765,6 +926,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
           </div>
           <div className="input-group">
             <button onClick={createGame}>Create Game</button>
+
             <button onClick={() => setShowJoin(s => !s)}>Join Game</button>
             <button onClick={exitServer}>Exit Server</button>
           </div>
@@ -796,6 +958,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
               </ul>
             </div>
           )}
+
           {globalStats && <StatsDisplay stats={globalStats} />}
         </div>
       ) : (
@@ -894,6 +1057,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
                   )}{' '}
                 </>
               )}
+
               <button onClick={leaveGame}>Exit Game</button>
             </div>
           </div>
@@ -915,6 +1079,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
                   current?.side === (orientation === 'white' ? 'black' : 'white')
                 }
               />
+
               <div ref={boardContainerRef} className="board-wrapper">
                 {' '}
                 <Chessboard options={boardOptions} /> <PromotionDialog />{' '}
@@ -928,6 +1093,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
                   current?.side === (orientation === 'white' ? 'white' : 'black')
                 }
               />
+
               {gameStatus === GameStatus.Over && (
                 <div className="game-over-info">
                   {' '}
@@ -954,194 +1120,39 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
               <nav className="info-tabs-nav">
                 <button
                   className={activeTab === 'players' ? 'active' : ''}
-                  onClick={() => setActiveTab('players')}
+                  onClick={() => {
+                    setActiveTab('players');
+                    setIsMobileInfoVisible(true);
+                  }}
                 >
                   {' '}
                   Players{' '}
                 </button>
+
                 <button
                   className={activeTab === 'moves' ? 'active' : ''}
-                  onClick={() => setActiveTab('moves')}
+                  onClick={() => {
+                    setActiveTab('moves');
+                    setIsMobileInfoVisible(true);
+                  }}
                 >
                   {' '}
                   Moves{' '}
                 </button>
+
                 <button
                   className={activeTab === 'chat' ? 'active' : ''}
                   onClick={() => {
                     setActiveTab('chat');
                     setHasUnreadMessages(false);
+                    setIsMobileInfoVisible(true);
                   }}
                 >
                   {' '}
                   Chat {hasUnreadMessages && <span className="unread-dot"></span>}{' '}
                 </button>
               </nav>
-              <div className="info-tabs-content">
-                <div
-                  className={'tab-panel players-panel ' + (activeTab === 'players' ? 'active' : '')}
-                >
-                  <h3>Players</h3>
-                  <div className="player-lists-container">
-                    <div>
-                      {' '}
-                      <h3>Spectators</h3>{' '}
-                      <ul className="player-list">
-                        {' '}
-                        {players.spectators.map(p => {
-                          const isMe = p.id === myId;
-                          const disconnected = isMe ? amDisconnected : !p.connected;
-                          return (
-                            <li key={p.id}>
-                              {' '}
-                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}{' '}
-                              {disconnected && <DisconnectedIcon />}{' '}
-                            </li>
-                          );
-                        })}{' '}
-                      </ul>{' '}
-                    </div>
-                    <div>
-                      {' '}
-                      <h3>White</h3>{' '}
-                      <ul className="player-list">
-                        {' '}
-                        {players.whitePlayers.map(p => {
-                          const isMe = p.id === myId;
-                          const disconnected = isMe ? amDisconnected : !p.connected;
-                          return (
-                            <li key={p.id}>
-                              {' '}
-                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}{' '}
-                              {disconnected && <DisconnectedIcon />}{' '}
-                              {hasPlayed(p.id) && <span>✔️</span>}{' '}
-                            </li>
-                          );
-                        })}{' '}
-                      </ul>{' '}
-                    </div>
-                    <div>
-                      {' '}
-                      <h3>Black</h3>{' '}
-                      <ul className="player-list">
-                        {' '}
-                        {players.blackPlayers.map(p => {
-                          const isMe = p.id === myId;
-                          const disconnected = isMe ? amDisconnected : !p.connected;
-                          return (
-                            <li key={p.id}>
-                              {' '}
-                              {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}{' '}
-                              {disconnected && <DisconnectedIcon />}{' '}
-                              {hasPlayed(p.id) && <span>✔️</span>}{' '}
-                            </li>
-                          );
-                        })}{' '}
-                      </ul>{' '}
-                    </div>
-                  </div>
-                </div>
-                <div className={'tab-panel moves-panel ' + (activeTab === 'moves' ? 'active' : '')}>
-                  <h3>Moves</h3>
-                  {turns.some(t => t.selection) ? (
-                    <div ref={movesRef} className="moves-list">
-                      {' '}
-                      {turns
-                        .filter(t => t.selection)
-                        .map(t => (
-                          <div
-                            key={`${t.side}-${t.moveNumber}`}
-                            className="move-turn-header"
-                            style={{ marginBottom: '1rem' }}
-                          >
-                            {' '}
-                            <strong>{t.moveNumber}</strong>{' '}
-                            <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
-                              {' '}
-                              {t.proposals.map(p => {
-                                const isSel = t.selection!.lan === p.lan;
-                                return (
-                                  <li key={p.id}>
-                                    {' '}
-                                    {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
-                                    {isSel ? (
-                                      <span className="moves-list-item">{p.san}</span>
-                                    ) : (
-                                      p.san
-                                    )}{' '}
-                                  </li>
-                                );
-                              })}{' '}
-                            </ul>{' '}
-                          </div>
-                        ))}{' '}
-                    </div>
-                  ) : (
-                    <p style={{ padding: '10px', fontStyle: 'italic' }}>No moves played yet.</p>
-                  )}
-                </div>
-                <div className={'tab-panel ' + (activeTab === 'chat' ? 'active' : '')}>
-                  <h3>Chat</h3>
-                  <div className="chat-box-container">
-                    <div className="chat-messages">
-                      {' '}
-                      {chatMessages
-                        .slice()
-                        .reverse()
-                        .map((msg, idx) => {
-                          if (msg.system) {
-                            return (
-                              <div key={idx} className="chat-message-item system">
-                                {' '}
-                                {msg.message}{' '}
-                              </div>
-                            );
-                          }
-                          return (
-                            <div
-                              key={idx}
-                              className={
-                                'chat-message-item ' + (myId === msg.senderId ? 'own' : 'other')
-                              }
-                            >
-                              {' '}
-                              {myId === msg.senderId ? (
-                                <strong>{msg.sender}:</strong>
-                              ) : (
-                                <span>{msg.sender}:</span>
-                              )}{' '}
-                              {msg.message}{' '}
-                            </div>
-                          );
-                        })}{' '}
-                    </div>
-                    <div className="chat-form">
-                      <form
-                        onSubmit={e => {
-                          e.preventDefault();
-                          const form = e.target as HTMLFormElement;
-                          const input = form.elements.namedItem('chatInput') as HTMLInputElement;
-                          const message = input.value;
-                          if (message.trim()) {
-                            socket?.emit('chat_message', message);
-                            input.value = '';
-                          }
-                        }}
-                      >
-                        <input
-                          type="text"
-                          name="chatInput"
-                          autoComplete="off"
-                          autoCorrect="off"
-                          autoCapitalize="off"
-                          spellCheck="false"
-                          placeholder="Type a message..."
-                        />
-                      </form>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {TabContent}
             </div>
           </div>
         </>
