@@ -114,6 +114,12 @@ pre {
   border-radius: 4px;
 }
 
+.server-stats {
+  display: block; /* This is key to forcing a new line */
+  font-size: 0.8em;
+  color: #555;
+}
+
 /* --- NEW SIMPLIFIED LAYOUT --- */
 
 /* 1. Header Bar */

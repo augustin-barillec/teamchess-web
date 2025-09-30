@@ -17,27 +17,6 @@ import {
 const MASTER_SERVER_URL = process.env.MASTER_SERVER_URL;
 const PUBLIC_ADDRESS = process.env.PUBLIC_ADDRESS;
 const SERVER_NAME = process.env.SERVER_NAME || 'Default TeamChess Server';
-
-function sendHeartbeat() {
-  if (!MASTER_SERVER_URL || !PUBLIC_ADDRESS) {
-    console.warn('Heartbeat disabled: MASTER_SERVER_URL or PUBLIC_ADDRESS not set.');
-    return;
-  }
-
-  const stats = getGlobalStats();
-
-  fetch(`${MASTER_SERVER_URL}/heartbeat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: SERVER_NAME,
-      address: PUBLIC_ADDRESS,
-      playerCount: stats.totalUsers,
-      maxPlayers: MAX_USERS,
-    }),
-  }).catch(err => console.error(`[Heartbeat] Failed to send heartbeat to master: ${err.message}`));
-}
-
 const DISCONNECT_GRACE_MS = 20000;
 const STOCKFISH_SEARCH_DEPTH = 15;
 const MAX_GAMES = 10;
@@ -97,6 +76,28 @@ const loadEngine = require('../load_engine.cjs') as (enginePath: string) => {
   send(cmd: string, cb?: (data: string) => void, stream?: (data: string) => void): void;
   quit(): void;
 };
+
+function sendHeartbeat() {
+  if (!MASTER_SERVER_URL || !PUBLIC_ADDRESS) {
+    console.warn('Heartbeat disabled: MASTER_SERVER_URL or PUBLIC_ADDRESS not set.');
+    return;
+  }
+
+  const stats = getGlobalStats();
+
+  fetch(`${MASTER_SERVER_URL}/heartbeat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: SERVER_NAME,
+      address: PUBLIC_ADDRESS,
+      playerCount: stats.totalUsers,
+      maxPlayers: stats.maxUsers,
+      totalGames: stats.totalGames,
+      maxGames: stats.maxGames,
+    }),
+  }).catch(err => console.error(`[Heartbeat] Failed to send heartbeat to master: ${err.message}`));
+}
 
 function countPlayersInGame(gameId: string): number {
   let count = 0;

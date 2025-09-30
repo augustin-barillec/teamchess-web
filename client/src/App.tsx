@@ -30,6 +30,8 @@ type ServerInfo = {
   address: string;
   playerCount: number;
   maxPlayers: number;
+  totalGames: number;
+  maxGames: number;
 };
 
 // --- HELPER DICTIONARIES AND FUNCTIONS (Unchanged) ---
@@ -117,9 +119,13 @@ function ServerBrowser({
         <ul>
           {servers.map(server => (
             <li key={server.address}>
-              <span>
-                {server.name} ({server.playerCount}/{server.maxPlayers})
-              </span>
+              <div>
+                <strong>{server.name}</strong>
+                <span className="server-stats">
+                  {server.playerCount}/{server.maxPlayers} Players, {server.totalGames}/
+                  {server.maxGames} Games
+                </span>
+              </div>
               <button onClick={() => onSelect(server)}>Join Server</button>
             </li>
           ))}

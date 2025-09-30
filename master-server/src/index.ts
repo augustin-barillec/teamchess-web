@@ -10,6 +10,8 @@ interface GameServer {
   address: string;
   playerCount: number;
   maxPlayers: number;
+  totalGames: number;
+  maxGames: number;
   lastHeartbeat: number;
 }
 
@@ -19,7 +21,7 @@ const STALE_SERVER_TIMEOUT_MS = 35000; // 35 seconds
 
 // The Game Servers will call this endpoint every 30 seconds
 app.post('/heartbeat', (req, res) => {
-  const { name, address, playerCount, maxPlayers } = req.body;
+  const { name, address, playerCount, maxPlayers, totalGames, maxGames } = req.body;
 
   if (!name || !address) {
     return res.status(400).send({ error: 'Missing required server info.' });
@@ -30,6 +32,8 @@ app.post('/heartbeat', (req, res) => {
     address,
     playerCount,
     maxPlayers,
+    totalGames,
+    maxGames,
     lastHeartbeat: Date.now(),
   });
 
