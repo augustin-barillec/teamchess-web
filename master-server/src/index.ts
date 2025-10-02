@@ -3,7 +3,22 @@ import cors from 'cors';
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+const whitelist = ['https://storage.googleapis.com']; // Production origin
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      return callback(null, true);
+    }
+    // Allow whitelisted origins for production and any localhost origin for development
+    if (whitelist.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
+      return callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+};
+app.use(cors(corsOptions));
 
 interface GameServer {
   name: string;

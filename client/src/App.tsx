@@ -77,7 +77,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     // Fetch the list of servers from the master server
-    fetch('http://localhost:4000/servers')
+    const masterServerUrl = import.meta.env.VITE_MASTER_SERVER_URL || 'http://localhost:4000';
+    fetch(`${masterServerUrl}/servers`)
       .then(res => {
         if (!res.ok) throw new Error('Could not connect to the master server.');
         return res.json();

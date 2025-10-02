@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+
+  game-server:
+    image: europe-west1-docker.pkg.dev/{PROJECT_ID}/teamchess-repo/game-server:latest
+    restart: unless-stopped
+    environment:
+      - MASTER_SERVER_URL=${MASTER_SERVER_URL}
+      - PUBLIC_ADDRESS=${PUBLIC_ADDRESS}
+      - SERVER_NAME=${SERVER_NAME}
+      - PORT=${PORT}
+    # No ports are exposed to the host, Caddy will proxy to it
+
+volumes:
+  caddy_data:

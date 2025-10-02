@@ -21,3 +21,6 @@ nginx.conf
 # Other
 .husky
 README.md
+
+# Environment files should not be in the build context
+**/.env.*

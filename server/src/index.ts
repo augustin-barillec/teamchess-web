@@ -867,7 +867,8 @@ io.on('connection', (socket: Socket) => {
   socket.on('exit_game', () => leave.call(socket, true));
   socket.on('disconnect', () => leave.call(socket, false));
 });
-server.listen(3001, () => console.log('Socket.IO chess server listening on port 3001'));
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => console.log(`Socket.IO chess server listening on port ${PORT}`));
 setInterval(() => {
   const stats = getGlobalStats();
   io.emit('global_stats_update', stats);
