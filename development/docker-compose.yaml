@@ -2,7 +2,7 @@ services:
   # ✨ NEW: The Master Server
   master-server:
     build:
-      context: .
+      context: ..
       dockerfile: master-server/Dockerfile
     container_name: teamchess-master
     restart: unless-stopped
@@ -17,7 +17,7 @@ services:
   # ✏️ MODIFIED: This is now Game Server 1
   game-server-1:
     build:
-      context: .
+      context: ..
       dockerfile: server/Dockerfile
     container_name: teamchess-server-1
     restart: unless-stopped
@@ -33,7 +33,7 @@ services:
   # ✨ NEW: This is Game Server 2
   game-server-2:
     build:
-      context: .
+      context: ..
       dockerfile: server/Dockerfile
     container_name: teamchess-server-2
     restart: unless-stopped
@@ -49,7 +49,7 @@ services:
   # ✏️ MODIFIED: The client no longer depends directly on one server
   client:
     build:
-      context: .
+      context: ..
       dockerfile: client/Dockerfile
     container_name: teamchess-client
     restart: unless-stopped
