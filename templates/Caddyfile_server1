@@ -1,3 +1,0 @@
-{$PUBLIC_HOSTNAME} {
-    reverse_proxy game-server:{$PORT}
-}

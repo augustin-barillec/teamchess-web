@@ -9,9 +9,15 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
+    # This 'environment' block is the key addition.
+    # It tells Docker Compose to load variables from the .env file
+    # and make them available to the Caddy container.
+    environment:
+      - PUBLIC_HOSTNAME=${PUBLIC_HOSTNAME}
+      - PORT=${PORT}
 
   game-server:
-    image: europe-west1-docker.pkg.dev/{PROJECT_ID}/teamchess-repo/game-server:latest
+    image: europe-west1-docker.pkg.dev/${PROJECT_ID}/teamchess-repo/game-server:latest
     restart: unless-stopped
     environment:
       - MASTER_SERVER_URL=${MASTER_SERVER_URL}
