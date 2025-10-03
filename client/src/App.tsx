@@ -46,7 +46,8 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Resignation]: winner =>
     `🏳️ Resignation!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
   [EndReason.DrawAgreement]: () => `🤝 Draw agreed.`,
-  [EndReason.Timeout]: winner => `⏱️ Time!\n${winner?.[0].toUpperCase() + winner?.slice(1)} 
+  [EndReason.Timeout]: winner =>
+    `⏱️ Time!\n${winner?.[0].toUpperCase() + winner?.slice(1)} 
 wins!`,
   [EndReason.Abandonment]: winner =>
     `🚫 Forfeit!\n${
@@ -196,9 +197,10 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const movesRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef(activeTab);
-
   // --- NEW STATE FOR MOBILE OVERLAY ---
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
+  // --- NEW STATE FOR MOBILE DETECTION ---
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
 
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
@@ -208,6 +210,12 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     });
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
+  }, []);
+  // --- NEW EFFECT FOR MOBILE DETECTION ---
+  useEffect(() => {
+    const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
+    window.addEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
@@ -229,7 +237,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     const currBlack: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
     chess
       .board()
-
       .flat()
       .forEach(piece => {
         if (piece) {
@@ -511,8 +518,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     });
   };
 
-  /** Takes the user out of a game room and back to the server lobby.
-   */
+  /** Takes the user out of a game room and back to the server lobby. */
   const leaveGame = () => {
     socket?.emit('exit_game');
     setJoined(false);
@@ -521,11 +527,9 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     sessionStorage.removeItem(STORAGE_KEYS.gameId);
     sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
   };
-  /** Disconnects from the current server and returns to the server browser.
-   */
+  /** Disconnects from the current server and returns to the server browser. */
   const exitServer = () => {
-    socket?.disconnect();
-    // Disconnect from the current game server
+    socket?.disconnect(); // Disconnect from the current game server
     onExit();
   };
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
@@ -579,7 +583,9 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     if (!socket) return;
     socket.emit('play_move', lan, (res: { error?: string }) => {
       if (res?.error) toast.error(res.error);
-      else toast.success('Move submitted ✔️');
+      else if (isMobile) {
+        toast.success('Move submitted ✔️');
+      }
     });
   };
 
@@ -732,7 +738,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       </ul>
     </div>
   );
-
   // --- REUSABLE COMPONENT FOR TAB CONTENT ---
   const TabContent = (
     <div className="info-tabs-content">
@@ -803,7 +808,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
             {' '}
             {turns
               .filter(t => t.selection)
-
               .map(t => (
                 <div
                   key={`${t.side}-${t.moveNumber}`}
@@ -894,7 +898,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       </div>
     </div>
   );
-
   return (
     // The entire JSX structure is returned here, wrapped in a fragment
     <>
