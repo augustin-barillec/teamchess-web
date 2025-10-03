@@ -467,6 +467,11 @@ pre {
     border: 1px solid #ccc;
     overflow: hidden;
   }
+  .info-tabs-nav button.active {
+    background: #f4f4f4;
+    color: #555;
+    border-bottom-color: transparent;
+  }
 }
 
 @media (max-width: 768px) {
