@@ -949,7 +949,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
           {globalStats && <StatsDisplay stats={globalStats} />}
         </div>
       ) : (
-        <>
+        <div className="app-container">
           <div className="header-bar">
             <h1>TeamChess</h1>
             <div className="game-id-bar">
@@ -1142,7 +1142,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
               {TabContent}
             </div>
           </div>
-        </>
+        </div>
       )}
     </>
   );
