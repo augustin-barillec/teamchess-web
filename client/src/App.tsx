@@ -16,7 +16,6 @@ import {
   PublicGame,
   GlobalStats,
 } from '@teamchess/shared';
-// --- NEW TYPES & CONSTANTS ---
 
 const STORAGE_KEYS = {
   pid: 'tc:pid',
@@ -24,7 +23,6 @@ const STORAGE_KEYS = {
   gameId: 'tc:game',
   side: 'tc:side',
 } as const;
-// Represents a game server fetched from the master server
 type ServerInfo = {
   name: string;
   address: string;
@@ -33,8 +31,6 @@ type ServerInfo = {
   totalGames: number;
   maxGames: number;
 };
-
-// --- HELPER DICTIONARIES AND FUNCTIONS (Unchanged) ---
 
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
@@ -70,14 +66,12 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: '♞',
   P: '♟',
 };
-// --- NEW TOP-LEVEL CONTROLLER COMPONENT ---
 
 export default function App() {
   const [servers, setServers] = useState<ServerInfo[]>([]);
   const [selectedServer, setSelectedServer] = useState<ServerInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    // Fetch the list of servers from the master server
     const masterServerUrl = import.meta.env.VITE_MASTER_SERVER_URL || 'http://localhost:4000';
     fetch(`${masterServerUrl}/servers`)
       .then(res => {
@@ -99,8 +93,6 @@ export default function App() {
 
   return <ServerBrowser servers={servers} onSelect={setSelectedServer} error={error} />;
 }
-
-// --- NEW SERVER BROWSER COMPONENT ---
 
 function ServerBrowser({
   servers,
@@ -136,9 +128,6 @@ function ServerBrowser({
     </div>
   );
 }
-
-// --- REFACTORED GAME CLIENT COMPONENT ---
-// This contains almost all the logic from your original App.tsx
 
 function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void }) {
   const DisconnectedIcon = () => (
@@ -197,9 +186,7 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const movesRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef(activeTab);
-  // --- NEW STATE FOR MOBILE OVERLAY ---
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
-  // --- NEW STATE FOR MOBILE DETECTION ---
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
 
   const current = turns[turns.length - 1];
@@ -211,7 +198,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
   }, []);
-  // --- NEW EFFECT FOR MOBILE DETECTION ---
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener('resize', checkIsMobile);
@@ -292,12 +278,10 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId]);
-  // --- MAIN useEffect for Socket Connection ---
   useEffect(() => {
     const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
     const storedName = sessionStorage.getItem(STORAGE_KEYS.name) || undefined;
 
-    // MODIFIED: Connect to the selected server's address
     const s = io(server.address, {
       auth: { pid: storedPid, name: storedName },
       reconnection: true,
@@ -366,7 +350,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       }
     });
 
-    // All other event listeners are the same...
     s.on('players', (p: Players) => setPlayers(p));
     s.on('game_started', ({ moveNumber, side, visibility }: GameInfo) => {
       setGameStatus(GameStatus.Active);
@@ -461,7 +444,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       s.disconnect();
     };
   }, [chess, server.address]);
-  // MODIFIED: Dependency array includes server address
 
   const resetLocalGameState = () => {
     setGameStatus(GameStatus.Lobby);
@@ -518,7 +500,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     });
   };
 
-  /** Takes the user out of a game room and back to the server lobby. */
   const leaveGame = () => {
     socket?.emit('exit_game');
     setJoined(false);
@@ -527,9 +508,8 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     sessionStorage.removeItem(STORAGE_KEYS.gameId);
     sessionStorage.setItem(STORAGE_KEYS.side, 'spectator');
   };
-  /** Disconnects from the current server and returns to the server browser. */
   const exitServer = () => {
-    socket?.disconnect(); // Disconnect from the current game server
+    socket?.disconnect();
     onExit();
   };
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
@@ -738,7 +718,6 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       </ul>
     </div>
   );
-  // --- REUSABLE COMPONENT FOR TAB CONTENT ---
   const TabContent = (
     <div className="info-tabs-content">
       <div className={'tab-panel players-panel ' + (activeTab === 'players' ? 'active' : '')}>
@@ -899,19 +878,17 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
     </div>
   );
   return (
-    // The entire JSX structure is returned here, wrapped in a fragment
     <>
       <Toaster position="top-center" />
-      {/* --- NEW: MOBILE OVERLAY --- */}
       <div
         className="mobile-info-overlay"
         style={{ display: isMobileInfoVisible ? 'flex' : 'none' }}
       >
+        {TabContent}
         <div className="mobile-info-header">
           <h3>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h3>
           <button onClick={() => setIsMobileInfoVisible(false)}>Close</button>
         </div>
-        {TabContent}
       </div>
 
       {amDisconnected && (

@@ -402,11 +402,10 @@ function leave(this: Socket, explicit = false) {
     return;
   }
 
-  // Handle implicit disconnect (tab close) from a game.
   if (sess.reconnectTimer) clearTimeout(sess.reconnectTimer);
   sess.reconnectTimer = setTimeout(() => {
     finalize(true);
-    sessions.delete(pid); // This is the line from the previous fix.
+    sessions.delete(pid);
     sess.reconnectTimer = undefined;
   }, DISCONNECT_GRACE_MS);
   broadcastPlayers(gameId);
@@ -431,14 +430,12 @@ function getGlobalStats(): GlobalStats {
     maxGames: MAX_GAMES,
     maxUsers: MAX_USERS,
   };
-  // Calculate game visibility counts
   for (const [, state] of allGames) {
     if (state.visibility === GameVisibility.Public) stats.publicGames++;
     else if (state.visibility === GameVisibility.Private) stats.privateGames++;
     else if (state.visibility === GameVisibility.Closed) stats.closedGames++;
   }
 
-  // Calculate user location counts
   for (const session of sessions.values()) {
     if (!session.gameId || !allGames.has(session.gameId)) {
       stats.loginUsers++;
@@ -481,10 +478,7 @@ io.on('connection', (socket: Socket) => {
   const { pid: providedPid, name: providedName } =
     (socket.handshake.auth as { pid?: string; name?: string }) || {};
 
-  // If a PID is provided and a session exists, it's a reconnection.
-  // Otherwise, it's a new connection that will create a new session.
   if (!providedPid || !sessions.has(providedPid)) {
-    // This is a new session. Check if the server is full.
     if (sessions.size >= MAX_USERS) {
       socket.emit('error', { message: 'Server is full. Please try again later.' });
       socket.disconnect(true);
@@ -595,10 +589,8 @@ io.on('connection', (socket: Socket) => {
     s.gameId = gameId;
 
     if (isReconnecting) {
-      // Player is already in this game, just update socket data. Do NOT reset their side.
       socket.data.side = s.side || 'spectator';
     } else {
-      // This is a fresh join to a new game, so default to spectator.
       socket.data.side = 'spectator';
       s.side = 'spectator';
     }

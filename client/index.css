@@ -1,4 +1,3 @@
-/* Global Resets and Base Styles */
 body {
   font-family: sans-serif;
   margin: 0;
@@ -53,7 +52,6 @@ pre {
   margin: 0;
 }
 
-/* App.tsx Layout */
 .app-container {
   padding: 20px;
   max-width: 1600px;
@@ -69,7 +67,6 @@ pre {
   margin-bottom: 8px;
 }
 
-/* --- Login Box --- */
 .login-box {
   max-width: 400px;
   margin: 50px auto;
@@ -115,14 +112,11 @@ pre {
 }
 
 .server-stats {
-  display: block; /* This is key to forcing a new line */
+  display: block;
   font-size: 0.8em;
   color: #555;
 }
 
-/* --- NEW SIMPLIFIED LAYOUT --- */
-
-/* 1. Header Bar */
 .header-bar {
   display: flex;
   flex-wrap: wrap;
@@ -178,34 +172,27 @@ pre {
   padding: 2px;
 }
 
-/* 2. Main Layout (2 Columns) */
 .main-layout {
   display: flex;
   align-items: flex-start;
   gap: 1.5rem;
   width: 100%;
-  position: relative; /* For popover positioning */
+  position: relative;
 }
 
-/* 3. Game Column (Left) */
 .game-column {
   flex: 2;
-  /* Takes up 2/3 of space */
   display: flex;
   flex-direction: column;
   gap: 1rem;
   min-width: 0;
-  /* Critical for flex-shrinking */
   max-width: 100%;
 }
 .board-wrapper {
   position: relative;
-  /* ADD THIS to contain the absolute dialog */
   width: 100%;
   max-width: 800px;
-  /* Board can be larger now */
   margin: 0 auto;
-  /* Center board in its column */
   touch-action: none;
 }
 .game-player-info {
@@ -218,7 +205,6 @@ pre {
   border-radius: 6px;
   width: 100%;
   max-width: 800px;
-  /* Match board wrapper */
   margin: 0 auto;
 }
 .clock-box {
@@ -263,7 +249,6 @@ pre {
   gap: 0.5rem;
 }
 
-/* --- Promotion Dialog --- */
 .promotion-dialog {
   position: absolute;
   top: 50%;
@@ -306,14 +291,11 @@ pre {
   border-radius: 4px;
 }
 
-/* 4. Info Column (Right - TABS) */
 .info-column {
   flex: 1;
-  /* Takes up 1/3 of space */
   min-width: 300px;
   max-width: 450px;
   position: sticky;
-  /* Sticks to top when scrolling on large screens */
   top: 20px;
   background: #fdfdfd;
   border: 1px solid #ccc;
@@ -321,7 +303,6 @@ pre {
   overflow: hidden;
 }
 
-/* Tab Navigation */
 .info-tabs-nav {
   display: flex;
   border-bottom: 1px solid #ccc;
@@ -353,37 +334,29 @@ pre {
   width: 8px;
   height: 8px;
   background-color: #007bff;
-  /* Blue indicator */
   border-radius: 50%;
   margin-left: 5px;
   vertical-align: middle;
 }
 
-/* Tab Content */
 .info-tabs-content .tab-panel {
   display: none;
-  /* Hide all panels by default */
 }
 .info-tabs-content .tab-panel.active {
   display: block;
-  /* Show only the active one */
 }
 
-/* Hide panel titles by default (for mobile tab view) */
 .tab-panel > h3 {
   display: none;
 }
 
-/* Tab 1: Chat */
 .chat-box-container {
   display: flex;
   flex-direction: column;
   width: 100%;
   border: none;
-  /* Container is now the tab panel */
   border-radius: 0;
   height: 600px;
-  /* Fixed height for content area */
   box-sizing: border-box;
 }
 .chat-messages {
@@ -429,10 +402,9 @@ pre {
   border-radius: 4px;
 }
 
-/* Tab 2: Moves */
 .moves-list {
   width: 100%;
-  height: 600px; /* Match chat height */
+  height: 600px;
   overflow-y: auto;
   border: none;
   padding: 10px;
@@ -446,14 +418,12 @@ pre {
   text-align: center;
 }
 
-/* Tab 3: Players */
 .player-lists-container {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   padding: 10px;
   height: 600px;
-  /* Match chat height */
   overflow-y: auto;
   background: #fff;
 }
@@ -463,21 +433,15 @@ pre {
   gap: 0.5rem;
 }
 
-/* -------------------------- */
-/* --- Responsive Layout --- */
-/* -------------------------- */
-
-/* Tablet / Small Desktop: Stack Game and Info columns */
 @media (max-width: 900px) {
   .main-layout {
     flex-direction: column;
-    align-items: center; /* Center the columns */
+    align-items: center;
   }
 
   .game-column {
     width: 100%;
     max-width: 800px;
-    /* Allow game column to be wide */
     order: 1;
   }
 
@@ -485,20 +449,14 @@ pre {
     order: 2;
     width: 100%;
     max-width: 800px;
-    /* Match game column width */
     position: relative;
-    /* Remove sticky positioning */
     top: 0;
   }
 
-  /* --- NEW: MOBILE OVERLAY CHANGES --- */
-
-  /* Hide the original tab content in the page flow on mobile */
   .info-column > .info-tabs-content {
     display: none;
   }
 
-  /* The info-column itself becomes just a wrapper for the nav now */
   .info-column {
     background: none;
     border: none;
@@ -511,7 +469,6 @@ pre {
   }
 }
 
-/* Mobile: Reduce font sizes */
 @media (max-width: 768px) {
   .app-container {
     padding: 10px;
@@ -523,87 +480,56 @@ pre {
 
   .clock-box {
     font-size: 1.5rem;
-    /* Smaller clock font */
     min-width: 100px;
   }
 
   .material-display {
     font-size: 1.5rem;
-    /* Smaller piece font */
   }
 
   .moves-list,
   .chat-box-container,
   .player-lists-container {
     height: 400px;
-    /* Reduce height for mobile screens */
   }
 }
 
-/* ======================================= */
-/* === NEW: DESKTOP 4-COLUMN HORIZONTAL === */
-/* ======================================= */
-
-/* This rule applies ONLY to desktop screens (wider than the mobile breakpoint) */
 @media (min-width: 900.01px) {
-  /* 1. Make the .info-column wrapper "disappear", promoting its children */
   .info-column {
     display: contents;
-    /* This makes its children (.info-tabs-nav, .info-tabs-content) 
-       become direct flex children of .main-layout */
   }
 
-  /* 2. We don't want the tab nav bar, so hide it */
   .info-tabs-nav {
     display: none;
   }
 
-  /* 3. Make the .info-tabs-content wrapper "disappear" too */
   .info-tabs-content {
     display: contents;
-    /* This makes ITS children (.tab-panel x 3)
-       become direct flex children of .main-layout */
   }
 
-  /* At this point, .main-layout has 4 direct children:
-     - .game-column
-     - .tab-panel (players)
-     - .tab-panel (moves)
-     - .tab-panel (chat)
-  */
-
-  /* 4. Force all 3 panels to be visible (overriding .display-none default) */
   .tab-panel {
     display: block !important;
-    /* Override the default and .active logic */
-
-    /* Re-apply the container styles from the old .info-column */
     background: #fdfdfd;
     border: 1px solid #ccc;
     border-radius: 8px;
     overflow: hidden;
-
-    /* Make each panel its own sticky column */
     position: sticky;
     top: 20px;
   }
 
-  /* 5. Size the 4 columns based on your request */
   .game-column {
     flex-grow: 0;
     flex-shrink: 1;
-    flex-basis: 40%; /* Smaller board */
+    flex-basis: 40%;
     max-width: 600px;
     min-width: 350px;
   }
 
   .tab-panel {
-    /* This selector now targets all 3 info panels */
     flex-grow: 0;
     flex-shrink: 1;
-    flex-basis: 20%; /* Each info panel gets 20% */
+    flex-basis: 20%;
     min-width: 260px;
-    /* Don't let them get TOO thin */
   }
 
   .players-panel,
@@ -612,34 +538,26 @@ pre {
     min-width: 130px;
   }
 
-  /* 6. Style the <h3> tags (from App.tsx) as new column headers */
   .tab-panel > h3 {
     display: block;
-    /* Show the title, overriding the default hide */
     font-size: 1.2em;
     margin: 0;
     padding: 10px 10px 8px 10px;
     border-bottom: 1px solid #ccc;
     background: #f4f4f4;
-    /* Match the old tab nav bg */
   }
 
-  /* 7. Hide the unread dot (redundant on desktop) */
   .unread-dot {
     display: none;
   }
 }
 
-/* ======================================= */
-/* === NEW: MOBILE INFO OVERLAY      === */
-/* ======================================= */
-
-/* This is controlled by an inline style in React. We define the look here. */
 .mobile-info-overlay {
   position: fixed;
   inset: 0;
   background-color: #f8f8f8;
   z-index: 1000;
+  display: flex; /* Set in JSX but good to have here */
   flex-direction: column;
   padding: 10px;
   gap: 10px;
@@ -650,8 +568,8 @@ pre {
   justify-content: space-between;
   align-items: center;
   padding: 0 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
+  border-top: 1px solid #ccc;
+  border-radius: 0 0 8px 8px;
   background: #f4f4f4;
   flex-shrink: 0;
 }
@@ -662,33 +580,32 @@ pre {
   font-size: 1.1em;
 }
 
-/* Make the content area inside the overlay take up all remaining space */
+/* --- NEW: Correctly style the main content area of the overlay --- */
 .mobile-info-overlay .info-tabs-content {
-  display: block !important; /* Override desktop's `display: contents` */
-  flex-grow: 1;
-  min-height: 0; /* Critical for flex-shrinking */
-  position: relative; /* For the active panel to fill it */
+  flex-grow: 1; /* Allows this element to fill available space */
+  min-height: 0; /* Prevents flexbox overflow issues */
+  position: relative; /* Contains the tab panels */
   background: #fdfdfd;
   border: 1px solid #ccc;
-  border-radius: 8px;
+  border-bottom: none; /* No border between content and new footer */
+  border-radius: 8px 8px 0 0; /* Rounds the top corners */
   overflow: hidden;
 }
 
-/* On mobile, the active panel should fill the content area */
+/* This rule makes sure the content inside the tab panel fills the container */
 .mobile-info-overlay .tab-panel.active {
   position: absolute;
   inset: 0;
   display: block;
 }
 
-/* And the inner lists should have 100% height to be scrollable */
+/* This rule makes the scrolling lists fill the full height */
 .mobile-info-overlay .moves-list,
 .mobile-info-overlay .chat-box-container,
 .mobile-info-overlay .player-lists-container {
   height: 100%;
 }
 
-/* Stats Display Component */
 .stats-display {
   margin-top: 20px;
   padding-top: 15px;
@@ -712,7 +629,6 @@ pre {
   padding: 2px 0;
 }
 
-/* In-Game Stats Popover */
 .stats-popover {
   position: absolute;
   top: 0px;
