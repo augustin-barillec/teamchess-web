@@ -3,7 +3,10 @@ import cors from 'cors';
 
 const app = express();
 app.use(express.json());
-const whitelist = ['https://storage.googleapis.com']; // Production origin
+const whitelist = [
+  'https://storage.googleapis.com', // You can keep this for testing
+  'https://www.yokyok.ninja', // <-- ADD YOUR NEW DOMAIN HERE
+];
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
