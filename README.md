@@ -228,37 +228,37 @@ gcloud compute instances create $SERVER_NAME \
   --address=$STATIC_IP_VALUE \
   --tags=game-server \
   --metadata startup-script='#! /bin/bash
+    # Update package lists and install prerequisites
     apt-get update && apt-get install -y curl gnupg
-    curl -fsSL [https://download.docker.com/linux/debian/gpg](https://download.docker.com/linux/debian/gpg) | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] [https://download.docker.com/linux/debian](https://download.docker.com/linux/debian) $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-    apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io
-    curl -L "[https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname](https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname) -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
-    gcloud auth configure-docker europe-west1-docker.pkg.dev -q'
 
-# Wait for the VM to initialize and install Docker
-echo "⏳ Waiting 90 seconds for VM initialization..."
-sleep 90
+    # Add Docker GPG key
+    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+    # Add Docker repository
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+    # Install Docker Engine
+    apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io
+
+    # Install Docker Compose standalone binary
+    curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
+    # Make the binary executable
+    chmod +x /usr/local/bin/docker-compose
+
+    gcloud auth configure-docker europe-west1-docker.pkg.dev'
+```
 
 # Copy the production configuration files to the VM
+
+```bash
 gcloud compute scp ./server/deploy/docker-compose.yml ${SERVER_NAME}:~/docker-compose.yml --zone=${REGION}-b
 gcloud compute scp ./server/deploy/Caddyfile ${SERVER_NAME}:~/Caddyfile --zone=${REGION}-b
+gcloud compute scp ./server/deploy/.env ${SERVER_NAME}:~/.env --zone=${REGION}-b
+```
 
-# SSH into the VM to create the environment file and start the services
-gcloud compute ssh $SERVER_NAME --zone=${REGION}-b -- "
-# Create the .env file for Docker Compose
-cat <<EOF > ~/.env
-PROJECT_ID=${PROJECT_ID}
-MASTER_SERVER_URL=${MASTER_SERVER_URL_VAR}
-PUBLIC_ADDRESS=wss://${SUBDOMAIN}
-SERVER_NAME=${SERVER_NAME}
-PORT=${PORT_NUMBER}
-PUBLIC_HOSTNAME=${SUBDOMAIN}
-EOF
-
-# Log in to Artifact Registry and start the services
-echo 'Logging in to Artifact Registry and starting services...'
-gcloud auth configure-docker ${REGION}-docker.pkg.dev -q
+```bash
+gcloud compute ssh game-server-1 --zone=${REGION}-b -- "
 sudo /usr/local/bin/docker-compose up -d
 "
 ```
@@ -287,7 +287,7 @@ npm run build --workspace=client
 
 ```bash
 # Use a globally unique bucket name, like your domain name
-export BUCKET_NAME=[www.your-domain.com](https://www.your-domain.com)
+export BUCKET_NAME=www.your-domain.com
 
 # Create the bucket
 gsutil mb -l $REGION gs://${BUCKET_NAME}
@@ -302,7 +302,7 @@ gsutil iam ch allUsers:objectViewer gs://${BUCKET_NAME}
 gsutil web set -m index.html -e index.html gs://${BUCKET_NAME}
 ```
 
-Your client is now live\! It can be accessed at `http://${BUCKET_NAME}.storage.googleapis.com/`.
+Your client is now live\! It can be accessed at `https://${BUCKET_NAME}.storage.googleapis.com/`.
 
 ### Step 5: Updating a Deployed Game Server
 
