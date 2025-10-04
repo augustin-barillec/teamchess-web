@@ -331,6 +331,6 @@ echo '♻️ Restarting services with new images...'
 sudo /usr/local/bin/docker-compose up -d --remove-orphans
 
 echo '🧹 Cleaning up old images...'
-docker image prune -af
+sudo docker image prune -af
 "
 ```
