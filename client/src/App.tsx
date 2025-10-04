@@ -653,9 +653,14 @@ function GameClient({ server, onExit }: { server: ServerInfo; onExit: () => void
       const to = targetSquare;
       if (gameStatus !== GameStatus.Active || side !== current.side) return false;
       const isPromotion = needsPromotion(from, to);
-      const move = chess.move({ from, to, promotion: isPromotion ? 'q' : undefined });
-      if (!move) return false;
-      chess.undo();
+      try {
+        const move = chess.move({ from, to, promotion: isPromotion ? 'q' : undefined });
+        if (!move) return false; // This handles cases where chess.js returns null instead of throwing
+        chess.undo(); // We undo immediately because this is just for validation
+      } catch (e) {
+        toast.error('Illegal move!');
+        return false; // Tell react-chessboard the move was invalid
+      }
       if (isPromotion) {
         setPromotionMove({ from, to });
       } else {

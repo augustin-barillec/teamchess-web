@@ -748,8 +748,15 @@ io.on('connection', (socket: Socket) => {
     const params: any = { from, to };
     if (lan.length === 5) params.promotion = lan[4];
 
-    const tempChess = new Chess(state.chess.fen());
-    const move = tempChess.move(params);
+    let move;
+    try {
+      const tempChess = new Chess(state.chess.fen());
+      move = tempChess.move(params); // This is the line that can throw an error
+    } catch (e) {
+      // This block now catches the error
+      console.error(`Invalid move format received from ${socket.data.name}: ${lan}`, e);
+      return cb?.({ error: 'Illegal move format.' });
+    }
 
     if (!move) return cb?.({ error: 'Illegal move.' });
     state.proposals.set(pid, { lan, san: move.san });
