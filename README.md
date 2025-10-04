@@ -48,7 +48,7 @@ cd teamchess
 
 ### 2\. Install Dependencies
 
-[cite\_start]This command will use npm Workspaces to install dependencies for all packages (`client`, `server`, `master-server`, and `shared`).
+This command will use npm Workspaces to install dependencies for all packages (`client`, `server`, `master-server`, and `shared`).
 
 ```bash
 npm install
@@ -56,7 +56,7 @@ npm install
 
 ### 3\. Run the Local Environment
 
-[cite\_start]This command uses the `development/docker-compose.yaml` file to build and run all the necessary services.
+This command uses the `development/docker-compose.yaml` file to build and run all the necessary services.
 
 ```bash
 docker compose -f development/docker-compose.yaml up --build
@@ -64,10 +64,10 @@ docker compose -f development/docker-compose.yaml up --build
 
 This will start the following containers:
 
-- [cite\_start]**Client**: The React app, available at `http://localhost`.
-- [cite\_start]**Master Server**: The service discovery API, available at `http://localhost:4000`.
-- [cite\_start]**Game Server 1 ("Alpha")**: A game server instance at `ws://localhost:3001`.
-- [cite\_start]**Game Server 2 ("Bravo")**: A second game server instance at `ws://localhost:3002`.
+- **Client**: The React app, available at `http://localhost`.
+- **Master Server**: The service discovery API, available at `http://localhost:4000`.
+- **Game Server 1 ("Alpha")**: A game server instance at `ws://localhost:3001`.
+- **Game Server 2 ("Bravo")**: A second game server instance at `ws://localhost:3002`.
 
 ### 4\. Access the Application
 
@@ -83,10 +83,10 @@ This guide provides a complete, step-by-step workflow for deploying the entire a
 
 ### Prerequisites
 
-- [cite\_start]A GCP project with billing enabled.
-- [cite\_start]The `gcloud` CLI installed and authenticated (`gcloud auth login`).
-- [cite\_start]Your custom domain name (`yokyok.ninja`) ready.
-- [cite\_start]Docker installed locally.
+- A GCP project with billing enabled.
+- The `gcloud` CLI installed and authenticated (`gcloud auth login`).
+- Your custom domain name (`yokyok.ninja`) ready.
+- Docker installed locally.
 
 ### Step 1: GCP Project Setup
 
@@ -274,7 +274,7 @@ npm run build --workspace=client
 #### C. Create a Cloud Storage Bucket and Upload
 
 ```bash
-export BUCKET_NAME=www.yokyok.ninja
+export BUCKET_NAME=teamchess-client-assets
 
 gsutil mb -l $REGION gs://${BUCKET_NAME}
 gsutil rsync -d -R client/dist gs://${BUCKET_NAME}
@@ -307,7 +307,7 @@ gcloud compute ssl-certificates create teamchess-ssl-cert \
 
 # Create a backend that points to your GCS bucket
 gcloud compute backend-buckets create teamchess-client-bucket-backend \
-    --gcs-bucket-name=www.yokyok.ninja --enable-cdn
+    --gcs-bucket-name=${BUCKET_NAME} --enable-cdn
 
 # Create a URL map to route all incoming requests to your backend
 gcloud compute url-maps create teamchess-lb-url-map \
@@ -325,7 +325,37 @@ gcloud compute forwarding-rules create teamchess-forwarding-rule \
 
 Your application is now fully deployed\!
 
-### Step 5: Updating a Deployed Game Server
+### Step 5: Updating the Deployed Frontend Client
+
+To deploy changes made to the React client (e.g., in the `client/src` directory), you must rebuild the static files, upload them, and invalidate the CDN cache to ensure the changes are visible to users immediately.
+
+**1. Build the Client for Production**
+
+This command compiles your React application into static HTML, CSS, and JavaScript files in the `client/dist` directory.
+
+```bash
+npm run build --workspace=client
+```
+
+**2. Upload the New Files to Cloud Storage**
+
+Synchronize the contents of the newly built `client/dist` directory with your production storage bucket. The `-d` flag deletes old files from the bucket that are no longer in the `dist` directory.
+
+```bash
+gsutil rsync -d -R client/dist gs://${BUCKET_NAME}
+```
+
+**3. Invalidate the CDN Cache**
+
+This is the most important step to make your changes go live immediately. It instructs the Google Cloud CDN to clear its cached copies of your files, forcing it to serve the new version you just uploaded.
+
+```bash
+gcloud compute url-maps invalidate-cdn-cache teamchess-lb-url-map --path "/*" --global
+```
+
+**✅ Important**: After running this command, it may take a few minutes for the cache invalidation to propagate across Google's global network. You may need to perform a hard refresh in your browser (`Ctrl+Shift+R` or `Cmd+Shift+R`) to see the changes.
+
+### Step 6: Updating a Deployed Game Server
 
 To update an existing game server with the latest code, follow these two steps:
 
