@@ -284,7 +284,7 @@ gsutil iam ch allUsers:objectViewer gs://${BUCKET_NAME}
 ```
 
 **C. Set Up HTTPS Load Balancer**
-This is identical to your previous setup. Point your domain's A record (`www.yokyok.ninja`) to the reserved global static IP for the load balancer [cite: 351-355].
+This is identical to your previous setup. Point your domain's A record (`www.yokyok.ninja`) to the reserved global static IP for the load balancer.
 
 ### Step 6: Updating Deployments
 
