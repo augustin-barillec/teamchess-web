@@ -1,25 +1,25 @@
 # TeamChess ♟️
 
-[cite\_start]TeamChess is a real-time, collaborative multiplayer chess application where teams of players vote on the best move for their side[cite: 302]. This project is a full-stack monorepo featuring a React frontend and a scalable backend using Node.js game servers orchestrated by Agones on Google Kubernetes Engine.
+TeamChess is a real-time, collaborative multiplayer chess application where teams of players vote on the best move for their side. This project is a full-stack monorepo featuring a React frontend and a scalable backend using Node.js game servers orchestrated by Agones on Google Kubernetes Engine.
 
 ## Features
 
 - **On-Demand Game Servers**: Automatically allocates a dedicated server for each game session.
-- [cite\_start]**Real-time Multiplayer**: Play chess with multiple people on each team in a single game[cite: 306].
-- [cite\_start]**Move by Committee**: Players propose moves, and the team's most popular or engine-verified best move is played[cite: 307].
-- [cite\_start]**Spectator Mode**: Join games to watch the action unfold without participating[cite: 308].
-- [cite\_start]**In-Game Chat**: Communicate with other players and spectators in the game room[cite: 309].
-- [cite\_start]**Game Visibility**: Control game privacy with **Public**, **Private**, or **Closed** settings[cite: 310].
+- **Real-time Multiplayer**: Play chess with multiple people on each team in a single game.
+- **Move by Committee**: Players propose moves, and the team's most popular or engine-verified best move is played.
+- **Spectator Mode**: Join games to watch the action unfold without participating.
+- **In-Game Chat**: Communicate with other players and spectators in the game room.
+- **Game Visibility**: Control game privacy with **Public**, **Private**, or **Closed** settings.
 
 ---
 
 ## Tech Stack
 
-- [cite\_start]**Frontend**: React, TypeScript, Vite, Socket.IO Client, `react-chessboard`[cite: 311].
-- [cite\_start]**Backend (Game Server)**: Node.js, TypeScript, Socket.IO, `chess.js`, orchestrated by **Agones**[cite: 311].
-- [cite\_start]**Backend (Allocator Service)**: Node.js, TypeScript, and Express, acting as a stateless service to allocate game servers via the Agones API[cite: 311].
-- [cite\_start]**Monorepo Management**: npm Workspaces for managing shared code and dependencies[cite: 312].
-- [cite\_start]**Deployment**: Docker, **Google Kubernetes Engine (GKE)**, **Agones**[cite: 313].
+- **Frontend**: React, TypeScript, Vite, Socket.IO Client, `react-chessboard`.
+- **Backend (Game Server)**: Node.js, TypeScript, Socket.IO, `chess.js`, orchestrated by **Agones**.
+- **Backend (Allocator Service)**: Node.js, TypeScript, and Express, acting as a stateless service to allocate game servers via the Agones API.
+- **Monorepo Management**: npm Workspaces for managing shared code and dependencies.
+- **Deployment**: Docker, **Google Kubernetes Engine (GKE)**, **Agones**.
 
 ---
 
@@ -27,10 +27,10 @@
 
 The project is a monorepo organized into several key packages:
 
-- [cite\_start]`shared/`: Contains shared types and constants used across the client and servers[cite: 314].
-- [cite\_start]`client/`: The React frontend application[cite: 315].
-- [cite\_start]`server/`: The core game server (Socket.IO, chess logic), now integrated with the Agones SDK[cite: 315].
-- [cite\_start]`master-server/`: The allocator service that handles requests for new game servers[cite: 316].
+- `shared/`: Contains shared types and constants used across the client and servers.
+- `client/`: The React frontend application.
+- `server/`: The core game server (Socket.IO, chess logic), now integrated with the Agones SDK.
+- `master-server/`: The allocator service that handles requests for new game servers.
 - `development/`: Contains Kubernetes manifests for the local development environment.
 
 ---
@@ -48,7 +48,7 @@ cd teamchess
 
 ### 2\. Install Dependencies
 
-[cite\_start]This command will use npm Workspaces to install dependencies for all packages[cite: 320].
+This command will use npm Workspaces to install dependencies for all packages.
 
 ```bash
 npm install
@@ -114,10 +114,10 @@ This guide provides a step-by-step workflow for deploying the entire application
 
 ### Prerequisites
 
-- [cite\_start]A GCP project with billing enabled[cite: 326].
-- [cite\_start]The `gcloud` CLI installed and authenticated (`gcloud auth login`)[cite: 327].
-- [cite\_start]Your custom domain name ready[cite: 327].
-- [cite\_start]Docker installed locally[cite: 327].
+- A GCP project with billing enabled.
+- The `gcloud` CLI installed and authenticated (`gcloud auth login`).
+- Your custom domain name ready.
+- Docker installed locally.
 
 ### Step 1: GCP Project Setup
 
@@ -140,7 +140,7 @@ gcloud services enable \
 
 Store the application's Docker images in Google Artifact Registry.
 
-**A. [cite\_start]Create an Artifact Registry Repository** [cite: 330]
+**A. Create an Artifact Registry Repository**
 
 ```bash
 gcloud artifacts repositories create teamchess-repo \
@@ -264,7 +264,7 @@ Apply it: `kubectl apply -f fleet.yaml`.
 
 ### Step 5: Deploy Frontend to Cloud Storage
 
-[cite\_start]This process is still optimal for hosting a static React site [cite: 349-355].
+This process is still optimal for hosting a static React site [cite: 349-355].
 
 **A. Create a Production Environment File**
 Create `client/.env.production` and add the Allocator Service's external IP.
@@ -284,12 +284,12 @@ gsutil iam ch allUsers:objectViewer gs://${BUCKET_NAME}
 ```
 
 **C. Set Up HTTPS Load Balancer**
-This is identical to your previous setup. [cite\_start]Point your domain's A record (`www.yokyok.ninja`) to the reserved global static IP for the load balancer [cite: 351-355].
+This is identical to your previous setup. Point your domain's A record (`www.yokyok.ninja`) to the reserved global static IP for the load balancer [cite: 351-355].
 
 ### Step 6: Updating Deployments
 
 **A. Updating the Frontend Client**
-[cite\_start]This process remains the same: rebuild, sync to GCS, and invalidate the CDN cache [cite: 356-362].
+This process remains the same: rebuild, sync to GCS, and invalidate the CDN cache [cite: 356-362].
 
 ```bash
 npm run build --workspace=client
