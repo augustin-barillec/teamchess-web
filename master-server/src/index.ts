@@ -1,20 +1,27 @@
 import express from 'express';
 import cors from 'cors';
+import { KubeConfig, CustomObjectsApi } from '@kubernetes/client-node';
 
+// --- Kubernetes API Client Setup ---
+// This configures the client to talk to the Kubernetes API.
+// It automatically uses in-cluster credentials when deployed on GKE,
+// or your local kubeconfig file for local development.
+const kc = new KubeConfig();
+process.env.NODE_ENV === 'production' ? kc.loadFromCluster() : kc.loadFromDefault();
+const k8sCustomApi = kc.makeApiClient(CustomObjectsApi);
+
+// --- Express App Setup ---
 const app = express();
 app.use(express.json());
-const whitelist = [
-  'https://storage.googleapis.com', // You can keep this for testing
-  'https://www.yokyok.ninja', // <-- ADD YOUR NEW DOMAIN HERE
-];
+
+[cite_start]; // Re-using the same robust CORS configuration from your original file [cite: 368-370]
+const whitelist = ['https://storage.googleapis.com', 'https://www.yokyok.ninja'];
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
-      return callback(null, true);
-    }
-    // Allow whitelisted origins for production and any localhost origin for development
-    if (whitelist.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
+  origin: function (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void,
+  ) {
+    if (!origin || whitelist.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
       return callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -23,58 +30,70 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-interface GameServer {
-  name: string;
-  address: string;
-  playerCount: number;
-  maxPlayers: number;
-  totalGames: number;
-  maxGames: number;
-  lastHeartbeat: number;
-}
+// --- API Endpoints ---
 
-// Use the server's address as the key for simplicity
-const activeServers = new Map<string, GameServer>();
-const STALE_SERVER_TIMEOUT_MS = 35000; // 35 seconds
+/**
+ * The client calls this endpoint to request a dedicated game server.
+ * This service asks Agones to allocate a GameServer from the fleet.
+ * If successful, it returns the IP and port for the client to connect to.
+ */
+app.post('/allocate', async (req, res) => {
+  const namespace = process.env.NAMESPACE || 'default';
+  const fleetName = process.env.FLEET_NAME || 'teamchess-fleet';
 
-// The Game Servers will call this endpoint every 30 seconds
-app.post('/heartbeat', (req, res) => {
-  const { name, address, playerCount, maxPlayers, totalGames, maxGames } = req.body;
+  const gameServerAllocation = {
+    apiVersion: 'allocation.agones.dev/v1',
+    kind: 'GameServerAllocation',
+    spec: {
+      required: {
+        matchLabels: {
+          'agones.dev/fleet': fleetName,
+        },
+      },
+    },
+  };
 
-  if (!name || !address) {
-    return res.status(400).send({ error: 'Missing required server info.' });
-  }
+  try {
+    console.log(`Requesting allocation from fleet '${fleetName}' in namespace '${namespace}'...`);
 
-  activeServers.set(address, {
-    name,
-    address,
-    playerCount,
-    maxPlayers,
-    totalGames,
-    maxGames,
-    lastHeartbeat: Date.now(),
-  });
+    const result = await k8sCustomApi.createNamespacedCustomObject(
+      'allocation.agones.dev',
+      'v1',
+      namespace,
+      'gameserverallocations',
+      gameServerAllocation,
+    );
 
-  res.status(200).send({ success: true });
-});
+    // The result.body contains the allocation response. We cast it to access its properties.
+    const allocationResult = result.body as any;
 
-// The React client will call this to get the list of servers
-app.get('/servers', (req, res) => {
-  const serverList = Array.from(activeServers.values());
-  res.json(serverList);
-});
-
-// Periodically clean up servers that haven't sent a heartbeat
-setInterval(() => {
-  const now = Date.now();
-  for (const [address, server] of activeServers.entries()) {
-    if (now - server.lastHeartbeat > STALE_SERVER_TIMEOUT_MS) {
-      console.log(`Removing stale server: ${server.name} (${address})`);
-      activeServers.delete(address);
+    if (allocationResult.status.state === 'Allocated') {
+      const address = allocationResult.status.address;
+      const port = allocationResult.status.ports[0].port;
+      console.log(`Successfully allocated GameServer: ${address}:${port}`);
+      res.status(200).json({ address, port });
+    } else {
+      // This state can occur if no servers are ready in the fleet.
+      console.warn('Allocation unsuccessful, no servers available.');
+      res
+        .status(503)
+        .json({ error: 'No game servers are available at this moment. Please try again soon.' });
     }
+  } catch (err: any) {
+    console.error('Error during GameServer allocation:', err.body ? err.body.message : err.message);
+    res
+      .status(500)
+      .json({ error: 'An internal error occurred while trying to allocate a game server.' });
   }
-}, 15000); // Check every 15 seconds
+});
 
-app.listen(4000, () => {
-  console.log('Master server listening on port 4000');
+// A simple health check endpoint
+app.get('/healthz', (req, res) => {
+  res.status(200).send('ok');
+});
+
+// --- Server Start ---
+const port = process.env.PORT || 4000;
+app.listen(port, () => {
+  console.log(`Agones Allocator Service listening on port ${port}`);
 });

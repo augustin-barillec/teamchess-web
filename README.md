@@ -1,25 +1,25 @@
 # TeamChess ♟️
 
-TeamChess is a real-time, collaborative multiplayer chess application where teams of players vote on the best move for their side. This project is a full-stack monorepo featuring a React frontend, a Node.js/Socket.IO game server, and a master server for service discovery. It's designed for easy local development and scalable deployment on Google Cloud Platform.
+[cite\_start]TeamChess is a real-time, collaborative multiplayer chess application where teams of players vote on the best move for their side[cite: 302]. This project is a full-stack monorepo featuring a React frontend and a scalable backend using Node.js game servers orchestrated by Agones on Google Kubernetes Engine.
 
 ## Features
 
-- **Server Browser**: Automatically discover and connect to available game servers.
-- **Real-time Multiplayer**: Play chess with multiple people on each team in a single game.
-- **Move by Committee**: Players propose moves, and the team's most popular or engine-verified best move is played.
-- **Spectator Mode**: Join games to watch the action unfold without participating.
-- **In-Game Chat**: Communicate with other players and spectators in the game room.
-- **Game Visibility**: Control game privacy with **Public**, **Private**, or **Closed** settings.
+- **On-Demand Game Servers**: Automatically allocates a dedicated server for each game session.
+- [cite\_start]**Real-time Multiplayer**: Play chess with multiple people on each team in a single game[cite: 306].
+- [cite\_start]**Move by Committee**: Players propose moves, and the team's most popular or engine-verified best move is played[cite: 307].
+- [cite\_start]**Spectator Mode**: Join games to watch the action unfold without participating[cite: 308].
+- [cite\_start]**In-Game Chat**: Communicate with other players and spectators in the game room[cite: 309].
+- [cite\_start]**Game Visibility**: Control game privacy with **Public**, **Private**, or **Closed** settings[cite: 310].
 
 ---
 
 ## Tech Stack
 
-- **Frontend**: React, TypeScript, Vite, Socket.IO Client, `react-chessboard`
-- **Backend (Game Server)**: Node.js, TypeScript, Express, Socket.IO, `chess.js`, Stockfish Engine
-- **Backend (Master Server)**: Node.js, TypeScript, Express for service discovery.
-- **Monorepo Management**: npm Workspaces for managing shared code and dependencies.
-- **Deployment**: Docker, Caddy (for HTTPS), Google Cloud Platform (GCP).
+- [cite\_start]**Frontend**: React, TypeScript, Vite, Socket.IO Client, `react-chessboard`[cite: 311].
+- [cite\_start]**Backend (Game Server)**: Node.js, TypeScript, Socket.IO, `chess.js`, orchestrated by **Agones**[cite: 311].
+- [cite\_start]**Backend (Allocator Service)**: Node.js, TypeScript, and Express, acting as a stateless service to allocate game servers via the Agones API[cite: 311].
+- [cite\_start]**Monorepo Management**: npm Workspaces for managing shared code and dependencies[cite: 312].
+- [cite\_start]**Deployment**: Docker, **Google Kubernetes Engine (GKE)**, **Agones**[cite: 313].
 
 ---
 
@@ -27,19 +27,19 @@ TeamChess is a real-time, collaborative multiplayer chess application where team
 
 The project is a monorepo organized into several key packages:
 
-- `shared/`: Contains shared types and constants used across the client and servers.
-- `client/`: The React frontend application.
-- `server/`: The core game server (Socket.IO, chess logic).
-- `master-server/`: A simple service for game servers to register themselves and for clients to discover them.
-- `development/`: Contains the `docker-compose.yaml` file for the local development environment.
+- [cite\_start]`shared/`: Contains shared types and constants used across the client and servers[cite: 314].
+- [cite\_start]`client/`: The React frontend application[cite: 315].
+- [cite\_start]`server/`: The core game server (Socket.IO, chess logic), now integrated with the Agones SDK[cite: 315].
+- [cite\_start]`master-server/`: The allocator service that handles requests for new game servers[cite: 316].
+- `development/`: Contains Kubernetes manifests for the local development environment.
 
 ---
 
 ## Getting Started (Local Development)
 
-To run the entire stack locally for development, you need **Docker** and **Node.js v22+** installed.
+To run the stack locally, you need **Docker**, **Node.js v22+**, **kubectl**, and a local Kubernetes cluster tool like **Minikube** or **Kind**.
 
-### 1. Clone the Repository
+### 1\. Clone the Repository
 
 ```bash
 git clone <your-repo-url>
@@ -48,73 +48,99 @@ cd teamchess
 
 ### 2\. Install Dependencies
 
-This command will use npm Workspaces to install dependencies for all packages (`client`, `server`, `master-server`, and `shared`).
+[cite\_start]This command will use npm Workspaces to install dependencies for all packages[cite: 320].
 
 ```bash
 npm install
 ```
 
-### 3\. Run the Local Environment
+### 3\. Start Local Kubernetes Cluster
 
-This command uses the `development/docker-compose.yaml` file to build and run all the necessary services.
+Using Minikube as an example:
 
 ```bash
-docker compose -f development/docker-compose.yaml up --build
+minikube start --driver=docker
 ```
 
-This will start the following containers:
+### 4\. Install Agones
 
-- **Client**: The React app, available at `http://localhost`.
-- **Master Server**: The service discovery API, available at `http://localhost:4000`.
-- **Game Server 1 ("Alpha")**: A game server instance at `ws://localhost:3001`.
-- **Game Server 2 ("Bravo")**: A second game server instance at `ws://localhost:3002`.
+Follow the official Agones guide to install it on your local cluster.
 
-### 4\. Access the Application
+```bash
+kubectl create namespace agones-system
+kubectl apply -f https://raw.githubusercontent.com/googleforgames/agones/release-1.38.0/install/yaml/install.yaml
+```
 
-Once the containers are running, open your browser and navigate to:
+Wait for all Agones pods in the `agones-system` namespace to be running.
 
-- **➡️ http://localhost**
+### 5\. Build and Load Docker Images
+
+Build the server and allocator images and load them into your Minikube cluster.
+
+```bash
+# Point your local Docker client to the Minikube's Docker daemon
+eval $(minikube -p minikube docker-env)
+
+# Build images (they are now available within Minikube)
+docker build -t teamchess-server:local -f server/Dockerfile .
+docker build -t teamchess-allocator:local -f master-server/Dockerfile .
+```
+
+### 6\. Deploy to Local Cluster
+
+Apply the development Kubernetes manifests. (You will need to create these YAML files for the allocator deployment, service, and the Agones fleet).
+
+```bash
+# Example
+kubectl apply -f development/allocator-deployment.yaml
+kubectl apply -f development/fleet.yaml
+```
+
+### 7\. Run the Client
+
+Start the Vite development server for the client.
+
+```bash
+npm run dev --workspace=client
+```
+
+The client will be available at `http://localhost:5173` (or another port specified by Vite). You will need to port-forward your allocator service to make it accessible to the client.
 
 ---
 
-## Production Deployment on GCP: Complete Guide
+## Production Deployment on GKE: Complete Guide
 
-This guide provides a complete, step-by-step workflow for deploying the entire application to Google Cloud Platform, including connecting the frontend to `www.yokyok.ninja`.
+This guide provides a step-by-step workflow for deploying the entire application to Google Cloud Platform using GKE and Agones.
 
 ### Prerequisites
 
-- A GCP project with billing enabled.
-- The `gcloud` CLI installed and authenticated (`gcloud auth login`).
-- Your custom domain name (`yokyok.ninja`) ready.
-- Docker installed locally.
+- [cite\_start]A GCP project with billing enabled[cite: 326].
+- [cite\_start]The `gcloud` CLI installed and authenticated (`gcloud auth login`)[cite: 327].
+- [cite\_start]Your custom domain name ready[cite: 327].
+- [cite\_start]Docker installed locally[cite: 327].
 
 ### Step 1: GCP Project Setup
 
-Configure your local environment with your project details and enable the necessary GCP APIs.
+Configure your environment and enable the necessary GCP APIs.
 
 ```bash
-# Set your project ID and a region for deployment
 export PROJECT_ID=$(gcloud config get-value project)
 export REGION=europe-west1
-
-# Set the project for future gcloud commands
 gcloud config set project $PROJECT_ID
 
-# Enable all required APIs for the deployment
 gcloud services enable \
   run.googleapis.com \
   compute.googleapis.com \
   artifactregistry.googleapis.com \
+  container.googleapis.com \
   storage.googleapis.com
 ```
 
 ### Step 2: Build and Push Docker Images
 
-We will store the application's Docker images in Google Artifact Registry.
+Store the application's Docker images in Google Artifact Registry.
 
-#### A. Create an Artifact Registry Repository
-
-This only needs to be done once per project.
+**A. [cite\_start]Create an Artifact Registry Repository** [cite: 330]
 
 ```bash
 gcloud artifacts repositories create teamchess-repo \
@@ -122,261 +148,157 @@ gcloud artifacts repositories create teamchess-repo \
   --location=$REGION
 ```
 
-#### B. Authenticate Docker with the Registry
+**B. Authenticate Docker**
 
 ```bash
 gcloud auth configure-docker ${REGION}-docker.pkg.dev
 ```
 
-#### C. Build and Push All Images
-
-Build both the `master-server` and `game-server` images and push them to your Artifact Registry.
+**C. Build and Push All Images**
 
 ```bash
-# Define image names
-export MASTER_SERVER_IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/teamchess-repo/master-server:latest
+export ALLOCATOR_IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/teamchess-repo/allocator-service:latest
 export GAME_SERVER_IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/teamchess-repo/game-server:latest
 
-# Build and push the master server image
-docker build -t $MASTER_SERVER_IMAGE -f master-server/Dockerfile .
-docker push $MASTER_SERVER_IMAGE
+# Build and push the allocator service image
+docker build -t $ALLOCATOR_IMAGE -f master-server/Dockerfile .
+docker push $ALLOCATOR_IMAGE
 
 # Build and push the game server image
 docker build -t $GAME_SERVER_IMAGE -f server/Dockerfile .
 docker push $GAME_SERVER_IMAGE
 ```
 
-### Step 3: Deploy Backend Services
+### Step 3: Create GKE Cluster and Install Agones
 
-#### A. Deploy the Master Server to Cloud Run
-
-The stateless master server is a perfect candidate for Cloud Run.
+**A. Create the GKE Cluster**
 
 ```bash
-gcloud run deploy teamchess-master-server \
-  --image=$MASTER_SERVER_IMAGE \
-  --platform=managed \
-  --port=4000 \
+gcloud container clusters create teamchess-cluster \
   --region=$REGION \
-  --allow-unauthenticated
+  --machine-type=e2-standard-4 \
+  --num-nodes=2 \
+  --scopes "https://www.googleapis.com/auth/cloud-platform"
 ```
 
-**✅ Important**: After this command finishes, **copy the Service URL** it provides (e.g., `https://teamchess-master-server-....a.run.app`). You will need this for the next steps.
-
-#### B. Deploy the Game Server VM (`server1.yokyok.ninja`)
-
-Game servers are stateful and are deployed on Compute Engine VMs.
-
-**1. Set Server-Specific Variables:**
+**B. Install Agones on the Cluster**
 
 ```bash
-# --- CONFIGURE THESE VARIABLES FOR YOUR SERVER ---
-export SERVER_NAME=game-server-1
-export SUBDOMAIN=server1.yokyok.ninja
-export MASTER_SERVER_URL="PASTE_THE_CLOUDRUN_URL_HERE" # Paste the URL from Step 3A
-# --- END CONFIGURATION ---
-
-export STATIC_IP_NAME=${SERVER_NAME}-ip
-export PORT_NUMBER=3001
+kubectl create namespace agones-system
+kubectl apply -f https://raw.githubusercontent.com/googleforgames/agones/release-1.38.0/install/yaml/install.yaml
 ```
 
-**2. Reserve a Static IP Address:**
+### Step 4: Deploy Backend Services
+
+**A. Deploy the Allocator Service**
+Create `allocator-deployment.yaml` to define the deployment and a LoadBalancer service to expose it publicly.
+
+```yaml
+# allocator-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: allocator-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: allocator-service
+  template:
+    metadata:
+      labels:
+        app: allocator-service
+    spec:
+      containers:
+        - name: allocator
+          image: # PASTE YOUR ALLOCATOR_IMAGE URL HERE
+          ports:
+            - containerPort: 4000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: allocator-service-lb
+spec:
+  type: LoadBalancer
+  selector:
+    app: allocator-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 4000
+```
+
+Apply it: `kubectl apply -f allocator-deployment.yaml`. Get the external IP address: `kubectl get service allocator-service-lb`. **You will need this IP for the frontend.**
+
+**B. Deploy the Game Server Fleet**
+Create `fleet.yaml`:
+
+```yaml
+# fleet.yaml
+apiVersion: 'agones.dev/v1'
+kind: Fleet
+metadata:
+  name: teamchess-fleet
+spec:
+  replicas: 2 # Keep 2 servers warm
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    spec:
+      ports:
+        - name: default
+          portPolicy: Dynamic
+          containerPort: 3001
+      template:
+        spec:
+          containers:
+            - name: teamchess-server
+              image: # PASTE YOUR GAME_SERVER_IMAGE URL HERE
+```
+
+Apply it: `kubectl apply -f fleet.yaml`.
+
+### Step 5: Deploy Frontend to Cloud Storage
+
+[cite\_start]This process is still optimal for hosting a static React site [cite: 349-355].
+
+**A. Create a Production Environment File**
+Create `client/.env.production` and add the Allocator Service's external IP.
 
 ```bash
-gcloud compute addresses create $STATIC_IP_NAME --region=$REGION
+echo "VITE_ALLOCATOR_URL=http://YOUR_ALLOCATOR_LOAD_BALANCER_IP" > client/.env.production
 ```
 
-Get the IP address you just reserved. It should match the one in your DNS settings (`35.189.228.0`).
-
-```bash
-gcloud compute addresses describe $STATIC_IP_NAME --region=$REGION --format='value(address)'
-```
-
-Now, ensure an **A record** exists in your DNS provider pointing `server1.yokyok.ninja` to this IP.
-
-**3. Create a Firewall Rule:**
-
-```bash
-gcloud compute firewall-rules create allow-teamchess-game-server \
-  --direction=INGRESS \
-  --priority=1000 \
-  --network=default \
-  --action=ALLOW \
-  --rules=tcp:80,tcp:443,tcp:${PORT_NUMBER} \
-  --source-ranges=0.0.0.0/0 \
-  --target-tags=game-server
-```
-
-**4. Create and Configure the VM:**
-This command creates the VM instance and runs a startup script to install Docker.
-
-```bash
-export STATIC_IP_VALUE=$(gcloud compute addresses describe $STATIC_IP_NAME --region=$REGION --format='value(address)')
-
-gcloud compute instances create $SERVER_NAME \
-  --zone=${REGION}-b \
-  --image-family=debian-11 --image-project=debian-cloud \
-  --address=$STATIC_IP_VALUE \
-  --tags=game-server \
-  --metadata startup-script='#! /bin/bash
-    # Update package lists and install prerequisites
-    apt-get update && apt-get install -y curl gnupg
-
-    # Add Docker GPG key
-    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-    # Add Docker repository
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-    # Install Docker Engine
-    apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io
-
-    # Install Docker Compose standalone binary
-    curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-
-    # Make the binary executable
-    chmod +x /usr/local/bin/docker-compose
-
-    gcloud auth configure-docker europe-west1-docker.pkg.dev'
-```
-
-**5. Start the Game Server:**
-Copy the production configuration files to the VM and start the services.
-
-```bash
-gcloud compute scp ./server/deploy/docker-compose.yml ${SERVER_NAME}:~/docker-compose.yml --zone=${REGION}-b
-gcloud compute scp ./server/deploy/Caddyfile ${SERVER_NAME}:~/Caddyfile --zone=${REGION}-b
-gcloud compute scp ./server/deploy/.env ${SERVER_NAME}:~/.env --zone=${REGION}-b
-
-gcloud compute ssh $SERVER_NAME --zone=${REGION}-b -- "
-sudo /usr/local/bin/docker-compose up -d
-"
-```
-
-### Step 4: Deploy Frontend to `www.yokyok.ninja`
-
-We will host the static React client on a Cloud Storage bucket and serve it securely via a global Load Balancer.
-
-#### A. Create a Production Environment File
-
-Create a file at `client/.env.production` and add your Master Server URL from Step 3A.
-
-```bash
-echo "VITE_MASTER_SERVER_URL=PASTE_THE_CLOUDRUN_URL_HERE" > client/.env.production
-```
-
-#### B. Build the Client for Production
+**B. Build and Upload**
 
 ```bash
 npm run build --workspace=client
-```
-
-#### C. Create a Cloud Storage Bucket and Upload
-
-```bash
-export BUCKET_NAME=teamchess-client-assets
-
+export BUCKET_NAME=teamchess-client-assets-www-yokyok-ninja # Use a globally unique name
 gsutil mb -l $REGION gs://${BUCKET_NAME}
 gsutil rsync -d -R client/dist gs://${BUCKET_NAME}
 gsutil iam ch allUsers:objectViewer gs://${BUCKET_NAME}
-gsutil web set -m index.html -e index.html gs://${BUCKET_NAME}
 ```
 
-#### D. Set Up the HTTPS Load Balancer
+**C. Set Up HTTPS Load Balancer**
+This is identical to your previous setup. [cite\_start]Point your domain's A record (`www.yokyok.ninja`) to the reserved global static IP for the load balancer [cite: 351-355].
 
-**1. Reserve a Global Static IP for the Frontend:**
+### Step 6: Updating Deployments
 
-```bash
-gcloud compute addresses create teamchess-lb-ip --global
-```
-
-View the IP address. This should match the IP in your DNS for `www`.
-
-```bash
-gcloud compute addresses describe teamchess-lb-ip --global --format="value(address)"
-```
-
-Ensure an **A record** exists in your DNS provider pointing `www.yokyok.ninja` to this IP.
-
-**2. Create the Load Balancer Components:**
-
-```bash
-# Create a managed SSL certificate for your domain
-gcloud compute ssl-certificates create teamchess-ssl-cert \
-    --domains=www.yokyok.ninja --global
-
-# Create a backend that points to your GCS bucket
-gcloud compute backend-buckets create teamchess-client-bucket-backend \
-    --gcs-bucket-name=${BUCKET_NAME} --enable-cdn
-
-# Create a URL map to route all incoming requests to your backend
-gcloud compute url-maps create teamchess-lb-url-map \
-    --default-backend-bucket=teamchess-client-bucket-backend
-
-# Create an HTTPS proxy to route requests to the URL map
-gcloud compute target-https-proxies create teamchess-https-proxy \
-    --url-map=teamchess-lb-url-map --ssl-certificates=teamchess-ssl-cert --global
-
-# Create the final forwarding rule to handle incoming traffic
-gcloud compute forwarding-rules create teamchess-forwarding-rule \
-    --address=teamchess-lb-ip --target-https-proxy=teamchess-https-proxy \
-    --ports=443 --global
-```
-
-Your application is now fully deployed\!
-
-### Step 5: Updating the Deployed Frontend Client
-
-To deploy changes made to the React client (e.g., in the `client/src` directory), you must rebuild the static files, upload them, and invalidate the CDN cache to ensure the changes are visible to users immediately.
-
-**1. Build the Client for Production**
-
-This command compiles your React application into static HTML, CSS, and JavaScript files in the `client/dist` directory.
+**A. Updating the Frontend Client**
+[cite\_start]This process remains the same: rebuild, sync to GCS, and invalidate the CDN cache [cite: 356-362].
 
 ```bash
 npm run build --workspace=client
-```
-
-**2. Upload the New Files to Cloud Storage**
-
-Synchronize the contents of the newly built `client/dist` directory with your production storage bucket. The `-d` flag deletes old files from the bucket that are no longer in the `dist` directory.
-
-```bash
 gsutil rsync -d -R client/dist gs://${BUCKET_NAME}
-```
-
-**3. Invalidate the CDN Cache**
-
-This is the most important step to make your changes go live immediately. It instructs the Google Cloud CDN to clear its cached copies of your files, forcing it to serve the new version you just uploaded.
-
-```bash
 gcloud compute url-maps invalidate-cdn-cache teamchess-lb-url-map --path "/*" --global
 ```
 
-**✅ Important**: After running this command, it may take a few minutes for the cache invalidation to propagate across Google's global network. You may need to perform a hard refresh in your browser (`Ctrl+Shift+R` or `Cmd+Shift+R`) to see the changes.
+**B. Updating a Backend Service (Allocator or Game Server)**
 
-### Step 6: Updating a Deployed Game Server
-
-To update an existing game server with the latest code, follow these two steps:
-
-**1. Rebuild and push the game server image:**
-
-```bash
-docker build -t $GAME_SERVER_IMAGE -f server/Dockerfile .
-docker push $GAME_SERVER_IMAGE
-```
-
-**2. SSH into the server, pull the new image, and restart:**
-
-```bash
-gcloud compute ssh game-server-1 --zone=${REGION}-b -- "
-echo '🚀 Pulling latest Docker images...'
-sudo /usr/local/bin/docker-compose pull
-
-echo '♻️ Restarting services with new images...'
-sudo /usr/local/bin/docker-compose up -d --remove-orphans
-
-echo '🧹 Cleaning up old images...'
-sudo docker image prune -af
-"
-```
+1.  Rebuild and push the new Docker image with a new tag (e.g., `:v2`).
+2.  Update the image reference in the corresponding YAML file (`allocator-deployment.yaml` or `fleet.yaml`).
+3.  Apply the updated manifest: `kubectl apply -f your-file.yaml`. Kubernetes/Agones will handle the rolling update.

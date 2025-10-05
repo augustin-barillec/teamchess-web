@@ -1,3 +1,0 @@
-server1.yokyok.ninja {
-    reverse_proxy game-server:3001
-}

@@ -1,0 +1,19 @@
+apiVersion: "agones.dev/v1"
+kind: Fleet
+metadata:
+  name: teamchess-fleet
+spec:
+  replicas: 2 # Keep 2 game servers warm and ready to be allocated
+  template:
+    spec:
+      ports:
+      - name: default
+        portPolicy: Dynamic # Agones will assign a free port on the host node
+        containerPort: 3001 # The port your Node.js game server listens on
+      template:
+        spec:
+          containers:
+          - name: teamchess-server
+            # Use the local game server image
+            image: teamchess-server:local
+            imagePullPolicy: Never
