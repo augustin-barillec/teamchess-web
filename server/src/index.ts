@@ -11,7 +11,6 @@ import {
   MAX_PLAYERS_PER_GAME,
   GameVisibility,
 } from '@teamchess/shared';
-
 // --- Agones SDK Initialization ---
 const sdk = new AgonesSDK();
 
@@ -27,7 +26,6 @@ const stockfishPath = path.join(
   'src',
   'stockfish-nnue-16.js',
 );
-
 // --- Types ---
 type Side = 'white' | 'black' | 'spectator';
 type PlayerSide = 'white' | 'black';
@@ -61,7 +59,6 @@ interface GameState {
 // --- Server State ---
 const sessions = new Map<string, Session>();
 let gameState: GameState | null = null;
-
 // --- Server Setup ---
 const server = http.createServer();
 const io = new Server(server, {
@@ -299,7 +296,6 @@ function leave(this: Socket, explicit = false) {
   if (!pid) return;
   const sess = sessions.get(pid);
   if (!sess) return;
-
   const finalize = () => {
     if (gameState) {
       gameState.proposals.delete(pid);
@@ -371,15 +367,14 @@ io.on('connection', (socket: Socket) => {
   socket.emit('game_status_update', {
     status: gameState!.status,
     visibility: gameState!.visibility,
-    gameId: gameState!.gameId, // Always send the gameId on connect
+    // MODIFIED: Removed gameId from this payload
   });
-
   if (gameState!.status === GameStatus.Active || gameState!.status === GameStatus.Over) {
     socket.emit('game_started', {
       moveNumber: gameState!.moveNumber,
       side: gameState!.side,
       visibility: gameState!.visibility,
-      gameId: gameState!.gameId,
+      // MODIFIED: Removed gameId from this payload
     });
     socket.emit('position_update', { fen: gameState!.chess.fen() });
     socket.emit('clock_update', {
@@ -422,7 +417,6 @@ io.on('connection', (socket: Socket) => {
     broadcastPlayers(gameState.gameId);
     cb?.({ success: true });
   });
-
   socket.on('start_game', cb => {
     if (!gameState || gameState.status !== GameStatus.Lobby) {
       return cb?.({ error: 'Game cannot be started.' });
@@ -481,7 +475,6 @@ io.on('connection', (socket: Socket) => {
     sendSystemMessage(gameState.gameId, `${socket.data.name} has reset the game.`);
     cb?.({ success: true });
   });
-
   socket.on('play_move', (lan: string, cb) => {
     if (!gameState || gameState.status !== GameStatus.Active)
       return cb?.({ error: 'Game not running.' });
@@ -529,7 +522,6 @@ io.on('connection', (socket: Socket) => {
       message: message.trim(),
     });
   });
-
   socket.on('resign', () => {
     if (!gameState || gameState.status !== GameStatus.Active || socket.data.side === 'spectator')
       return;
@@ -540,7 +532,6 @@ io.on('connection', (socket: Socket) => {
     );
     endGame(EndReason.Resignation, winner);
   });
-
   socket.on('offer_draw', () => {
     if (!gameState || gameState.status !== GameStatus.Active || socket.data.side === 'spectator')
       return;
@@ -549,7 +540,6 @@ io.on('connection', (socket: Socket) => {
     io.in(gameState.gameId).emit('draw_offer_update', { side: socket.data.side });
     sendSystemMessage(gameState.gameId, `${socket.data.name} offers a draw.`);
   });
-
   socket.on('accept_draw', () => {
     if (!gameState || gameState.status !== GameStatus.Active || socket.data.side === 'spectator')
       return;
@@ -557,7 +547,6 @@ io.on('connection', (socket: Socket) => {
     sendSystemMessage(gameState.gameId, `${socket.data.name} accepts the draw offer.`);
     endGame(EndReason.DrawAgreement, null);
   });
-
   socket.on('reject_draw', () => {
     if (!gameState || gameState.status !== GameStatus.Active || socket.data.side === 'spectator')
       return;
@@ -566,7 +555,6 @@ io.on('connection', (socket: Socket) => {
     io.in(gameState.gameId).emit('draw_offer_update', { side: null });
     sendSystemMessage(gameState.gameId, `${socket.data.name} rejects the draw offer.`);
   });
-
   socket.on('set_game_visibility', ({ visibility }) => {
     if (!gameState) return;
     if (Object.values(GameVisibility).includes(visibility)) {
@@ -575,7 +563,6 @@ io.on('connection', (socket: Socket) => {
       sendSystemMessage(gameState.gameId, `${socket.data.name} set visibility to ${visibility}.`);
     }
   });
-
   socket.on('disconnect', () => leave.call(socket, false));
 });
 
@@ -593,7 +580,6 @@ async function startServer() {
 
     const engine = loadEngine(stockfishPath);
     engine.send('uci');
-
     gameState = {
       gameId,
       whiteIds: new Set(),
@@ -608,7 +594,6 @@ async function startServer() {
       status: GameStatus.Lobby,
       visibility: GameVisibility.Private,
     };
-
     const PORT = process.env.PORT || 3001;
     server.listen(PORT, async () => {
       console.log(`Game server listening on port ${PORT}`);
