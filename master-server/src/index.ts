@@ -97,6 +97,7 @@ app.get('/join/:gameId', async (req, res) => {
       undefined,
       undefined,
       undefined,
+      undefined,
       `teamchess.dev/game-id=${gameId}`,
     );
 
