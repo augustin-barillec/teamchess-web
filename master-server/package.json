@@ -4,8 +4,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "build": "tsc -b tsconfig.json",
-    "docker-build": "docker build -t teamchess-allocator:local -f master-server/Dockerfile ."
+    "build": "tsc -b tsconfig.json"
   },
   "dependencies": {
     "@kubernetes/client-node": "^0.20.0",

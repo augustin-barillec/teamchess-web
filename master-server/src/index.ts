@@ -68,7 +68,7 @@ app.post('/allocate', async (req, res) => {
     const allocationResult = result.body as any;
 
     if (allocationResult.status.state === 'Allocated') {
-      const address = process.env.GAMESERVER_ADDRESS_OVERRIDE || allocationResult.status.address;
+      const address = allocationResult.status.address;
       const port = allocationResult.status.ports[0].port;
       console.log(`Successfully allocated GameServer: ${address}:${port}`);
       res.status(200).json({ address, port });

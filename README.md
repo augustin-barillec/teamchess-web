@@ -1,6 +1,3 @@
-Of course, here is the complete `README.md` file, ready to copy and paste.
-
-````markdown
 # TeamChess ♟️
 
 TeamChess is a real-time, collaborative multiplayer chess application where teams of players vote on the best move for their side. This project is a full-stack monorepo featuring a React frontend and a scalable backend using Node.js game servers orchestrated by Agones on Google Kubernetes Engine.
@@ -43,14 +40,11 @@ If you have a previous Minikube cluster, it's best to start fresh to ensure the 
 ```bash
 minikube delete
 ```
-````
 
-### Step 2: Start Minikube with Port Mapping
-
-This is the most critical step. The `--ports` flag creates a direct network bridge from your local machine into the cluster, which is essential for connecting to the game servers.
+### Step 2: Start Minikube
 
 ```bash
-minikube start --driver=docker --ports=7000-8000:7000-8000
+minikube start --driver=docker
 ```
 
 ### Step 3: Install Agones
@@ -62,7 +56,7 @@ Install the Agones game server orchestrator onto your new cluster.
 kubectl create namespace agones-system
 
 # Install Agones from the official YAML
-kubectl create -f [https://raw.githubusercontent.com/googleforgames/agones/release-1.38.0/install/yaml/install.yaml](https://raw.githubusercontent.com/googleforgames/agones/release-1.38.0/install/yaml/install.yaml)
+kubectl create -f https://raw.githubusercontent.com/googleforgames/agones/release-1.38.0/install/yaml/install.yaml
 ```
 
 Wait for the Agones pods to be running by checking `kubectl get pods -n agones-system`.
@@ -124,6 +118,56 @@ npm run dev --workspace=client
 Now, you can open your browser to `http://localhost:5173` and play the game\!
 
 ---
+
+### How to Update the `master-server` (Allocator)
+
+The allocator is a standard Kubernetes `Deployment`.
+
+**Step 1: Rebuild the Docker Image**
+First, make sure your shell is connected to Minikube's Docker daemon. Then, rebuild the image. This command replaces your old `teamchess-allocator:local` image with a new one containing your code changes.
+
+```bash
+# Ensure you are connected to Minikube's Docker
+eval $(minikube -p minikube docker-env)
+
+# Rebuild the image
+docker build -t teamchess-allocator:local -f master-server/Dockerfile .
+```
+
+**Step 2: Restart the Deployment**
+Now, tell Kubernetes to restart the `allocator-service` deployment. This will gracefully terminate the old pod and create a new one based on the new image you just built.
+
+```bash
+kubectl rollout restart deployment allocator-service
+```
+
+You can watch the new pod come up with `kubectl get pods -w`.
+
+---
+
+### How to Update the `server` (Game Server)
+
+The game server is managed by an Agones `Fleet`. The process is similar but slightly different.
+
+**Step 1: Rebuild the Docker Image**
+First, rebuild the game server image to include your changes.
+
+```bash
+# Ensure you are connected to Minikube's Docker
+eval $(minikube -p minikube docker-env)
+
+# Rebuild the image
+docker build -t teamchess-server:local -f server/Dockerfile .
+```
+
+**Step 2: Restart the Fleet Pods**
+For a `Fleet`, the easiest way to force an update with a `:local` tag is to delete the existing pods. The Agones Fleet Controller will automatically detect that the pods are missing and will create new ones using the latest version of the `teamchess-server:local` image.
+
+```bash
+kubectl delete pods -l agones.dev/fleet=teamchess-fleet
+```
+
+You can watch the old pods terminate and the new ones become `Ready` with `kubectl get gameservers -w`.
 
 ## Production Deployment on GKE
 
