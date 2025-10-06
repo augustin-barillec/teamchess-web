@@ -13,10 +13,9 @@ import {
   GameStatus,
   MAX_PLAYERS_PER_GAME,
   GameVisibility,
-  GlobalStats, // Kept for potential future use, but not fetched in this flow
+  GlobalStats,
 } from '@teamchess/shared';
 
-// STORAGE_KEYS remains the same
 const STORAGE_KEYS = {
   pid: 'tc:pid',
   name: 'tc:name',
@@ -24,7 +23,6 @@ const STORAGE_KEYS = {
   side: 'tc:side',
 } as const;
 
-// reasonMessages, pieceToFigurine remain the same
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
@@ -41,6 +39,7 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
+
 const pieceToFigurineWhite: Record<string, string> = {
   K: '♔',
   Q: '♕',
@@ -49,6 +48,7 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: '♘',
   P: '♙',
 };
+
 const pieceToFigurineBlack: Record<string, string> = {
   K: '♚',
   Q: '♛',
@@ -65,10 +65,10 @@ export default function App() {
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
 
-  // Player and Game state (mostly from original GameClient)
+  // Player and Game state
   const [myId, setMyId] = useState<string>(sessionStorage.getItem(STORAGE_KEYS.pid) || '');
   const [name, setName] = useState(sessionStorage.getItem(STORAGE_KEYS.name) || '');
-  const [gameId, setGameId] = useState(''); // This will be set by the server
+  const [gameId, setGameId] = useState('');
   const [side, setSide] = useState<'spectator' | 'white' | 'black'>(
     (sessionStorage.getItem(STORAGE_KEYS.side) as 'spectator' | 'white' | 'black') || 'spectator',
   );
@@ -104,7 +104,10 @@ export default function App() {
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
 
-  // --- DERIVED STATE & MEMOS --- (identical to original)
+  // NEW: State for the join game ID input
+  const [joinGameId, setJoinGameId] = useState('');
+
+  // --- DERIVED STATE & MEMOS ---
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
   const kingInCheckSquare = useMemo(() => {
@@ -163,7 +166,6 @@ export default function App() {
   );
 
   // --- EFFECTS ---
-  // Resize observers and simple effects are the same
   useEffect(() => {
     const observer = new ResizeObserver(entries => {
       if (entries[0]) setBoardWidth(entries[0].contentRect.width);
@@ -199,60 +201,80 @@ export default function App() {
     }
   }, [players, myId]);
 
-  // --- NEW: ALLOCATION AND CONNECTION LOGIC ---
-  const allocateAndConnect = async () => {
-    if (!name.trim()) {
-      return toast.error('Please enter your name first.');
-    }
+  // --- CONNECTION & SOCKET LOGIC ---
+  const connectToServer = (address: string, port: number) => {
+    const serverAddress = `ws://${address}:${port}`;
+    const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
+    sessionStorage.setItem(STORAGE_KEYS.name, name);
+    const s = io(serverAddress, {
+      auth: { pid: storedPid, name },
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 2000,
+      randomizationFactor: 0.2,
+    });
+    setSocket(s);
+  };
+
+  const createGame = async () => {
+    if (!name.trim()) return toast.error('Please enter your name first.');
     setIsAllocating(true);
-    toast.loading('Finding a game server...');
+    toast.loading('Creating a new game...');
 
     try {
-      // Use an environment variable for the allocator URL
       const allocatorUrl = import.meta.env.VITE_ALLOCATOR_URL || 'http://localhost:4000';
-      const response = await fetch(`${allocatorUrl}/allocate`, { method: 'POST' });
-
+      const response = await fetch(`${allocatorUrl}/create`, { method: 'POST' });
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.error || 'Failed to allocate a server.');
+        throw new Error(err.error || 'Failed to create a game server.');
       }
 
-      const { address, port } = await response.json();
-      const serverAddress = `ws://${address}:${port}`;
-
-      const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
-      sessionStorage.setItem(STORAGE_KEYS.name, name);
-
-      const s = io(serverAddress, {
-        auth: { pid: storedPid, name },
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 500,
-        reconnectionDelayMax: 2000,
-        randomizationFactor: 0.2,
-      });
-
-      setSocket(s); // This will trigger the useEffect below to set up listeners
+      const { address, port, gameId: newGameId } = await response.json();
+      setGameId(newGameId);
+      connectToServer(address, port);
     } catch (err: any) {
-      console.error('Allocation failed:', err);
+      console.error('Creation failed:', err);
       toast.dismiss();
       toast.error(err.message || 'Could not connect to the allocator service.');
       setIsAllocating(false);
     }
   };
 
-  // This effect runs ONCE when the `socket` object is created.
+  const joinGame = async () => {
+    if (!name.trim() || !joinGameId.trim()) {
+      return toast.error('Please enter your name and a Game ID.');
+    }
+    setIsAllocating(true);
+    toast.loading(`Finding game ${joinGameId}...`);
+
+    try {
+      const allocatorUrl = import.meta.env.VITE_ALLOCATOR_URL || 'http://localhost:4000';
+      const response = await fetch(`${allocatorUrl}/join/${joinGameId.trim()}`);
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to find the game.');
+      }
+
+      const { address, port } = await response.json();
+      connectToServer(address, port);
+    } catch (err: any) {
+      console.error('Join failed:', err);
+      toast.dismiss();
+      toast.error(err.message || 'Could not find that game.');
+      setIsAllocating(false);
+    }
+  };
+
   useEffect(() => {
     if (!socket) return;
 
     toast.dismiss();
     toast.success('Connected!');
 
-    // --- SETUP SOCKET LISTENERS (mostly from original GameClient) ---
     socket.on('connect', () => setAmDisconnected(false));
     socket.on('disconnect', () => setAmDisconnected(true));
     socket.on('error', (data: { message: string }) => toast.error(data.message));
-
     socket.on('session', ({ id, name: serverName }: { id: string; name: string }) => {
       setMyId(id);
       sessionStorage.setItem(STORAGE_KEYS.pid, id);
@@ -260,9 +282,7 @@ export default function App() {
         sessionStorage.setItem(STORAGE_KEYS.name, serverName);
       }
     });
-
     socket.on('players', (p: Players) => setPlayers(p));
-
     socket.on(
       'game_started',
       ({ moveNumber, side, visibility, gameId: newGameId }: GameInfo & { gameId: string }) => {
@@ -277,7 +297,6 @@ export default function App() {
         if (newGameId) setGameId(newGameId);
       },
     );
-
     socket.on('game_reset', () => {
       setGameStatus(GameStatus.Lobby);
       setWinner(null);
@@ -290,7 +309,6 @@ export default function App() {
       setLastMoveSquares(null);
       setDrawOffer(null);
     });
-
     socket.on('clock_update', ({ whiteTime, blackTime }) => setClocks({ whiteTime, blackTime }));
     socket.on('position_update', ({ fen }) => {
       chess.load(fen);
@@ -324,7 +342,7 @@ export default function App() {
       setTurns(ts =>
         ts.map(t =>
           t.moveNumber === moveNumber && t.side === side
-            ? { ...t, proposals: t.proproposals.filter(p => p.id !== id) }
+            ? { ...t, proposals: t.proposals.filter(p => p.id !== id) }
             : t,
         ),
       ),
@@ -365,13 +383,12 @@ export default function App() {
     socket.on('game_visibility_update', ({ visibility }: { visibility: GameVisibility }) =>
       setVisibility(visibility),
     );
-
     return () => {
       socket.disconnect();
     };
   }, [socket, chess]);
 
-  // --- GAME ACTIONS --- (identical to original, just using the `socket` from state)
+  // --- GAME ACTIONS ---
   const resetLocalGameState = () => {
     setGameStatus(GameStatus.Lobby);
     setWinner(null);
@@ -398,6 +415,7 @@ export default function App() {
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
+
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -407,21 +425,28 @@ export default function App() {
     else chosen = Math.random() < 0.5 ? 'white' : 'black';
     joinSide(chosen);
   };
+
   const joinSpectator = () => joinSide('spectator');
+
   const resignGame = () => {
     if (window.confirm('Are you sure you want to resign for your team?')) socket?.emit('resign');
   };
+
   const offerDraw = () => {
     if (window.confirm('Are you sure you want to offer a draw for your team?'))
       socket?.emit('offer_draw');
   };
+
   const acceptDraw = () => {
     if (window.confirm('Accept the draw offer for your team?')) socket?.emit('accept_draw');
   };
+
   const rejectDraw = () => {
     if (window.confirm('Reject the draw offer for your team?')) socket?.emit('reject_draw');
   };
+
   const startGame = () => socket?.emit('start_game');
+
   const resetGame = () => {
     if (window.confirm('Are you sure you want to reset the game?')) {
       socket?.emit('reset_game', (res: { success: boolean; error?: string }) => {
@@ -429,6 +454,7 @@ export default function App() {
       });
     }
   };
+
   const submitMove = (lan: string) => {
     if (!socket) return;
     socket.emit('play_move', lan, (res: { error?: string }) => {
@@ -438,6 +464,7 @@ export default function App() {
       }
     });
   };
+
   const onPromote = (promotionPiece: 'q' | 'r' | 'b' | 'n') => {
     if (!promotionMove) return;
     const { from, to } = promotionMove;
@@ -445,13 +472,16 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
+
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== 'p') return false;
     const rank = to[1];
     return piece.color === 'w' ? rank === '8' : rank === '1';
   }
+
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
+
   const copyPgn = () => {
     if (!pgn) return;
     navigator.clipboard
@@ -460,7 +490,7 @@ export default function App() {
       .catch(() => toast.error('Could not copy PGN.'));
   };
 
-  // --- UI COMPONENTS --- (identical, just moved inside App)
+  // --- UI COMPONENTS ---
   const DisconnectedIcon = () => (
     <svg
       viewBox="0 0 24 24"
@@ -759,10 +789,9 @@ export default function App() {
       )}
 
       {!socket ? (
-        // --- NEW LOBBY VIEW ---
         <div className="login-box">
           <h1>TeamChess</h1>
-          <h4>Enter your name and find a game</h4>
+
           <div className="input-group">
             <input
               placeholder="Your name"
@@ -771,17 +800,32 @@ export default function App() {
               disabled={isAllocating}
             />
           </div>
+
           <div className="input-group">
-            <button onClick={allocateAndConnect} disabled={isAllocating || !name.trim()}>
-              {isAllocating ? 'Finding Game...' : '🚀 Find & Join Game'}
+            <button onClick={createGame} disabled={isAllocating || !name.trim()}>
+              {isAllocating ? 'Creating...' : '🚀 Create Private Game'}
             </button>
           </div>
-          <p style={{ marginTop: '1rem', fontSize: '0.9em', color: '#555' }}>
-            This will automatically connect you to an available game server.
-          </p>
+
+          <hr style={{ margin: '20px 0', borderTop: '1px solid #eee' }} />
+
+          <h4>Or join an existing game</h4>
+          <div className="input-group">
+            <input
+              placeholder="Enter Game ID (e.g., BLUE-CAT-7)"
+              value={joinGameId}
+              onChange={e => setJoinGameId(e.target.value.toUpperCase())}
+              disabled={isAllocating}
+            />
+            <button
+              onClick={joinGame}
+              disabled={isAllocating || !joinGameId.trim() || !name.trim()}
+            >
+              {isAllocating ? 'Joining...' : '🔗 Join Game'}
+            </button>
+          </div>
         </div>
       ) : (
-        // --- MAIN GAME VIEW (largely original) ---
         <div className="app-container">
           <div className="header-bar">
             <h1>TeamChess</h1>
@@ -892,7 +936,7 @@ export default function App() {
               />
               <div ref={boardContainerRef} className="board-wrapper">
                 {' '}
-                <Chessboard options={boardOptions} /> <PromotionDialog />{' '}
+                <Chessboard {...boardOptions} /> <PromotionDialog />{' '}
               </div>
               <PlayerInfoBox
                 clockTime={orientation === 'white' ? clocks.whiteTime : clocks.blackTime}

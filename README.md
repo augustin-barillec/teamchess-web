@@ -147,7 +147,7 @@ You can watch the new pod come up with `kubectl get pods -w`.
 
 ### How to Update the `server` (Game Server)
 
-The game server is managed by an Agones `Fleet`. The process is similar but slightly different.
+The game server is managed by an Agones `Fleet`. The process is similar to updating the allocator but uses a different resource type.
 
 **Step 1: Rebuild the Docker Image**
 First, rebuild the game server image to include your changes.
@@ -160,14 +160,14 @@ eval $(minikube -p minikube docker-env)
 docker build -t teamchess-server:local -f server/Dockerfile .
 ```
 
-**Step 2: Restart the Fleet Pods**
-For a `Fleet`, the easiest way to force an update with a `:local` tag is to delete the existing pods. The Agones Fleet Controller will automatically detect that the pods are missing and will create new ones using the latest version of the `teamchess-server:local` image.
+**Step 2: Update the Fleet's GameServers**
+For an Agones `Fleet`, the correct way to force an update with a `:local` image tag is to delete the **`GameServer`** resources it manages. The Fleet controller will automatically detect that they are missing and create new ones using the latest version of the `teamchess-server:local` image.
 
 ```bash
-kubectl delete pods -l agones.dev/fleet=teamchess-fleet
+kubectl delete gameservers -l agones.dev/fleet=teamchess-fleet
 ```
 
-You can watch the old pods terminate and the new ones become `Ready` with `kubectl get gameservers -w`.
+You can watch the old `GameServers` terminate and the new ones become `Ready` with `kubectl get gameservers -w`.
 
 ## Production Deployment on GKE
 

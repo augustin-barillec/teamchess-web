@@ -17,7 +17,7 @@ const sdk = new AgonesSDK();
 
 // --- Constants ---
 const DISCONNECT_GRACE_MS = 20000;
-const SHUTDOWN_GRACE_MS = 30000; // Time to wait after game is empty before shutting down
+const SHUTDOWN_GRACE_MS = 30000;
 const STOCKFISH_SEARCH_DEPTH = 15;
 const stockfishPath = path.join(
   __dirname,
@@ -31,7 +31,6 @@ const stockfishPath = path.join(
 // --- Types ---
 type Side = 'white' | 'black' | 'spectator';
 type PlayerSide = 'white' | 'black';
-
 type Session = {
   pid: string;
   name: string;
@@ -39,7 +38,6 @@ type Session = {
   reconnectTimer?: NodeJS.Timeout;
 };
 
-// Simplified state for a single-game-instance server
 interface GameState {
   gameId: string;
   whiteIds: Set<string>;
@@ -61,7 +59,6 @@ interface GameState {
 }
 
 // --- Server State ---
-// This server instance will only ever host ONE game.
 const sessions = new Map<string, Session>();
 let gameState: GameState | null = null;
 
@@ -72,14 +69,12 @@ const io = new Server(server, {
   pingInterval: 5000,
   pingTimeout: 5000,
 });
-
 const loadEngine = require('../load_engine.cjs') as (enginePath: string) => {
   send(cmd: string, cb?: (data: string) => void, stream?: (data: string) => void): void;
   quit(): void;
 };
 
-// --- Core Game Logic (largely from original file) ---
-
+// --- Core Game Logic ---
 function countPlayersInGame(): number {
   return sessions.size;
 }
@@ -96,18 +91,15 @@ function broadcastPlayers(gameId: string) {
       .map(sid => io.sockets.sockets.get(sid)?.data.pid as string | undefined)
       .filter((pid): pid is string => Boolean(pid)),
   );
-
   const spectators: Player[] = [];
   const whitePlayers: Player[] = [];
   const blackPlayers: Player[] = [];
-
   for (const sess of sessions.values()) {
     const p: Player = { id: sess.pid, name: sess.name, connected: onlinePids.has(sess.pid) };
     if (sess.side === 'white') whitePlayers.push(p);
     else if (sess.side === 'black') blackPlayers.push(p);
     else spectators.push(p);
   }
-
   io.in(gameId).emit('players', { spectators, whitePlayers, blackPlayers });
 }
 
@@ -122,9 +114,8 @@ function sendSystemMessage(gameId: string, message: string) {
 
 function endGame(reason: string, winner: string | null = null) {
   if (!gameState || gameState.status === GameStatus.Over) return;
-
   if (gameState.timerInterval) clearInterval(gameState.timerInterval);
-  gameState.engine.quit(); // Clean up the engine process
+  gameState.engine.quit();
   gameState.status = GameStatus.Over;
   gameState.endReason = reason;
   gameState.endWinner = winner;
@@ -137,12 +128,10 @@ function endGame(reason: string, winner: string | null = null) {
 function startClock() {
   if (!gameState || gameState.status !== GameStatus.Active) return;
   if (gameState.timerInterval) clearInterval(gameState.timerInterval);
-
   io.in(gameState.gameId).emit('clock_update', {
     whiteTime: gameState.whiteTime,
     blackTime: gameState.blackTime,
   });
-
   gameState.timerInterval = setInterval(() => {
     if (!gameState) return;
     if (gameState.side === 'white') gameState.whiteTime--;
@@ -202,7 +191,6 @@ function tryFinalizeTurn() {
 
     const candidates = entries.map(([, { lan }]) => lan);
     const currentFen = gameState.chess.fen();
-
     chooseBestMove(gameState.engine, currentFen, candidates).then(selLan => {
       if (!gameState) return;
       const from = selLan.slice(0, 2);
@@ -239,7 +227,6 @@ function tryFinalizeTurn() {
         san: move.san,
         fen,
       });
-
       if (gameState.chess.isGameOver()) {
         let reason: string;
         let winner: 'white' | 'black' | null = null;
@@ -283,7 +270,6 @@ function endIfOneSided() {
 // --- Agones Shutdown Logic ---
 function checkAndShutdown() {
   if (!gameState) return;
-  // If a shutdown is already scheduled, don't schedule another one.
   if (gameState.shutdownTimer) {
     return;
   }
@@ -292,7 +278,6 @@ function checkAndShutdown() {
       console.log('Game is empty. Shutting down via Agones SDK.');
       sdk.shutdown();
     } else {
-      // Players re-joined, cancel the shutdown.
       if (gameState) gameState.shutdownTimer = undefined;
     }
   }, SHUTDOWN_GRACE_MS);
@@ -308,7 +293,6 @@ function cancelShutdown() {
 }
 
 // --- Socket Event Handlers ---
-
 function leave(this: Socket, explicit = false) {
   const socket = this;
   const pid = socket.data.pid as string | undefined;
@@ -318,7 +302,6 @@ function leave(this: Socket, explicit = false) {
 
   const finalize = () => {
     if (gameState) {
-      // Cleanup game-specific state
       gameState.proposals.delete(pid);
       if (sess.side === 'white') gameState.whiteIds.delete(pid);
       if (sess.side === 'black') gameState.blackIds.delete(pid);
@@ -331,8 +314,6 @@ function leave(this: Socket, explicit = false) {
       tryFinalizeTurn();
     }
     broadcastPlayers(gameState!.gameId);
-
-    // If this was the last player, schedule a shutdown
     if (countPlayersInGame() === 0) {
       checkAndShutdown();
     }
@@ -345,7 +326,6 @@ function leave(this: Socket, explicit = false) {
     return;
   }
 
-  // Handle disconnect with grace period
   if (sess.reconnectTimer) clearTimeout(sess.reconnectTimer);
   sess.reconnectTimer = setTimeout(() => {
     sessions.delete(pid);
@@ -360,8 +340,6 @@ io.on('connection', (socket: Socket) => {
   const { pid: providedPid, name: providedName } =
     (socket.handshake.auth as { pid?: string; name?: string }) || {};
 
-  // This server is already allocated, so if it's full, something is wrong with the allocator.
-  // But as a safeguard:
   if (countPlayersInGame() >= MAX_PLAYERS_PER_GAME && !sessions.has(providedPid || '')) {
     socket.emit('error', { message: 'This game is full.' });
     socket.disconnect(true);
@@ -374,7 +352,7 @@ io.on('connection', (socket: Socket) => {
   if (!sess) {
     sess = { pid, name: providedName || 'Guest', side: 'spectator' };
     sessions.set(pid, sess);
-    cancelShutdown(); // A new player joined, so cancel any pending shutdown.
+    cancelShutdown();
   } else {
     if (sess.reconnectTimer) {
       clearTimeout(sess.reconnectTimer);
@@ -390,13 +368,18 @@ io.on('connection', (socket: Socket) => {
   socket.join(gameState!.gameId);
   socket.emit('session', { id: pid, name: sess.name });
 
-  // Sync the client with the current game state
-  socket.emit('game_visibility_update', { visibility: gameState!.visibility });
+  socket.emit('game_status_update', {
+    status: gameState!.status,
+    visibility: gameState!.visibility,
+    gameId: gameState!.gameId, // Always send the gameId on connect
+  });
+
   if (gameState!.status === GameStatus.Active || gameState!.status === GameStatus.Over) {
     socket.emit('game_started', {
       moveNumber: gameState!.moveNumber,
       side: gameState!.side,
       visibility: gameState!.visibility,
+      gameId: gameState!.gameId,
     });
     socket.emit('position_update', { fen: gameState!.chess.fen() });
     socket.emit('clock_update', {
@@ -413,11 +396,6 @@ io.on('connection', (socket: Socket) => {
         pgn: getCleanPgn(gameState!.chess),
       });
     }
-  } else {
-    socket.emit('game_status_update', {
-      status: gameState!.status,
-      visibility: gameState!.visibility,
-    });
   }
 
   broadcastPlayers(gameState!.gameId);
@@ -467,6 +445,7 @@ io.on('connection', (socket: Socket) => {
       moveNumber: 1,
       side: 'white',
       visibility: gameState.visibility,
+      gameId: gameState.gameId,
     });
     io.in(gameState.gameId).emit('position_update', { fen: gameState.chess.fen() });
     startClock();
@@ -478,7 +457,6 @@ io.on('connection', (socket: Socket) => {
     if (!gameState) return cb?.({ error: 'Game not found.' });
 
     if (gameState.timerInterval) clearInterval(gameState.timerInterval);
-    // Re-initialize the game state but keep players and visibility
     const engine = loadEngine(stockfishPath);
     engine.send('uci');
 
@@ -602,16 +580,16 @@ io.on('connection', (socket: Socket) => {
 });
 
 // --- Main Server Function ---
-
 async function startServer() {
   try {
     console.log('Connecting to Agones SDK...');
     await sdk.connect();
     console.log('Successfully connected to Agones SDK.');
 
-    // The game server is allocated, now let's initialize the game state
     const gameServer = await sdk.getGameServer();
-    const gameId = gameServer.objectMeta.name; // Use the pod name as the unique game ID
+    const podName = gameServer.objectMeta.name;
+    const labels = Object.fromEntries(gameServer.objectMeta.labelsMap);
+    const gameId = labels['teamchess.dev/game-id'] || podName;
 
     const engine = loadEngine(stockfishPath);
     engine.send('uci');
@@ -628,19 +606,18 @@ async function startServer() {
       engine,
       chess: new Chess(),
       status: GameStatus.Lobby,
-      visibility: GameVisibility.Private, // Default visibility
+      visibility: GameVisibility.Private,
     };
 
     const PORT = process.env.PORT || 3001;
     server.listen(PORT, async () => {
       console.log(`Game server listening on port ${PORT}`);
-      console.log(`Game ID (Pod Name): ${gameId}`);
+      console.log(`Public Game ID: ${gameId}`);
+      console.log(`Internal Pod Name: ${podName}`);
 
-      // Signal to Agones that this server is ready to accept players
       await sdk.ready();
       console.log('Server is READY.');
 
-      // Start sending health pings
       setInterval(() => {
         sdk.health(err => {
           if (err) {
@@ -651,7 +628,6 @@ async function startServer() {
     });
   } catch (error) {
     console.error('Failed to connect to Agones SDK or start the server:', error);
-    // If we can't connect to the SDK, we should exit so Agones can mark this pod as Unhealthy.
     process.exit(1);
   }
 }
