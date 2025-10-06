@@ -242,6 +242,7 @@ export default function App() {
       }
 
       const { address, port } = await response.json();
+      setGameId(joinGameId.trim());
       connectToServer(address, port);
     } catch (err: any) {
       console.error('Join failed:', err);
