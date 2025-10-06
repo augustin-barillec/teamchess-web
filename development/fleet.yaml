@@ -10,6 +10,7 @@ spec:
       - name: default
         portPolicy: Dynamic # Agones will assign a free port on the host node
         containerPort: 3001 # The port your Node.js game server listens on
+        protocol: TCP
       template:
         spec:
           containers:

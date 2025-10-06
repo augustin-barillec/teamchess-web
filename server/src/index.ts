@@ -3,7 +3,7 @@ import { Server, Socket } from 'socket.io';
 import { nanoid } from 'nanoid';
 import { Chess } from 'chess.js';
 import path from 'path';
-import { AgonesSDK } from '@google-cloud/agones-sdk';
+import AgonesSDK from '@google-cloud/agones-sdk';
 import {
   Player,
   EndReason,
@@ -641,7 +641,13 @@ async function startServer() {
       console.log('Server is READY.');
 
       // Start sending health pings
-      setInterval(() => sdk.health(), 20000);
+      setInterval(() => {
+        sdk.health(err => {
+          if (err) {
+            console.error('Agones health check failed:', err);
+          }
+        });
+      }, 10000);
     });
   } catch (error) {
     console.error('Failed to connect to Agones SDK or start the server:', error);

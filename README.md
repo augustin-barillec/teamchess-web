@@ -1,3 +1,6 @@
+Of course, here is the complete `README.md` file, ready to copy and paste.
+
+````markdown
 # TeamChess ♟️
 
 TeamChess is a real-time, collaborative multiplayer chess application where teams of players vote on the best move for their side. This project is a full-stack monorepo featuring a React frontend and a scalable backend using Node.js game servers orchestrated by Agones on Google Kubernetes Engine.
@@ -9,7 +12,6 @@ TeamChess is a real-time, collaborative multiplayer chess application where team
 - **Move by Committee**: Players propose moves, and the team's most popular or engine-verified best move is played.
 - **Spectator Mode**: Join games to watch the action unfold without participating.
 - **In-Game Chat**: Communicate with other players and spectators in the game room.
-- **Game Visibility**: Control game privacy with **Public**, **Private**, or **Closed** settings.
 
 ---
 
@@ -19,96 +21,111 @@ TeamChess is a real-time, collaborative multiplayer chess application where team
 - **Backend (Game Server)**: Node.js, TypeScript, Socket.IO, `chess.js`, orchestrated by **Agones**.
 - **Backend (Allocator Service)**: Node.js, TypeScript, and Express, acting as a stateless service to allocate game servers via the Agones API.
 - **Monorepo Management**: npm Workspaces for managing shared code and dependencies.
-- **Deployment**: Docker, **Google Kubernetes Engine (GKE)**, **Agones**.
+- **Infrastructure**: Docker, **Minikube** (for local development), **Google Kubernetes Engine (GKE)** (for production).
 
 ---
 
-## Repository Structure
+## Local Development Environment Setup
 
-The project is a monorepo organized into several key packages:
+This guide provides a reliable method for running the complete application stack locally using Minikube.
 
-- `shared/`: Contains shared types and constants used across the client and servers.
-- `client/`: The React frontend application.
-- `server/`: The core game server (Socket.IO, chess logic), now integrated with the Agones SDK.
-- `master-server/`: The allocator service that handles requests for new game servers.
-- `development/`: Contains Kubernetes manifests for the local development environment.
+### Prerequisites
 
----
+- **Docker**: For running containers.
+- **Node.js**: Version 22 or higher.
+- **kubectl**: For interacting with Kubernetes.
+- **Minikube**: For running a local Kubernetes cluster.
 
-## Getting Started (Local Development)
+### Step 1: Clean Up Previous Environments (Optional)
 
-To run the stack locally, you need **Docker**, **Node.js v22+**, **kubectl**, and a local Kubernetes cluster tool like **Minikube** or **Kind**.
-
-### 1\. Clone the Repository
+If you have a previous Minikube cluster, it's best to start fresh to ensure the correct network configuration.
 
 ```bash
-git clone <your-repo-url>
-cd teamchess
+minikube delete
+```
+````
+
+### Step 2: Start Minikube with Port Mapping
+
+This is the most critical step. The `--ports` flag creates a direct network bridge from your local machine into the cluster, which is essential for connecting to the game servers.
+
+```bash
+minikube start --driver=docker --ports=7000-8000:7000-8000
 ```
 
-### 2\. Install Dependencies
+### Step 3: Install Agones
 
-This command will use npm Workspaces to install dependencies for all packages.
+Install the Agones game server orchestrator onto your new cluster.
+
+```bash
+# Create the namespace for Agones
+kubectl create namespace agones-system
+
+# Install Agones from the official YAML
+kubectl create -f [https://raw.githubusercontent.com/googleforgames/agones/release-1.38.0/install/yaml/install.yaml](https://raw.githubusercontent.com/googleforgames/agones/release-1.38.0/install/yaml/install.yaml)
+```
+
+Wait for the Agones pods to be running by checking `kubectl get pods -n agones-system`.
+
+### Step 4: Install Project Dependencies
+
+From the root of the project, install all dependencies for all workspaces.
 
 ```bash
 npm install
 ```
 
-### 3\. Start Local Kubernetes Cluster
+### Step 5: Build and Load Docker Images
 
-Using Minikube as an example:
-
-```bash
-minikube start --driver=docker
-```
-
-### 4\. Install Agones
-
-Follow the official Agones guide to install it on your local cluster.
+Build the Docker images for the allocator and the game server and load them into Minikube's internal Docker registry.
 
 ```bash
-kubectl create namespace agones-system
-kubectl apply -f https://raw.githubusercontent.com/googleforgames/agones/release-1.38.0/install/yaml/install.yaml
-```
-
-Wait for all Agones pods in the `agones-system` namespace to be running.
-
-### 5\. Build and Load Docker Images
-
-Build the server and allocator images and load them into your Minikube cluster.
-
-```bash
-# Point your local Docker client to the Minikube's Docker daemon
+# Point your shell to Minikube's Docker daemon
 eval $(minikube -p minikube docker-env)
 
-# Build images (they are now available within Minikube)
-docker build -t teamchess-server:local -f server/Dockerfile .
+# Build the images
 docker build -t teamchess-allocator:local -f master-server/Dockerfile .
+docker build -t teamchess-server:local -f server/Dockerfile .
 ```
 
-### 6\. Deploy to Local Cluster
+### Step 6: Deploy Local Applications to Minikube
 
-Apply the development Kubernetes manifests. (You will need to create these YAML files for the allocator deployment, service, and the Agones fleet).
+Apply the development manifests to deploy your services and the necessary permissions.
 
 ```bash
-# Example
+# Apply permissions for the allocator
+kubectl apply -f development/allocator-rbac.yaml
+
+# Deploy the allocator service
 kubectl apply -f development/allocator-deployment.yaml
+
+# Deploy the game server fleet
 kubectl apply -f development/fleet.yaml
 ```
 
-### 7\. Run the Client
+### Step 7: Run the Application\!
 
-Start the Vite development server for the client.
+You will need two separate terminals for this final step.
+
+**Terminal 1: Port-Forward the Allocator**
+This command creates a tunnel to the allocator service. Keep this terminal open.
+
+```bash
+kubectl port-forward service/allocator-service 4000:4000
+```
+
+**Terminal 2: Start the Frontend Client**
+This starts the Vite development server.
 
 ```bash
 npm run dev --workspace=client
 ```
 
-The client will be available at `http://localhost:5173` (or another port specified by Vite). You will need to port-forward your allocator service to make it accessible to the client.
+Now, you can open your browser to `http://localhost:5173` and play the game\!
 
 ---
 
-## Production Deployment on GKE: Complete Guide
+## Production Deployment on GKE
 
 This guide provides a step-by-step workflow for deploying the entire application to Google Cloud Platform using GKE and Agones.
 

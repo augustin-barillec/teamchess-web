@@ -12,11 +12,15 @@ spec:
       labels:
         app: allocator-service
     spec:
+      serviceAccountName: allocator-sa
       containers:
       - name: allocator
         # Use the local image you built and loaded into Minikube
         image: teamchess-allocator:local
         imagePullPolicy: Never # Important: Prevents K8s from trying to pull from a remote registry
+        env:
+        - name: GAMESERVER_ADDRESS_OVERRIDE
+          value: "localhost"
         ports:
         - containerPort: 4000
 ---

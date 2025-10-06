@@ -14,7 +14,7 @@ const k8sCustomApi = kc.makeApiClient(CustomObjectsApi);
 const app = express();
 app.use(express.json());
 
-[cite_start]; // Re-using the same robust CORS configuration from your original file [cite: 368-370]
+// Re-using the same robust CORS configuration from your original file
 const whitelist = ['https://storage.googleapis.com', 'https://www.yokyok.ninja'];
 const corsOptions = {
   origin: function (
@@ -68,7 +68,7 @@ app.post('/allocate', async (req, res) => {
     const allocationResult = result.body as any;
 
     if (allocationResult.status.state === 'Allocated') {
-      const address = allocationResult.status.address;
+      const address = process.env.GAMESERVER_ADDRESS_OVERRIDE || allocationResult.status.address;
       const port = allocationResult.status.ports[0].port;
       console.log(`Successfully allocated GameServer: ${address}:${port}`);
       res.status(200).json({ address, port });
