@@ -15,12 +15,14 @@ import {
   GameVisibility,
   GlobalStats,
 } from '@teamchess/shared';
+
 const STORAGE_KEYS = {
   pid: 'tc:pid',
   name: 'tc:name',
   gameId: 'tc:game',
   side: 'tc:side',
 } as const;
+
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
@@ -37,6 +39,7 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
+
 const pieceToFigurineWhite: Record<string, string> = {
   K: '♔',
   Q: '♕',
@@ -45,6 +48,7 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: '♘',
   P: '♙',
 };
+
 const pieceToFigurineBlack: Record<string, string> = {
   K: '♚',
   Q: '♛',
@@ -53,12 +57,16 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: '♞',
   P: '♟',
 };
+
 export default function App() {
   // --- STATE MANAGEMENT ---
   // Socket and connection state
   const [isAllocating, setIsAllocating] = useState(false);
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [hasSession, setHasSession] = useState(false);
+  const hasSessionRef = useRef(hasSession);
+
   // Player and Game state
   const [myId, setMyId] = useState<string>(sessionStorage.getItem(STORAGE_KEYS.pid) || '');
   const [name, setName] = useState(sessionStorage.getItem(STORAGE_KEYS.name) || '');
@@ -97,8 +105,8 @@ export default function App() {
   const activeTabRef = useRef(activeTab);
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
-  // NEW: State for the join game ID input
   const [joinGameId, setJoinGameId] = useState('');
+
   // --- DERIVED STATE & MEMOS ---
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
@@ -156,7 +164,12 @@ export default function App() {
     () => players.spectators.length + players.whitePlayers.length + players.blackPlayers.length,
     [players],
   );
+
   // --- EFFECTS ---
+  useEffect(() => {
+    hasSessionRef.current = hasSession;
+  }, [hasSession]);
+
   useEffect(() => {
     const observer = new ResizeObserver(entries => {
       if (entries[0]) setBoardWidth(entries[0].contentRect.width);
@@ -164,17 +177,21 @@ export default function App() {
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
   }, []);
+
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener('resize', checkIsMobile);
     return () => window.removeEventListener('resize', checkIsMobile);
   }, []);
+
   useEffect(() => {
     if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
+
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some(p => p.id === myId)
@@ -187,6 +204,7 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId]);
+
   // --- CONNECTION & SOCKET LOGIC ---
   const connectToServer = (address: string, port: number) => {
     const serverAddress = `ws://${address}:${port}`;
@@ -226,6 +244,7 @@ export default function App() {
       setIsAllocating(false);
     }
   };
+
   const joinGame = async () => {
     if (!name.trim() || !joinGameId.trim()) {
       return toast.error('Please enter your name and a Game ID.');
@@ -251,38 +270,51 @@ export default function App() {
       setIsAllocating(false);
     }
   };
+
   useEffect(() => {
     if (!socket) return;
 
-    toast.dismiss();
-    toast.success('Connected!');
+    socket.on('connect', () => {
+      toast.dismiss();
+      setAmDisconnected(false);
+    });
 
-    socket.on('connect', () => setAmDisconnected(false));
-    socket.on('disconnect', () => setAmDisconnected(true));
-    socket.on('error', (data: { message: string }) => toast.error(data.message));
+    socket.on('disconnect', () => {
+      setAmDisconnected(true);
+      if (!hasSessionRef.current) {
+        setSocket(null);
+        setIsAllocating(false);
+      }
+    });
+
+    socket.on('error', (data: { message: string }) => {
+      toast.error(data.message);
+      if (!hasSessionRef.current) {
+        socket.disconnect();
+      }
+    });
+
     socket.on('session', ({ id, name: serverName }: { id: string; name: string }) => {
+      toast.success('Connected!');
+      setHasSession(true);
       setMyId(id);
       sessionStorage.setItem(STORAGE_KEYS.pid, id);
       if (serverName && !sessionStorage.getItem(STORAGE_KEYS.name)) {
         sessionStorage.setItem(STORAGE_KEYS.name, serverName);
       }
     });
+
     socket.on('players', (p: Players) => setPlayers(p));
-    socket.on(
-      'game_started',
-      // MODIFIED: Removed gameId from destructuring
-      ({ moveNumber, side, visibility }: GameInfo) => {
-        setGameStatus(GameStatus.Active);
-        setWinner(null);
-        setEndReason(null);
-        setPgn('');
-        setTurns([{ moveNumber, side, proposals: [] }]);
-        setLastMoveSquares(null);
-        setDrawOffer(null);
-        if (visibility) setVisibility(visibility);
-        // MODIFIED: Removed gameId update
-      },
-    );
+    socket.on('game_started', ({ moveNumber, side, visibility }: GameInfo) => {
+      setGameStatus(GameStatus.Active);
+      setWinner(null);
+      setEndReason(null);
+      setPgn('');
+      setTurns([{ moveNumber, side, proposals: [] }]);
+      setLastMoveSquares(null);
+      setDrawOffer(null);
+      if (visibility) setVisibility(visibility);
+    });
     socket.on('game_reset', () => {
       setGameStatus(GameStatus.Lobby);
       setWinner(null);
@@ -349,11 +381,9 @@ export default function App() {
     });
     socket.on(
       'game_status_update',
-      // MODIFIED: Removed gameId from destructuring
       ({ status, visibility }: { status: GameStatus; visibility?: GameVisibility }) => {
         setGameStatus(status);
         if (visibility) setVisibility(visibility);
-        // MODIFIED: Removed gameId update
       },
     );
     socket.on('draw_offer_update', ({ side }: { side: 'white' | 'black' | null }) =>
@@ -362,10 +392,12 @@ export default function App() {
     socket.on('game_visibility_update', ({ visibility }: { visibility: GameVisibility }) =>
       setVisibility(visibility),
     );
+
     return () => {
       socket.disconnect();
     };
   }, [socket, chess]);
+
   // --- GAME ACTIONS ---
   const resetLocalGameState = () => {
     setGameStatus(GameStatus.Lobby);
@@ -381,17 +413,21 @@ export default function App() {
     setAmDisconnected(false);
     setIsAllocating(false);
   };
+
   const leaveGame = () => {
     socket?.disconnect();
     setSocket(null);
+    setHasSession(false);
     resetLocalGameState();
   };
+
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
     socket?.emit('join_side', { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
+
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -403,6 +439,7 @@ export default function App() {
   };
 
   const joinSpectator = () => joinSide('spectator');
+
   const resignGame = () => {
     if (window.confirm('Are you sure you want to resign for your team?')) socket?.emit('resign');
   };
@@ -415,9 +452,11 @@ export default function App() {
   const acceptDraw = () => {
     if (window.confirm('Accept the draw offer for your team?')) socket?.emit('accept_draw');
   };
+
   const rejectDraw = () => {
     if (window.confirm('Reject the draw offer for your team?')) socket?.emit('reject_draw');
   };
+
   const startGame = () => socket?.emit('start_game');
 
   const resetGame = () => {
@@ -445,6 +484,7 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
+
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== 'p') return false;
@@ -453,6 +493,7 @@ export default function App() {
   }
 
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
+
   const copyPgn = () => {
     if (!pgn) return;
     navigator.clipboard
@@ -481,11 +522,13 @@ export default function App() {
       </g>{' '}
     </svg>
   );
+
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
     const promotionPieces = ['Q', 'R', 'B', 'N'];
     const pieceMap = turnColor === 'w' ? pieceToFigurineWhite : pieceToFigurineBlack;
+
     return (
       <div className="promotion-dialog">
         <h3>Promote to:</h3>
@@ -500,6 +543,7 @@ export default function App() {
       </div>
     );
   };
+
   const boardOptions = {
     position,
     boardOrientation: orientation,
@@ -555,6 +599,7 @@ export default function App() {
       return true;
     },
   };
+
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -582,6 +627,7 @@ export default function App() {
       </div>
     </div>
   );
+
   const TabContent = (
     <div className="info-tabs-content">
       <div className={'tab-panel players-panel ' + (activeTab === 'players' ? 'active' : '')}>
@@ -662,6 +708,7 @@ export default function App() {
                     {' '}
                     {t.proposals.map(p => {
                       const isSel = t.selection!.lan === p.lan;
+
                       return (
                         <li key={p.id}>
                           {' '}
@@ -739,6 +786,7 @@ export default function App() {
       </div>
     </div>
   );
+
   // --- RENDER LOGIC ---
   return (
     <>
@@ -754,11 +802,11 @@ export default function App() {
         </div>
       </div>
 
-      {amDisconnected && (
+      {amDisconnected && hasSession && (
         <div className="offline-banner"> You’re offline. Trying to reconnect… </div>
       )}
 
-      {!socket ? (
+      {!hasSession ? (
         <div className="login-box">
           <h1>TeamChess</h1>
 
