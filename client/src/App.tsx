@@ -379,6 +379,7 @@ export default function App() {
     setLastMoveSquares(null);
     setChatMessages([]);
     setAmDisconnected(false);
+    setIsAllocating(false);
   };
   const leaveGame = () => {
     socket?.disconnect();
