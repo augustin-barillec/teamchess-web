@@ -905,7 +905,7 @@ export default function App() {
               />
               <div ref={boardContainerRef} className="board-wrapper">
                 {' '}
-                <Chessboard {...boardOptions} /> <PromotionDialog />{' '}
+                <Chessboard options={boardOptions} /> <PromotionDialog />{' '}
               </div>
               <PlayerInfoBox
                 clockTime={orientation === 'white' ? clocks.whiteTime : clocks.blackTime}
