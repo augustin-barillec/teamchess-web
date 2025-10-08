@@ -56,7 +56,7 @@ Install the Agones game server orchestrator onto your new cluster.
 kubectl create namespace agones-system
 
 # Install Agones from the official YAML
-kubectl create -f https://raw.githubusercontent.com/googleforgames/agones/release-1.38.0/install/yaml/install.yaml
+kubectl create -f https://raw.githubusercontent.com/googleforgames/agones/release-1.52.0/install/yaml/install.yaml
 ```
 
 Wait for the Agones pods to be running by checking `kubectl get pods -n agones-system`.
