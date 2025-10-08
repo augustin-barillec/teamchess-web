@@ -342,6 +342,12 @@ io.on('connection', (socket: Socket) => {
     return;
   }
 
+  if (gameState!.visibility === GameVisibility.Closed && !sessions.has(providedPid || '')) {
+    socket.emit('error', { message: 'This game is closed to new players.' });
+    socket.disconnect(true);
+    return;
+  }
+
   const pid = providedPid && sessions.has(providedPid) ? providedPid : nanoid();
   let sess = sessions.get(pid);
 
