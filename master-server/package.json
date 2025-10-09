@@ -7,7 +7,7 @@
     "build": "tsc -b tsconfig.json"
   },
   "dependencies": {
-    "@kubernetes/client-node": "^0.20.0",
+    "@kubernetes/client-node": "^1.4.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "nanoid": "^5.0.7"

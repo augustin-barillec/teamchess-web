@@ -51,14 +51,17 @@ app.post('/create', async (req, res) => {
 
   try {
     console.log(`Requesting allocation for new game ID: ${gameId}`);
-    const result = await k8sCustomApi.createNamespacedCustomObject(
-      'allocation.agones.dev',
-      'v1',
-      namespace,
-      'gameserverallocations',
-      gameServerAllocation,
-    );
-    const allocationResult = result.body as any;
+    // --- FIX START ---
+    // The method now expects a single object argument.
+    const result = await k8sCustomApi.createNamespacedCustomObject({
+      group: 'allocation.agones.dev',
+      version: 'v1',
+      namespace: namespace,
+      plural: 'gameserverallocations',
+      body: gameServerAllocation,
+    });
+    // --- FIX END ---
+    const allocationResult = result as any;
 
     if (allocationResult.status.state === 'Allocated') {
       const address = allocationResult.status.address;
@@ -89,19 +92,18 @@ app.get('/join/:gameId', async (req, res) => {
 
   try {
     console.log(`Looking for game with ID: ${gameId}`);
-    const result = await k8sCustomApi.listNamespacedCustomObject(
-      'agones.dev',
-      'v1',
-      namespace,
-      'gameservers',
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      `teamchess.dev/game-id=${gameId}`,
-    );
+    // --- FIX START ---
+    // The method now expects a single object argument.
+    const result = await k8sCustomApi.listNamespacedCustomObject({
+      group: 'agones.dev',
+      version: 'v1',
+      namespace: namespace,
+      plural: 'gameservers',
+      labelSelector: `teamchess.dev/game-id=${gameId}`,
+    });
+    // --- FIX END ---
 
-    const servers = (result.body as any).items;
+    const servers = (result as any).items;
     if (servers.length === 0) {
       return res.status(404).json({ error: 'Game not found.' });
     }

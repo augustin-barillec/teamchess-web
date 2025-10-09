@@ -8,7 +8,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@google-cloud/agones-sdk": "^1.2.0",
+    "@google-cloud/agones-sdk": "^1.52.2",
     "@teamchess/shared": "1.0.0",
     "chess.js": "^1.4.0",
     "cors": "^2.8.5",
