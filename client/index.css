@@ -58,8 +58,7 @@ pre {
   margin: 0 auto;
 }
 
-.offline-banner,
-.searching-banner {
+.offline-banner {
   padding: 6px 10px;
   background: #ffe3e3;
   border: 1px solid #ffb3b3;
@@ -85,38 +84,6 @@ pre {
   flex-grow: 1;
 }
 
-.public-games-list {
-  margin-top: 20px;
-  padding-top: 15px;
-  border-top: 1px solid #eee;
-}
-
-.public-games-list h3 {
-  margin: 0 0 10px 0;
-  font-size: 1.1em;
-}
-
-.public-games-list ul {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.public-games-list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px;
-  background-color: #f9f9f9;
-  border-radius: 4px;
-}
-
-.server-stats {
-  display: block;
-  font-size: 0.8em;
-  color: #555;
-}
-
 .header-bar {
   display: flex;
   flex-wrap: wrap;
@@ -140,10 +107,6 @@ pre {
   flex-grow: 1;
   justify-content: center;
   min-width: 300px;
-}
-.game-id-bar input[readonly] {
-  border: 1px solid transparent;
-  background: none;
 }
 .action-panel {
   display: flex;
@@ -587,13 +550,16 @@ pre {
 
 /* --- NEW: Correctly style the main content area of the overlay --- */
 .mobile-info-overlay .info-tabs-content {
-  flex-grow: 1; /* Allows this element to fill available space */
-  min-height: 0; /* Prevents flexbox overflow issues */
+  flex-grow: 1;
+  /* Allows this element to fill available space */
+  min-height: 0;
+  /* Prevents flexbox overflow issues */
   position: relative; /* Contains the tab panels */
   background: #fdfdfd;
   border: 1px solid #ccc;
   border-bottom: none; /* No border between content and new footer */
-  border-radius: 8px 8px 0 0; /* Rounds the top corners */
+  border-radius: 8px 8px 0 0;
+  /* Rounds the top corners */
   overflow: hidden;
 }
 
@@ -609,49 +575,4 @@ pre {
 .mobile-info-overlay .chat-box-container,
 .mobile-info-overlay .player-lists-container {
   height: 100%;
-}
-
-.stats-display {
-  margin-top: 20px;
-  padding-top: 15px;
-  border-top: 1px solid #eee;
-  font-size: 0.9em;
-  color: #555;
-}
-.stats-display h4 {
-  margin: 0 0 10px 0;
-  font-size: 1.1em;
-  color: #333;
-}
-.stats-display ul {
-  margin-bottom: 10px;
-  padding-left: 5px;
-}
-.stats-display ul:last-child {
-  margin-bottom: 0;
-}
-.stats-display li {
-  padding: 2px 0;
-}
-
-.stats-popover {
-  position: absolute;
-  top: 0px;
-  right: 0px;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  padding: 15px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 200;
-  width: 280px;
-}
-.stats-popover .stats-display {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
-}
-.stats-popover > button {
-  margin-top: 10px;
-  width: 100%;
 }

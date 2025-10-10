@@ -23,12 +23,6 @@ export enum GameVisibility {
   Closed = 'Closed',
 }
 
-export type PublicGame = {
-  gameId: string;
-  playerCount: number;
-  status: GameStatus;
-};
-
 export type GameInfo = {
   moveNumber: number;
   side: 'white' | 'black';
@@ -61,17 +55,3 @@ export enum EndReason {
   Timeout = 'timeout',
   Abandonment = 'abandonment',
 }
-
-export type GlobalStats = {
-  totalUsers: number;
-  loginUsers: number;
-  publicGameUsers: number;
-  privateGameUsers: number;
-  closedGameUsers: number;
-  totalGames: number;
-  publicGames: number;
-  privateGames: number;
-  closedGames: number;
-  maxGames: number;
-  maxUsers: number;
-};
