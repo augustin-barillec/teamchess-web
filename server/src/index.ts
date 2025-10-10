@@ -11,6 +11,7 @@ import {
   MAX_PLAYERS_PER_GAME,
   GameVisibility,
 } from '@teamchess/shared';
+
 // --- Agones SDK Initialization ---
 const sdk = new AgonesSDK();
 
@@ -26,6 +27,7 @@ const stockfishPath = path.join(
   'src',
   'stockfish-nnue-16.js',
 );
+
 // --- Types ---
 type Side = 'white' | 'black' | 'spectator';
 type PlayerSide = 'white' | 'black';
@@ -59,6 +61,7 @@ interface GameState {
 // --- Server State ---
 const sessions = new Map<string, Session>();
 let gameState: GameState | null = null;
+
 // --- Server Setup ---
 const server = http.createServer();
 const io = new Server(server, {
@@ -369,7 +372,6 @@ io.on('connection', (socket: Socket) => {
 
   socket.join(gameState!.gameId);
   socket.emit('session', { id: pid, name: sess.name });
-
   socket.emit('game_status_update', {
     status: gameState!.status,
     visibility: gameState!.visibility,
@@ -561,10 +563,20 @@ io.on('connection', (socket: Socket) => {
     io.in(gameState.gameId).emit('draw_offer_update', { side: null });
     sendSystemMessage(gameState.gameId, `${socket.data.name} rejects the draw offer.`);
   });
-  socket.on('set_game_visibility', ({ visibility }) => {
+  socket.on('set_game_visibility', async ({ visibility }) => {
     if (!gameState) return;
     if (Object.values(GameVisibility).includes(visibility)) {
       gameState.visibility = visibility;
+
+      // --- NEW: Update the GameServer label via the Agones SDK ---
+      try {
+        await sdk.setLabel('visibility', visibility);
+        console.log(`Updated GameServer label 'visibility' to '${visibility}'`);
+      } catch (err) {
+        console.error('Failed to set GameServer label:', err);
+      }
+      // --- END NEW ---
+
       io.in(gameState.gameId).emit('game_visibility_update', { visibility });
       sendSystemMessage(gameState.gameId, `${socket.data.name} set visibility to ${visibility}.`);
     }
@@ -608,6 +620,15 @@ async function startServer() {
 
       await sdk.ready();
       console.log('Server is READY.');
+
+      // --- NEW: Set the initial label when the server is ready ---
+      try {
+        await sdk.setLabel('visibility', gameState.visibility);
+        console.log(`Set initial GameServer label 'visibility' to '${gameState.visibility}'`);
+      } catch (err) {
+        console.error('Failed to set initial GameServer label:', err);
+      }
+      // --- END NEW ---
 
       setInterval(() => {
         sdk.health(err => {
