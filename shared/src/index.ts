@@ -40,7 +40,8 @@ export type Proposal = {
 export type Selection = Proposal & { fen: string };
 export enum GameStatus {
   Lobby = 'Lobby',
-  Active = 'Active',
+  AwaitingProposals = 'AwaitingProposals',
+  FinalizingTurn = 'FinalizingTurn',
   Over = 'Over',
 }
 

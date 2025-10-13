@@ -550,16 +550,13 @@ pre {
 
 /* --- NEW: Correctly style the main content area of the overlay --- */
 .mobile-info-overlay .info-tabs-content {
-  flex-grow: 1;
-  /* Allows this element to fill available space */
-  min-height: 0;
-  /* Prevents flexbox overflow issues */
+  flex-grow: 1; /* Allows this element to fill available space */
+  min-height: 0; /* Prevents flexbox overflow issues */
   position: relative; /* Contains the tab panels */
   background: #fdfdfd;
   border: 1px solid #ccc;
   border-bottom: none; /* No border between content and new footer */
-  border-radius: 8px 8px 0 0;
-  /* Rounds the top corners */
+  border-radius: 8px 8px 0 0; /* Rounds the top corners */
   overflow: hidden;
 }
 

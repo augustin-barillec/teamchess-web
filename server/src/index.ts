@@ -31,6 +31,7 @@ const stockfishPath = path.join(
 // --- Types ---
 type Side = 'white' | 'black' | 'spectator';
 type PlayerSide = 'white' | 'black';
+
 type Session = {
   pid: string;
   name: string;
@@ -56,7 +57,6 @@ interface GameState {
   endWinner?: string | null;
   drawOffer?: 'white' | 'black';
   shutdownTimer?: NodeJS.Timeout;
-  isFinalizing?: boolean;
 }
 
 // --- Server State ---
@@ -127,7 +127,7 @@ function endGame(reason: string, winner: string | null = null) {
 }
 
 function startClock() {
-  if (!gameState || gameState.status !== GameStatus.Active) return;
+  if (!gameState || gameState.status !== GameStatus.AwaitingProposals) return;
   if (gameState.timerInterval) clearInterval(gameState.timerInterval);
   io.in(gameState.gameId).emit('clock_update', {
     whiteTime: gameState.whiteTime,
@@ -172,8 +172,7 @@ async function chooseBestMove(
 }
 
 function tryFinalizeTurn() {
-  // 1. Check the lock at the very beginning
-  if (!gameState || gameState.status !== GameStatus.Active || gameState.isFinalizing) return;
+  if (!gameState || gameState.status !== GameStatus.AwaitingProposals) return;
 
   const room = io.sockets.adapter.rooms.get(gameState.gameId) || new Set<string>();
   const onlinePids = new Set(
@@ -186,8 +185,9 @@ function tryFinalizeTurn() {
   const entries = [...gameState.proposals.entries()].filter(([pid]) => activeConnected.has(pid));
 
   if (activeConnected.size > 0 && entries.length === activeConnected.size) {
-    // 2. Set the lock before starting the async operation
-    gameState.isFinalizing = true;
+    gameState.status = GameStatus.FinalizingTurn;
+    io.in(gameState.gameId).emit('game_status_update', { status: gameState.status });
+
     if (gameState.timerInterval) {
       clearInterval(gameState.timerInterval);
       gameState.timerInterval = undefined;
@@ -195,89 +195,87 @@ function tryFinalizeTurn() {
 
     const candidates = entries.map(([, { lan }]) => lan);
     const currentFen = gameState.chess.fen();
-    chooseBestMove(gameState.engine, currentFen, candidates)
-      .then(selLan => {
-        if (!gameState) return;
-        // This is the try/catch we added previously to prevent crashes
-        try {
-          const from = selLan.slice(0, 2);
-          const to = selLan.slice(2, 4);
-          const params: any = { from, to };
-          if (selLan.length === 5) params.promotion = selLan[4];
+    chooseBestMove(gameState.engine, currentFen, candidates).then(selLan => {
+      if (!gameState) return;
+      try {
+        const from = selLan.slice(0, 2);
+        const to = selLan.slice(2, 4);
+        const params: any = { from, to };
+        if (selLan.length === 5) params.promotion = selLan[4];
 
-          const move = gameState.chess.move(params);
-          if (!move) {
-            console.error(
-              `CRITICAL: An illegal move was selected. FEN: ${currentFen}, Move: ${selLan}`,
-            );
-            return;
+        const move = gameState.chess.move(params);
+        if (!move) {
+          console.error(
+            `CRITICAL: An illegal move was selected. FEN: ${currentFen}, Move: ${selLan}`,
+          );
+          return;
+        }
+        const fen = gameState.chess.fen();
+
+        if (gameState.side === 'white') gameState.whiteTime += 3;
+        else gameState.blackTime += 3;
+
+        io.in(gameState.gameId).emit('clock_update', {
+          whiteTime: gameState.whiteTime,
+          blackTime: gameState.blackTime,
+        });
+
+        const [selPid] = entries.find(([, { lan }]) => lan === selLan)!;
+        const selName = sessions.get(selPid)?.name || 'Player';
+        io.in(gameState.gameId).emit('move_selected', {
+          id: selPid,
+          name: selName,
+          moveNumber: gameState.moveNumber,
+          side: gameState.side,
+          lan: selLan,
+          san: move.san,
+          fen,
+        });
+
+        if (gameState.chess.isGameOver()) {
+          let reason: string;
+          let winner: 'white' | 'black' | null = null;
+          if (gameState.chess.isCheckmate()) {
+            reason = EndReason.Checkmate;
+            winner = gameState.side;
+          } else if (gameState.chess.isStalemate()) {
+            reason = EndReason.Stalemate;
+          } else if (gameState.chess.isThreefoldRepetition()) {
+            reason = EndReason.Threefold;
+          } else if (gameState.chess.isInsufficientMaterial()) {
+            reason = EndReason.Insufficient;
+          } else {
+            reason = EndReason.DrawRule;
           }
-          const fen = gameState.chess.fen();
-
-          if (gameState.side === 'white') gameState.whiteTime += 3;
-          else gameState.blackTime += 3;
-
-          io.in(gameState.gameId).emit('clock_update', {
-            whiteTime: gameState.whiteTime,
-            blackTime: gameState.blackTime,
-          });
-
-          const [selPid] = entries.find(([, { lan }]) => lan === selLan)!;
-          const selName = sessions.get(selPid)?.name || 'Player';
-
-          io.in(gameState.gameId).emit('move_selected', {
-            id: selPid,
-            name: selName,
+          endGame(reason, winner);
+        } else {
+          gameState.proposals.clear();
+          gameState.side = gameState.side === 'white' ? 'black' : 'white';
+          gameState.moveNumber++;
+          gameState.status = GameStatus.AwaitingProposals;
+          io.in(gameState.gameId).emit('turn_change', {
             moveNumber: gameState.moveNumber,
             side: gameState.side,
-            lan: selLan,
-            san: move.san,
-            fen,
           });
-
-          if (gameState.chess.isGameOver()) {
-            let reason: string;
-            let winner: 'white' | 'black' | null = null;
-            if (gameState.chess.isCheckmate()) {
-              reason = EndReason.Checkmate;
-              winner = gameState.side;
-            } else if (gameState.chess.isStalemate()) {
-              reason = EndReason.Stalemate;
-            } else if (gameState.chess.isThreefoldRepetition()) {
-              reason = EndReason.Threefold;
-            } else if (gameState.chess.isInsufficientMaterial()) {
-              reason = EndReason.Insufficient;
-            } else {
-              reason = EndReason.DrawRule;
-            }
-            endGame(reason, winner);
-          } else {
-            gameState.proposals.clear();
-            gameState.side = gameState.side === 'white' ? 'black' : 'white';
-            gameState.moveNumber++;
-            io.in(gameState.gameId).emit('turn_change', {
-              moveNumber: gameState.moveNumber,
-              side: gameState.side,
-            });
-            io.in(gameState.gameId).emit('position_update', { fen });
-            startClock();
-          }
-        } catch (e) {
-          console.error(
-            `CRITICAL: chess.js threw an error on engine's move. FEN: ${currentFen}, Move: ${selLan}`,
-            e,
-          );
+          io.in(gameState.gameId).emit('game_status_update', { status: gameState.status });
+          io.in(gameState.gameId).emit('position_update', { fen });
+          startClock();
         }
-      })
-      .finally(() => {
-        // 3. Release the lock after the operation is completely finished
-        if (gameState) gameState.isFinalizing = false;
-      });
+      } catch (e) {
+        console.error(
+          `CRITICAL: chess.js threw an error on engine's move. FEN: ${currentFen}, Move: ${selLan}`,
+          e,
+        );
+        // Safely revert the state on error
+        gameState.status = GameStatus.AwaitingProposals;
+      }
+    });
   }
 }
 
 function endIfOneSided() {
-  if (!gameState || gameState.status !== GameStatus.Active) return;
+  if (!gameState || gameState.status === GameStatus.Lobby || gameState.status === GameStatus.Over)
+    return;
   const whiteAlive = gameState.whiteIds.size > 0;
   const blackAlive = gameState.blackIds.size > 0;
   if (whiteAlive && blackAlive) return;
@@ -393,14 +391,12 @@ io.on('connection', (socket: Socket) => {
   socket.emit('game_status_update', {
     status: gameState!.status,
     visibility: gameState!.visibility,
-    // MODIFIED: Removed gameId from this payload
   });
-  if (gameState!.status === GameStatus.Active || gameState!.status === GameStatus.Over) {
+  if (gameState!.status !== GameStatus.Lobby) {
     socket.emit('game_started', {
       moveNumber: gameState!.moveNumber,
       side: gameState!.side,
       visibility: gameState!.visibility,
-      // MODIFIED: Removed gameId from this payload
     });
     socket.emit('position_update', { fen: gameState!.chess.fen() });
     socket.emit('clock_update', {
@@ -430,7 +426,7 @@ io.on('connection', (socket: Socket) => {
     currentSess.side = side;
     socket.data.side = side;
 
-    if (gameState.status === GameStatus.Active) {
+    if (gameState.status !== GameStatus.Lobby) {
       if (prevSide === 'white') gameState.whiteIds.delete(pid);
       else if (prevSide === 'black') gameState.blackIds.delete(pid);
 
@@ -443,6 +439,7 @@ io.on('connection', (socket: Socket) => {
     broadcastPlayers(gameState.gameId);
     cb?.({ success: true });
   });
+
   socket.on('start_game', cb => {
     if (!gameState || gameState.status !== GameStatus.Lobby) {
       return cb?.({ error: 'Game cannot be started.' });
@@ -457,7 +454,7 @@ io.on('connection', (socket: Socket) => {
       return cb?.({ error: 'Both teams must have at least one player to start.' });
     }
 
-    gameState.status = GameStatus.Active;
+    gameState.status = GameStatus.AwaitingProposals;
     gameState.whiteIds = whites;
     gameState.blackIds = blacks;
 
@@ -501,9 +498,10 @@ io.on('connection', (socket: Socket) => {
     sendSystemMessage(gameState.gameId, `${socket.data.name} has reset the game.`);
     cb?.({ success: true });
   });
+
   socket.on('play_move', (lan: string, cb) => {
-    if (!gameState || gameState.status !== GameStatus.Active)
-      return cb?.({ error: 'Game not running.' });
+    if (!gameState || gameState.status !== GameStatus.AwaitingProposals)
+      return cb?.({ error: 'Not accepting proposals right now.' });
 
     const active = gameState.side === 'white' ? gameState.whiteIds : gameState.blackIds;
     if (!active.has(pid)) return cb?.({ error: 'Not your turn.' });
@@ -548,8 +546,13 @@ io.on('connection', (socket: Socket) => {
       message: message.trim(),
     });
   });
+
   socket.on('resign', () => {
-    if (!gameState || gameState.status !== GameStatus.Active || socket.data.side === 'spectator')
+    if (
+      !gameState ||
+      gameState.status !== GameStatus.AwaitingProposals ||
+      socket.data.side === 'spectator'
+    )
       return;
     const winner = socket.data.side === 'white' ? 'black' : 'white';
     sendSystemMessage(
@@ -558,47 +561,62 @@ io.on('connection', (socket: Socket) => {
     );
     endGame(EndReason.Resignation, winner);
   });
+
   socket.on('offer_draw', () => {
-    if (!gameState || gameState.status !== GameStatus.Active || socket.data.side === 'spectator')
+    if (
+      !gameState ||
+      gameState.status !== GameStatus.AwaitingProposals ||
+      socket.data.side === 'spectator'
+    )
       return;
     if (gameState.drawOffer) return;
     gameState.drawOffer = socket.data.side;
     io.in(gameState.gameId).emit('draw_offer_update', { side: socket.data.side });
     sendSystemMessage(gameState.gameId, `${socket.data.name} offers a draw.`);
   });
+
   socket.on('accept_draw', () => {
-    if (!gameState || gameState.status !== GameStatus.Active || socket.data.side === 'spectator')
+    if (
+      !gameState ||
+      gameState.status !== GameStatus.AwaitingProposals ||
+      socket.data.side === 'spectator'
+    )
       return;
     if (!gameState.drawOffer || gameState.drawOffer === socket.data.side) return;
     sendSystemMessage(gameState.gameId, `${socket.data.name} accepts the draw offer.`);
     endGame(EndReason.DrawAgreement, null);
   });
+
   socket.on('reject_draw', () => {
-    if (!gameState || gameState.status !== GameStatus.Active || socket.data.side === 'spectator')
+    if (
+      !gameState ||
+      gameState.status !== GameStatus.AwaitingProposals ||
+      socket.data.side === 'spectator'
+    )
       return;
     if (!gameState.drawOffer || gameState.drawOffer === socket.data.side) return;
     gameState.drawOffer = undefined;
     io.in(gameState.gameId).emit('draw_offer_update', { side: null });
     sendSystemMessage(gameState.gameId, `${socket.data.name} rejects the draw offer.`);
   });
+
   socket.on('set_game_visibility', async ({ visibility }) => {
     if (!gameState) return;
     if (Object.values(GameVisibility).includes(visibility)) {
       gameState.visibility = visibility;
 
-      // --- NEW: Update the GameServer label via the Agones SDK ---
       try {
         await sdk.setLabel('visibility', visibility);
         console.log(`Updated GameServer label 'visibility' to '${visibility}'`);
       } catch (err) {
         console.error('Failed to set GameServer label:', err);
       }
-      // --- END NEW ---
 
       io.in(gameState.gameId).emit('game_visibility_update', { visibility });
       sendSystemMessage(gameState.gameId, `${socket.data.name} set visibility to ${visibility}.`);
     }
   });
+
   socket.on('disconnect', () => leave.call(socket, false));
 });
 
@@ -639,14 +657,12 @@ async function startServer() {
       await sdk.ready();
       console.log('Server is READY.');
 
-      // --- NEW: Set the initial label when the server is ready ---
       try {
         await sdk.setLabel('visibility', gameState.visibility);
         console.log(`Set initial GameServer label 'visibility' to '${gameState.visibility}'`);
       } catch (err) {
         console.error('Failed to set initial GameServer label:', err);
       }
-      // --- END NEW ---
 
       setInterval(() => {
         sdk.health(err => {

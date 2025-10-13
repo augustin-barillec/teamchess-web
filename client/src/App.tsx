@@ -13,7 +13,6 @@ import {
   GameStatus,
   MAX_PLAYERS_PER_GAME,
   GameVisibility,
-  GlobalStats,
 } from '@teamchess/shared';
 
 const STORAGE_KEYS = {
@@ -48,7 +47,6 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: '♘',
   P: '♙',
 };
-
 const pieceToFigurineBlack: Record<string, string> = {
   K: '♚',
   Q: '♛',
@@ -110,6 +108,7 @@ export default function App() {
   // --- DERIVED STATE & MEMOS ---
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
+  const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: 'k', color: chess.turn() };
@@ -123,6 +122,7 @@ export default function App() {
     });
     return square;
   }, [position]);
+
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1 };
     const currWhite: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
@@ -306,7 +306,7 @@ export default function App() {
 
     socket.on('players', (p: Players) => setPlayers(p));
     socket.on('game_started', ({ moveNumber, side, visibility }: GameInfo) => {
-      setGameStatus(GameStatus.Active);
+      setGameStatus(GameStatus.AwaitingProposals);
       setWinner(null);
       setEndReason(null);
       setPgn('');
@@ -413,21 +413,18 @@ export default function App() {
     setAmDisconnected(false);
     setIsAllocating(false);
   };
-
   const leaveGame = () => {
     socket?.disconnect();
     setSocket(null);
     setHasSession(false);
     resetLocalGameState();
   };
-
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
     socket?.emit('join_side', { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
-
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -439,7 +436,6 @@ export default function App() {
   };
 
   const joinSpectator = () => joinSide('spectator');
-
   const resignGame = () => {
     if (window.confirm('Are you sure you want to resign for your team?')) socket?.emit('resign');
   };
@@ -452,11 +448,9 @@ export default function App() {
   const acceptDraw = () => {
     if (window.confirm('Accept the draw offer for your team?')) socket?.emit('accept_draw');
   };
-
   const rejectDraw = () => {
     if (window.confirm('Reject the draw offer for your team?')) socket?.emit('reject_draw');
   };
-
   const startGame = () => socket?.emit('start_game');
 
   const resetGame = () => {
@@ -484,7 +478,6 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
-
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== 'p') return false;
@@ -493,7 +486,6 @@ export default function App() {
   }
 
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
-
   const copyPgn = () => {
     if (!pgn) return;
     navigator.clipboard
@@ -522,13 +514,11 @@ export default function App() {
       </g>{' '}
     </svg>
   );
-
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
     const promotionPieces = ['Q', 'R', 'B', 'N'];
     const pieceMap = turnColor === 'w' ? pieceToFigurineWhite : pieceToFigurineBlack;
-
     return (
       <div className="promotion-dialog">
         <h3>Promote to:</h3>
@@ -547,6 +537,7 @@ export default function App() {
   const boardOptions = {
     position,
     boardOrientation: orientation,
+    viewOnly: isFinalizing,
     squareStyles: {
       ...(lastMoveSquares
         ? {
@@ -580,7 +571,7 @@ export default function App() {
       setLegalSquareStyles({});
       const from = sourceSquare;
       const to = targetSquare;
-      if (gameStatus !== GameStatus.Active || side !== current.side) return false;
+      if (gameStatus !== GameStatus.AwaitingProposals || side !== current.side) return false;
       const isPromotion = needsPromotion(from, to);
       try {
         const move = chess.move({ from, to, promotion: isPromotion ? 'q' : undefined });
@@ -599,7 +590,6 @@ export default function App() {
       return true;
     },
   };
-
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -627,7 +617,6 @@ export default function App() {
       </div>
     </div>
   );
-
   const TabContent = (
     <div className="info-tabs-content">
       <div className={'tab-panel players-panel ' + (activeTab === 'players' ? 'active' : '')}>
@@ -786,7 +775,6 @@ export default function App() {
       </div>
     </div>
   );
-
   // --- RENDER LOGIC ---
   return (
     <>
@@ -848,6 +836,7 @@ export default function App() {
           <div className="header-bar">
             <h1>TeamChess</h1>
             <div className="game-id-bar">
+              {' '}
               <strong>Game ID:</strong>{' '}
               <button
                 onClick={() => {
@@ -866,6 +855,7 @@ export default function App() {
               </span>
             </div>
             <div className="action-panel">
+              {' '}
               <div className="visibility-control">
                 <label htmlFor="visibility-select">Visibility:</label>
                 <select
@@ -890,9 +880,7 @@ export default function App() {
                   )}{' '}
                 </>
               )}
-              {(gameStatus === GameStatus.Active || gameStatus === GameStatus.Over) && (
-                <button onClick={resetGame}>Reset Game</button>
-              )}
+              {gameStatus !== GameStatus.Lobby && <button onClick={resetGame}>Reset Game</button>}
               {gameStatus !== GameStatus.Over && (
                 <>
                   {' '}
@@ -914,7 +902,7 @@ export default function App() {
                           Switch to {side === 'white' ? 'Black' : 'White'}{' '}
                         </button>
                       )}{' '}
-                      {gameStatus === GameStatus.Active && (
+                      {gameStatus === GameStatus.AwaitingProposals && (
                         <>
                           {' '}
                           {drawOffer && drawOffer !== side ? (
@@ -948,20 +936,23 @@ export default function App() {
                 lostPieces={orientation === 'white' ? lostBlackPieces : lostWhitePieces}
                 materialAdv={orientation === 'white' ? -materialBalance : materialBalance}
                 isActive={
-                  gameStatus === GameStatus.Active &&
+                  gameStatus !== GameStatus.Lobby &&
+                  gameStatus !== GameStatus.Over &&
                   current?.side === (orientation === 'white' ? 'black' : 'white')
                 }
               />
               <div ref={boardContainerRef} className="board-wrapper">
                 {' '}
-                <Chessboard options={boardOptions} /> <PromotionDialog />{' '}
+                <Chessboard options={boardOptions} />
+                <PromotionDialog />{' '}
               </div>
               <PlayerInfoBox
                 clockTime={orientation === 'white' ? clocks.whiteTime : clocks.blackTime}
                 lostPieces={orientation === 'white' ? lostWhitePieces : lostBlackPieces}
                 materialAdv={orientation === 'white' ? materialBalance : -materialBalance}
                 isActive={
-                  gameStatus === GameStatus.Active &&
+                  gameStatus !== GameStatus.Lobby &&
+                  gameStatus !== GameStatus.Over &&
                   current?.side === (orientation === 'white' ? 'white' : 'black')
                 }
               />
