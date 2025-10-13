@@ -56,6 +56,7 @@ interface GameState {
   endWinner?: string | null;
   drawOffer?: 'white' | 'black';
   shutdownTimer?: NodeJS.Timeout;
+  isFinalizing?: boolean;
 }
 
 // --- Server State ---
@@ -171,7 +172,8 @@ async function chooseBestMove(
 }
 
 function tryFinalizeTurn() {
-  if (!gameState || gameState.status !== GameStatus.Active) return;
+  // 1. Check the lock at the very beginning
+  if (!gameState || gameState.status !== GameStatus.Active || gameState.isFinalizing) return;
 
   const room = io.sockets.adapter.rooms.get(gameState.gameId) || new Set<string>();
   const onlinePids = new Set(
@@ -184,6 +186,8 @@ function tryFinalizeTurn() {
   const entries = [...gameState.proposals.entries()].filter(([pid]) => activeConnected.has(pid));
 
   if (activeConnected.size > 0 && entries.length === activeConnected.size) {
+    // 2. Set the lock before starting the async operation
+    gameState.isFinalizing = true;
     if (gameState.timerInterval) {
       clearInterval(gameState.timerInterval);
       gameState.timerInterval = undefined;
@@ -191,70 +195,84 @@ function tryFinalizeTurn() {
 
     const candidates = entries.map(([, { lan }]) => lan);
     const currentFen = gameState.chess.fen();
-    chooseBestMove(gameState.engine, currentFen, candidates).then(selLan => {
-      if (!gameState) return;
-      const from = selLan.slice(0, 2);
-      const to = selLan.slice(2, 4);
-      const params: any = { from, to };
-      if (selLan.length === 5) params.promotion = selLan[4];
+    chooseBestMove(gameState.engine, currentFen, candidates)
+      .then(selLan => {
+        if (!gameState) return;
+        // This is the try/catch we added previously to prevent crashes
+        try {
+          const from = selLan.slice(0, 2);
+          const to = selLan.slice(2, 4);
+          const params: any = { from, to };
+          if (selLan.length === 5) params.promotion = selLan[4];
 
-      const move = gameState.chess.move(params);
-      if (!move) {
-        console.error(
-          `CRITICAL: An illegal move was selected. FEN: ${currentFen}, Move: ${selLan}`,
-        );
-        return;
-      }
-      const fen = gameState.chess.fen();
+          const move = gameState.chess.move(params);
+          if (!move) {
+            console.error(
+              `CRITICAL: An illegal move was selected. FEN: ${currentFen}, Move: ${selLan}`,
+            );
+            return;
+          }
+          const fen = gameState.chess.fen();
 
-      if (gameState.side === 'white') gameState.whiteTime += 3;
-      else gameState.blackTime += 3;
+          if (gameState.side === 'white') gameState.whiteTime += 3;
+          else gameState.blackTime += 3;
 
-      io.in(gameState.gameId).emit('clock_update', {
-        whiteTime: gameState.whiteTime,
-        blackTime: gameState.blackTime,
-      });
+          io.in(gameState.gameId).emit('clock_update', {
+            whiteTime: gameState.whiteTime,
+            blackTime: gameState.blackTime,
+          });
 
-      const [selPid] = entries.find(([, { lan }]) => lan === selLan)!;
-      const selName = sessions.get(selPid)?.name || 'Player';
+          const [selPid] = entries.find(([, { lan }]) => lan === selLan)!;
+          const selName = sessions.get(selPid)?.name || 'Player';
 
-      io.in(gameState.gameId).emit('move_selected', {
-        id: selPid,
-        name: selName,
-        moveNumber: gameState.moveNumber,
-        side: gameState.side,
-        lan: selLan,
-        san: move.san,
-        fen,
-      });
-      if (gameState.chess.isGameOver()) {
-        let reason: string;
-        let winner: 'white' | 'black' | null = null;
-        if (gameState.chess.isCheckmate()) {
-          reason = EndReason.Checkmate;
-          winner = gameState.side;
-        } else if (gameState.chess.isStalemate()) {
-          reason = EndReason.Stalemate;
-        } else if (gameState.chess.isThreefoldRepetition()) {
-          reason = EndReason.Threefold;
-        } else if (gameState.chess.isInsufficientMaterial()) {
-          reason = EndReason.Insufficient;
-        } else {
-          reason = EndReason.DrawRule;
+          io.in(gameState.gameId).emit('move_selected', {
+            id: selPid,
+            name: selName,
+            moveNumber: gameState.moveNumber,
+            side: gameState.side,
+            lan: selLan,
+            san: move.san,
+            fen,
+          });
+
+          if (gameState.chess.isGameOver()) {
+            let reason: string;
+            let winner: 'white' | 'black' | null = null;
+            if (gameState.chess.isCheckmate()) {
+              reason = EndReason.Checkmate;
+              winner = gameState.side;
+            } else if (gameState.chess.isStalemate()) {
+              reason = EndReason.Stalemate;
+            } else if (gameState.chess.isThreefoldRepetition()) {
+              reason = EndReason.Threefold;
+            } else if (gameState.chess.isInsufficientMaterial()) {
+              reason = EndReason.Insufficient;
+            } else {
+              reason = EndReason.DrawRule;
+            }
+            endGame(reason, winner);
+          } else {
+            gameState.proposals.clear();
+            gameState.side = gameState.side === 'white' ? 'black' : 'white';
+            gameState.moveNumber++;
+            io.in(gameState.gameId).emit('turn_change', {
+              moveNumber: gameState.moveNumber,
+              side: gameState.side,
+            });
+            io.in(gameState.gameId).emit('position_update', { fen });
+            startClock();
+          }
+        } catch (e) {
+          console.error(
+            `CRITICAL: chess.js threw an error on engine's move. FEN: ${currentFen}, Move: ${selLan}`,
+            e,
+          );
         }
-        endGame(reason, winner);
-      } else {
-        gameState.proposals.clear();
-        gameState.side = gameState.side === 'white' ? 'black' : 'white';
-        gameState.moveNumber++;
-        io.in(gameState.gameId).emit('turn_change', {
-          moveNumber: gameState.moveNumber,
-          side: gameState.side,
-        });
-        io.in(gameState.gameId).emit('position_update', { fen });
-        startClock();
-      }
-    });
+      })
+      .finally(() => {
+        // 3. Release the lock after the operation is completely finished
+        if (gameState) gameState.isFinalizing = false;
+      });
   }
 }
 
