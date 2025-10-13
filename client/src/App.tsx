@@ -305,16 +305,20 @@ export default function App() {
     });
 
     socket.on('players', (p: Players) => setPlayers(p));
-    socket.on('game_started', ({ moveNumber, side, visibility }: GameInfo) => {
-      setGameStatus(GameStatus.AwaitingProposals);
-      setWinner(null);
-      setEndReason(null);
-      setPgn('');
-      setTurns([{ moveNumber, side, proposals: [] }]);
-      setLastMoveSquares(null);
-      setDrawOffer(null);
-      if (visibility) setVisibility(visibility);
-    });
+    socket.on(
+      'game_started',
+      ({ moveNumber, side, visibility, proposals }: GameInfo & { proposals: Proposal[] }) => {
+        setGameStatus(GameStatus.AwaitingProposals);
+        setWinner(null);
+        setEndReason(null);
+        setPgn('');
+        // Use the proposals from the server to initialize the turn state
+        setTurns([{ moveNumber, side, proposals: proposals || [] }]);
+        setLastMoveSquares(null);
+        setDrawOffer(null);
+        if (visibility) setVisibility(visibility);
+      },
+    );
     socket.on('game_reset', () => {
       setGameStatus(GameStatus.Lobby);
       setWinner(null);

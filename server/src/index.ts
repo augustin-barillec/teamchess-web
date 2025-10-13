@@ -393,10 +393,20 @@ io.on('connection', (socket: Socket) => {
     visibility: gameState!.visibility,
   });
   if (gameState!.status !== GameStatus.Lobby) {
+    const currentProposals = Array.from(gameState!.proposals.entries()).map(([pid, proposal]) => ({
+      id: pid,
+      name: sessions.get(pid)?.name || 'Player', // Get player name from session
+      moveNumber: gameState!.moveNumber,
+      side: gameState!.side,
+      lan: proposal.lan,
+      san: proposal.san,
+    }));
+
     socket.emit('game_started', {
       moveNumber: gameState!.moveNumber,
       side: gameState!.side,
       visibility: gameState!.visibility,
+      proposals: currentProposals, // Send the proposals with the initial state
     });
     socket.emit('position_update', { fen: gameState!.chess.fen() });
     socket.emit('clock_update', {
