@@ -84,6 +84,27 @@ pre {
   flex-grow: 1;
 }
 
+.public-games-list {
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 5px 10px;
+  margin-top: 10px;
+}
+
+.public-game-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 4px;
+  border-bottom: 1px solid #eee;
+}
+
+.public-game-item:last-child {
+  border-bottom: none;
+}
+
 .header-bar {
   display: flex;
   flex-wrap: wrap;
@@ -550,13 +571,16 @@ pre {
 
 /* --- NEW: Correctly style the main content area of the overlay --- */
 .mobile-info-overlay .info-tabs-content {
-  flex-grow: 1; /* Allows this element to fill available space */
-  min-height: 0; /* Prevents flexbox overflow issues */
+  flex-grow: 1;
+  /* Allows this element to fill available space */
+  min-height: 0;
+  /* Prevents flexbox overflow issues */
   position: relative; /* Contains the tab panels */
   background: #fdfdfd;
   border: 1px solid #ccc;
   border-bottom: none; /* No border between content and new footer */
-  border-radius: 8px 8px 0 0; /* Rounds the top corners */
+  border-radius: 8px 8px 0 0;
+  /* Rounds the top corners */
   overflow: hidden;
 }
 

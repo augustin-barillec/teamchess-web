@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { KubeConfig, CustomObjectsApi } from '@kubernetes/client-node';
 import { customAlphabet } from 'nanoid';
+import { GameVisibility, MAX_PLAYERS_PER_GAME } from '@teamchess/shared';
 
 // --- Kubernetes API Client Setup ---
 const kc = new KubeConfig();
@@ -120,6 +121,52 @@ app.get('/join/:gameId', async (req, res) => {
   } catch (err: any) {
     console.error('Error finding game:', err.body ? err.body.message : err.message);
     res.status(500).json({ error: 'Internal error finding the game.' });
+  }
+});
+
+app.get('/games', async (req, res) => {
+  const namespace = process.env.NAMESPACE || 'default';
+  const fleetName = process.env.FLEET_NAME || 'teamchess-fleet';
+
+  try {
+    const result = await k8sCustomApi.listNamespacedCustomObject({
+      group: 'agones.dev',
+      version: 'v1',
+      namespace: namespace,
+      plural: 'gameservers',
+      // FIX 1: Query for the correct, prefixed visibility label
+      labelSelector: `agones.dev/fleet=${fleetName},agones.dev/sdk-visibility=${GameVisibility.Public}`,
+    });
+
+    const servers = (result as any).items;
+    if (!servers) {
+      return res.status(200).json([]);
+    }
+
+    const publicGames = servers
+      .map((server: any) => {
+        // FIX 2: Read the player count from the correct, prefixed label
+        const playerCount = parseInt(
+          server.metadata.labels['agones.dev/sdk-player-count'] || '0',
+          10,
+        );
+        const gameId = server.metadata.labels['teamchess.dev/game-id'];
+
+        if (!gameId || playerCount >= MAX_PLAYERS_PER_GAME) {
+          return null;
+        }
+
+        return {
+          id: gameId,
+          players: playerCount,
+        };
+      })
+      .filter(Boolean); // Filter out any null (full or invalid) games
+
+    res.status(200).json(publicGames);
+  } catch (err: any) {
+    console.error('Error listing public games:', err.body ? err.body.message : err.message);
+    res.status(500).json({ error: 'Internal error finding games.' });
   }
 });
 

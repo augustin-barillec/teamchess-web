@@ -47,6 +47,7 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: '♘',
   P: '♙',
 };
+
 const pieceToFigurineBlack: Record<string, string> = {
   K: '♚',
   Q: '♛',
@@ -104,6 +105,7 @@ export default function App() {
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [joinGameId, setJoinGameId] = useState('');
+  const [publicGames, setPublicGames] = useState<{ id: string; players: number }[]>([]);
 
   // --- DERIVED STATE & MEMOS ---
   const current = turns[turns.length - 1];
@@ -166,6 +168,25 @@ export default function App() {
   );
 
   // --- EFFECTS ---
+  useEffect(() => {
+    if (!hasSession) {
+      const fetchPublicGames = async () => {
+        try {
+          const allocatorUrl = import.meta.env.VITE_ALLOCATOR_URL || 'http://localhost:4000';
+          const response = await fetch(`${allocatorUrl}/games`);
+          if (!response.ok) return;
+          const data = await response.json();
+          setPublicGames(data);
+        } catch (err) {
+          console.error('Could not fetch public games.', err);
+        }
+      };
+      fetchPublicGames();
+      const interval = setInterval(fetchPublicGames, 10000); // Refresh every 10 seconds
+      return () => clearInterval(interval);
+    }
+  }, [hasSession]);
+
   useEffect(() => {
     hasSessionRef.current = hasSession;
   }, [hasSession]);
@@ -417,18 +438,21 @@ export default function App() {
     setAmDisconnected(false);
     setIsAllocating(false);
   };
+
   const leaveGame = () => {
     socket?.disconnect();
     setSocket(null);
     setHasSession(false);
     resetLocalGameState();
   };
+
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
     socket?.emit('join_side', { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
+
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -440,6 +464,7 @@ export default function App() {
   };
 
   const joinSpectator = () => joinSide('spectator');
+
   const resignGame = () => {
     if (window.confirm('Are you sure you want to resign for your team?')) socket?.emit('resign');
   };
@@ -452,9 +477,11 @@ export default function App() {
   const acceptDraw = () => {
     if (window.confirm('Accept the draw offer for your team?')) socket?.emit('accept_draw');
   };
+
   const rejectDraw = () => {
     if (window.confirm('Reject the draw offer for your team?')) socket?.emit('reject_draw');
   };
+
   const startGame = () => socket?.emit('start_game');
 
   const resetGame = () => {
@@ -482,6 +509,7 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
+
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== 'p') return false;
@@ -490,6 +518,7 @@ export default function App() {
   }
 
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
+
   const copyPgn = () => {
     if (!pgn) return;
     navigator.clipboard
@@ -594,6 +623,7 @@ export default function App() {
       return true;
     },
   };
+
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -621,6 +651,7 @@ export default function App() {
       </div>
     </div>
   );
+
   const TabContent = (
     <div className="info-tabs-content">
       <div className={'tab-panel players-panel ' + (activeTab === 'players' ? 'active' : '')}>
@@ -779,6 +810,7 @@ export default function App() {
       </div>
     </div>
   );
+
   // --- RENDER LOGIC ---
   return (
     <>
@@ -817,9 +849,26 @@ export default function App() {
             </button>
           </div>
 
+          {publicGames.length > 0 && (
+            <>
+              <hr style={{ margin: '20px 0', borderTop: '1px solid #eee' }} />
+              <h4>Or join a public game</h4>
+              <div className="public-games-list">
+                {publicGames.map(game => (
+                  <div key={game.id} className="public-game-item">
+                    <span>
+                      Game {game.id} ({game.players}/{MAX_PLAYERS_PER_GAME})
+                    </span>
+                    <button onClick={() => setJoinGameId(game.id)}>Select</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           <hr style={{ margin: '20px 0', borderTop: '1px solid #eee' }} />
 
-          <h4>Or join an existing game</h4>
+          <h4>Or join by ID</h4>
           <div className="input-group">
             <input
               placeholder="Enter Game ID (e.g., BLUE-CAT-7)"

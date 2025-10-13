@@ -80,6 +80,20 @@ function countPlayersInGame(): number {
   return sessions.size;
 }
 
+// --- NEW: Function to update Agones labels ---
+async function updateAgonesLabels() {
+  if (!gameState) return;
+  try {
+    await sdk.setLabel('visibility', gameState.visibility);
+    await sdk.setLabel('player-count', String(countPlayersInGame()));
+    console.log(
+      `Updated Agones labels: visibility=${gameState.visibility}, player-count=${countPlayersInGame()}`,
+    );
+  } catch (err) {
+    console.error('Failed to set GameServer labels:', err);
+  }
+}
+
 function getCleanPgn(chess: Chess): string {
   const fullPgn = chess.pgn();
   return fullPgn.replace(/^\[.*\]\n/gm, '').trim();
@@ -92,9 +106,11 @@ function broadcastPlayers(gameId: string) {
       .map(sid => io.sockets.sockets.get(sid)?.data.pid as string | undefined)
       .filter((pid): pid is string => Boolean(pid)),
   );
+
   const spectators: Player[] = [];
   const whitePlayers: Player[] = [];
   const blackPlayers: Player[] = [];
+
   for (const sess of sessions.values()) {
     const p: Player = { id: sess.pid, name: sess.name, connected: onlinePids.has(sess.pid) };
     if (sess.side === 'white') whitePlayers.push(p);
@@ -102,6 +118,8 @@ function broadcastPlayers(gameId: string) {
     else spectators.push(p);
   }
   io.in(gameId).emit('players', { spectators, whitePlayers, blackPlayers });
+  // Call the new function to update labels whenever the player list changes
+  updateAgonesLabels();
 }
 
 function sendSystemMessage(gameId: string, message: string) {
@@ -231,7 +249,6 @@ function tryFinalizeTurn() {
           san: move.san,
           fen,
         });
-
         if (gameState.chess.isGameOver()) {
           let reason: string;
           let winner: 'white' | 'black' | null = null;
@@ -401,7 +418,6 @@ io.on('connection', (socket: Socket) => {
       lan: proposal.lan,
       san: proposal.san,
     }));
-
     socket.emit('game_started', {
       moveNumber: gameState!.moveNumber,
       side: gameState!.side,
@@ -610,20 +626,14 @@ io.on('connection', (socket: Socket) => {
     sendSystemMessage(gameState.gameId, `${socket.data.name} rejects the draw offer.`);
   });
 
-  socket.on('set_game_visibility', async ({ visibility }) => {
+  socket.on('set_game_visibility', ({ visibility }) => {
     if (!gameState) return;
     if (Object.values(GameVisibility).includes(visibility)) {
       gameState.visibility = visibility;
-
-      try {
-        await sdk.setLabel('visibility', visibility);
-        console.log(`Updated GameServer label 'visibility' to '${visibility}'`);
-      } catch (err) {
-        console.error('Failed to set GameServer label:', err);
-      }
-
       io.in(gameState.gameId).emit('game_visibility_update', { visibility });
       sendSystemMessage(gameState.gameId, `${socket.data.name} set visibility to ${visibility}.`);
+      // Update the Agones label when visibility changes
+      updateAgonesLabels();
     }
   });
 
@@ -644,6 +654,7 @@ async function startServer() {
 
     const engine = loadEngine(stockfishPath);
     engine.send('uci');
+
     gameState = {
       gameId,
       whiteIds: new Set(),
@@ -658,6 +669,7 @@ async function startServer() {
       status: GameStatus.Lobby,
       visibility: GameVisibility.Private,
     };
+
     const PORT = process.env.PORT || 3001;
     server.listen(PORT, async () => {
       console.log(`Game server listening on port ${PORT}`);
@@ -667,12 +679,8 @@ async function startServer() {
       await sdk.ready();
       console.log('Server is READY.');
 
-      try {
-        await sdk.setLabel('visibility', gameState.visibility);
-        console.log(`Set initial GameServer label 'visibility' to '${gameState.visibility}'`);
-      } catch (err) {
-        console.error('Failed to set initial GameServer label:', err);
-      }
+      // Set initial labels
+      await updateAgonesLabels();
 
       setInterval(() => {
         sdk.health(err => {
