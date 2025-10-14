@@ -111,6 +111,7 @@ export default function App() {
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
+
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: 'k', color: chess.turn() };
@@ -162,6 +163,7 @@ export default function App() {
       materialBalance: balance,
     };
   }, [position]);
+
   const playerCount = useMemo(
     () => players.spectators.length + players.whitePlayers.length + players.blackPlayers.length,
     [players],
@@ -266,23 +268,23 @@ export default function App() {
     }
   };
 
-  const joinGame = async () => {
-    if (!name.trim() || !joinGameId.trim()) {
+  const joinGame = async (idToJoin: string) => {
+    if (!name.trim() || !idToJoin.trim()) {
       return toast.error('Please enter your name and a Game ID.');
     }
     setIsAllocating(true);
-    toast.loading(`Finding game ${joinGameId}...`);
+    toast.loading(`Finding game ${idToJoin}...`);
 
     try {
       const allocatorUrl = import.meta.env.VITE_ALLOCATOR_URL || 'http://localhost:4000';
-      const response = await fetch(`${allocatorUrl}/join/${joinGameId.trim()}`);
+      const response = await fetch(`${allocatorUrl}/join/${idToJoin.trim()}`);
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err.error || 'Failed to find the game.');
       }
 
       const { address, port } = await response.json();
-      setGameId(joinGameId.trim());
+      setGameId(idToJoin.trim());
       connectToServer(address, port);
     } catch (err: any) {
       console.error('Join failed:', err);
@@ -547,11 +549,13 @@ export default function App() {
       </g>{' '}
     </svg>
   );
+
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
     const promotionPieces = ['Q', 'R', 'B', 'N'];
     const pieceMap = turnColor === 'w' ? pieceToFigurineWhite : pieceToFigurineBlack;
+
     return (
       <div className="promotion-dialog">
         <h3>Promote to:</h3>
@@ -859,7 +863,12 @@ export default function App() {
                     <span>
                       Game {game.id} ({game.players}/{MAX_PLAYERS_PER_GAME})
                     </span>
-                    <button onClick={() => setJoinGameId(game.id)}>Select</button>
+                    <button
+                      onClick={() => joinGame(game.id)}
+                      disabled={isAllocating || !name.trim()}
+                    >
+                      Join
+                    </button>
                   </div>
                 ))}
               </div>
@@ -877,7 +886,7 @@ export default function App() {
               disabled={isAllocating}
             />
             <button
-              onClick={joinGame}
+              onClick={() => joinGame(joinGameId)}
               disabled={isAllocating || !joinGameId.trim() || !name.trim()}
             >
               {isAllocating ? 'Joining...' : '🔗 Join Game'}
