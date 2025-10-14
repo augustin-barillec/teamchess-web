@@ -20,6 +20,7 @@ const STORAGE_KEYS = {
   name: 'tc:name',
   gameId: 'tc:game',
   side: 'tc:side',
+  server: 'tc:server', // Key to store the direct server address
 } as const;
 
 const reasonMessages: Record<string, (winner: string | null) => string> = {
@@ -47,7 +48,6 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: '♘',
   P: '♙',
 };
-
 const pieceToFigurineBlack: Record<string, string> = {
   K: '♚',
   Q: '♛',
@@ -69,7 +69,7 @@ export default function App() {
   // Player and Game state
   const [myId, setMyId] = useState<string>(sessionStorage.getItem(STORAGE_KEYS.pid) || '');
   const [name, setName] = useState(sessionStorage.getItem(STORAGE_KEYS.name) || '');
-  const [gameId, setGameId] = useState('');
+  const [gameId, setGameId] = useState(sessionStorage.getItem(STORAGE_KEYS.gameId) || '');
   const [side, setSide] = useState<'spectator' | 'white' | 'black'>(
     (sessionStorage.getItem(STORAGE_KEYS.side) as 'spectator' | 'white' | 'black') || 'spectator',
   );
@@ -171,6 +171,21 @@ export default function App() {
 
   // --- EFFECTS ---
   useEffect(() => {
+    // This effect runs once on component mount to handle auto-rejoining
+    const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid);
+    const storedGameId = sessionStorage.getItem(STORAGE_KEYS.gameId);
+    const storedName = sessionStorage.getItem(STORAGE_KEYS.name);
+    const storedServer = sessionStorage.getItem(STORAGE_KEYS.server);
+
+    if (storedPid && storedGameId && storedName && storedServer) {
+      // If we have a direct server address, bypass the allocator for a fast reconnect.
+      toast.loading('Reconnecting to your game...');
+      const [address, port] = storedServer.split(':');
+      connectToServer(address, Number(port));
+    }
+  }, []); // The empty dependency array ensures this runs only once on mount
+
+  useEffect(() => {
     if (!hasSession) {
       const fetchPublicGames = async () => {
         try {
@@ -230,6 +245,7 @@ export default function App() {
 
   // --- CONNECTION & SOCKET LOGIC ---
   const connectToServer = (address: string, port: number) => {
+    sessionStorage.setItem(STORAGE_KEYS.server, `${address}:${port}`); // Store server address for fast reconnect
     const serverAddress = `ws://${address}:${port}`;
     const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
     sessionStorage.setItem(STORAGE_KEYS.name, name);
@@ -259,6 +275,7 @@ export default function App() {
 
       const { address, port, gameId: newGameId } = await response.json();
       setGameId(newGameId);
+      sessionStorage.setItem(STORAGE_KEYS.gameId, newGameId); // Save gameId on creation
       connectToServer(address, port);
     } catch (err: any) {
       console.error('Creation failed:', err);
@@ -285,6 +302,7 @@ export default function App() {
 
       const { address, port } = await response.json();
       setGameId(idToJoin.trim());
+      sessionStorage.setItem(STORAGE_KEYS.gameId, idToJoin.trim()); // Save gameId on join
       connectToServer(address, port);
     } catch (err: any) {
       console.error('Join failed:', err);
@@ -439,12 +457,19 @@ export default function App() {
     setChatMessages([]);
     setAmDisconnected(false);
     setIsAllocating(false);
+    setGameId('');
   };
 
   const leaveGame = () => {
     socket?.disconnect();
     setSocket(null);
     setHasSession(false);
+
+    // Clear all session data on explicit leave
+    Object.values(STORAGE_KEYS).forEach(key => {
+      sessionStorage.removeItem(key);
+    });
+
     resetLocalGameState();
   };
 
