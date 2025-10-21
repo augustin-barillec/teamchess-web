@@ -474,6 +474,7 @@ io.on('connection', (socket: Socket) => {
       endIfOneSided();
     }
     broadcastPlayers(gameState.gameId);
+    tryFinalizeTurn();
     cb?.({ success: true });
   });
 
