@@ -6,20 +6,19 @@ import { GameVisibility, MAX_PLAYERS_PER_GAME } from '@teamchess/shared';
 
 // --- Kubernetes API Client Setup ---
 const kc = new KubeConfig();
-process.env.NODE_ENV === 'production' ? kc.loadFromCluster() : kc.loadFromDefault();
+kc.loadFromDefault();
 const k8sCustomApi = kc.makeApiClient(CustomObjectsApi);
 
 // --- Express App Setup ---
 const app = express();
 app.use(express.json());
 
-const whitelist = ['https://storage.googleapis.com', 'https://www.yokyok.ninja'];
 const corsOptions = {
   origin: function (
     origin: string | undefined,
     callback: (err: Error | null, allow?: boolean) => void,
   ) {
-    if (!origin || whitelist.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
+    if (!origin || origin.startsWith('http://localhost')) {
       return callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
