@@ -22,6 +22,7 @@ const STOCKFISH_SEARCH_DEPTH = 15;
 const stockfishPath = path.join(
   __dirname,
   '..',
+  '..',
   'node_modules',
   'stockfish',
   'src',
@@ -173,19 +174,29 @@ async function chooseBestMove(
   fen: string,
   candidates: string[],
 ) {
+  // --- ADD THIS LOG ---
+  console.log(`[chooseBestMove] Engine called to pick from: ${candidates.join(' ')}`);
+
   if (new Set(candidates).size === 1) {
+    // --- ADD THIS LOG ---
+    console.log(`[chooseBestMove] Only one unique candidate, selecting: ${candidates[0]}`);
     return candidates[0];
   }
   return new Promise<string>(resolve => {
     engine.send(`position fen ${fen}`);
-    engine.send(
-      `go depth ${STOCKFISH_SEARCH_DEPTH} searchmoves ${candidates.join(' ')}`,
-      (output: string) => {
-        if (output.startsWith('bestmove')) {
-          resolve(output.split(' ')[1]);
-        }
-      },
-    );
+
+    // --- ADD THIS LOG ---
+    const goCommand = `go depth ${STOCKFISH_SEARCH_DEPTH} searchmoves ${candidates.join(' ')}`;
+    console.log(`[chooseBestMove] Sending to engine: ${goCommand}`);
+
+    engine.send(goCommand, (output: string) => {
+      // --- ADD THIS LOG ---
+      console.log(`[chooseBestMove] Engine output: ${output}`);
+      if (output.startsWith('bestmove')) {
+        console.log(`[chooseBestMove] Engine selected: ${output.split(' ')[1]}`); // --- ADD THIS LOG ---
+        resolve(output.split(' ')[1]);
+      }
+    });
   });
 }
 

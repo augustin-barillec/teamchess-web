@@ -14,7 +14,7 @@ spec:
       template:
         spec:
           containers:
-          - name: teamchess-server
+          - name: teamchess-game-server
             # Use the local game server image
-            image: teamchess-server:local
+            image: teamchess-game-server:local
             imagePullPolicy: Never

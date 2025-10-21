@@ -3,7 +3,7 @@
   "workspaces": [
     "shared",
     "client",
-    "server",
+    "game-server",
     "master-server"
   ],
   "engines": {

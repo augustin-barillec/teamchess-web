@@ -79,7 +79,7 @@ eval $(minikube -p minikube docker-env)
 
 # Build the images
 docker build -t teamchess-allocator:local -f master-server/Dockerfile .
-docker build -t teamchess-server:local -f server/Dockerfile .
+docker build -t teamchess-game-server:local -f game-server/Dockerfile .
 ```
 
 ### Step 6: Deploy Local Applications to Minikube
@@ -145,7 +145,7 @@ You can watch the new pod come up with `kubectl get pods -w`.
 
 ---
 
-### How to Update the `server` (Game Server)
+### How to Update the `game-server` (Game Server)
 
 The game server is managed by an Agones `Fleet`. The process is similar to updating the allocator but uses a different resource type.
 
@@ -157,11 +157,11 @@ First, rebuild the game server image to include your changes.
 eval $(minikube -p minikube docker-env)
 
 # Rebuild the image
-docker build -t teamchess-server:local -f server/Dockerfile .
+docker build -t teamchess-game-server:local -f game-server/Dockerfile .
 ```
 
 **Step 2: Update the Fleet's GameServers**
-For an Agones `Fleet`, the correct way to force an update with a `:local` image tag is to delete the **`GameServer`** resources it manages. The Fleet controller will automatically detect that they are missing and create new ones using the latest version of the `teamchess-server:local` image.
+For an Agones `Fleet`, the correct way to force an update with a `:local` image tag is to delete the **`GameServer`** resources it manages. The Fleet controller will automatically detect that they are missing and create new ones using the latest version of the `teamchess-game-server:local` image.
 
 ```bash
 kubectl delete gameservers -l agones.dev/fleet=teamchess-fleet
