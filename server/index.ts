@@ -578,7 +578,7 @@ function startServer() {
   const publicPath = path.join(__dirname, '..', 'public');
   app.use(express.static(publicPath));
   // Serve index.html for any unknown paths (SPA routing)
-  app.get('*', (req, res) => {
+  app.get(/.*/, (req, res) => {
     res.sendFile(path.join(publicPath, 'index.html'));
   });
 
