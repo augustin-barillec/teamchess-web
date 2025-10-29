@@ -1,9 +1,21 @@
 {
-  "references": [
-    { "path": "shared" },
-    { "path": "client" },
-    { "path": "game-server" },
-    { "path": "master-server" }
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "rootDir": "server",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "server/**/*.ts"
   ],
-  "compilerOptions": {}
+  "exclude": [
+    "node_modules",
+    "client"
+  ]
 }

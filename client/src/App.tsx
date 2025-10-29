@@ -1,3 +1,4 @@
+// client/src/App.tsx
 import { useState, useEffect, useMemo, useRef, CSSProperties } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { io, Socket } from 'socket.io-client';
@@ -11,18 +12,15 @@ import {
   EndReason,
   ChatMessage,
   GameStatus,
-  MAX_PLAYERS_PER_GAME,
-  GameVisibility,
-} from '@teamchess/shared';
+} from '../../server/shared_types'; // <-- IMPORT FROM NEW LOCATION
 
 const STORAGE_KEYS = {
   pid: 'tc:pid',
   name: 'tc:name',
-  gameId: 'tc:game',
   side: 'tc:side',
-  server: 'tc:server', // Key to store the direct server address
 } as const;
 
+// --- (All constants like reasonMessages, pieceToFigurine, etc. are identical to original) ---
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: winner =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
@@ -39,44 +37,28 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
-
 const pieceToFigurineWhite: Record<string, string> = {
-  K: '♔',
-  Q: '♕',
-  R: '♖',
-  B: '♗',
-  N: '♘',
-  P: '♙',
+  K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘', P: '♙',
 };
 const pieceToFigurineBlack: Record<string, string> = {
-  K: '♚',
-  Q: '♛',
-  R: '♜',
-  B: '♝',
-  N: '♞',
-  P: '♟',
+  K: '♚', Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟',
 };
+// --- (End of constants) ---
 
 export default function App() {
   // --- STATE MANAGEMENT ---
-  // Socket and connection state
-  const [isAllocating, setIsAllocating] = useState(false);
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [hasSession, setHasSession] = useState(false);
-  const hasSessionRef = useRef(hasSession);
 
   // Player and Game state
   const [myId, setMyId] = useState<string>(sessionStorage.getItem(STORAGE_KEYS.pid) || '');
-  const [name, setName] = useState(sessionStorage.getItem(STORAGE_KEYS.name) || '');
-  const [gameId, setGameId] = useState(sessionStorage.getItem(STORAGE_KEYS.gameId) || '');
+  const [name, setName] = useState(sessionStorage.getItem(STORAGE_KEYS.name) || 'Guest');
+  const [nameInput, setNameInput] = useState(sessionStorage.getItem(STORAGE_KEYS.name) || 'Guest');
   const [side, setSide] = useState<'spectator' | 'white' | 'black'>(
     (sessionStorage.getItem(STORAGE_KEYS.side) as 'spectator' | 'white' | 'black') || 'spectator',
   );
   const [players, setPlayers] = useState<Players>({
-    spectators: [],
-    whitePlayers: [],
-    blackPlayers: [],
+    spectators: [], whitePlayers: [], blackPlayers: [],
   });
   const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Lobby);
   const [winner, setWinner] = useState<'white' | 'black' | null>(null);
@@ -95,7 +77,6 @@ export default function App() {
   const [promotionMove, setPromotionMove] = useState<{ from: string; to: string } | null>(null);
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(600);
-  const [visibility, setVisibility] = useState<GameVisibility>(GameVisibility.Private);
 
   // UI state
   const [activeTab, setActiveTab] = useState<'chat' | 'moves' | 'players'>('players');
@@ -104,14 +85,12 @@ export default function App() {
   const activeTabRef = useRef(activeTab);
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
-  const [joinGameId, setJoinGameId] = useState('');
-  const [publicGames, setPublicGames] = useState<{ id: string; players: number }[]>([]);
 
   // --- DERIVED STATE & MEMOS ---
+  // (All derived state like `current`, `orientation`, `kingInCheckSquare`, `lostWhitePieces` etc. is identical to original)
   const current = turns[turns.length - 1];
   const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
-
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: 'k', color: chess.turn() };
@@ -168,89 +147,16 @@ export default function App() {
     () => players.spectators.length + players.whitePlayers.length + players.blackPlayers.length,
     [players],
   );
+  // --- (End of derived state) ---
 
   // --- EFFECTS ---
   useEffect(() => {
-    // This effect runs once on component mount to handle auto-rejoining
-    const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid);
-    const storedGameId = sessionStorage.getItem(STORAGE_KEYS.gameId);
-    const storedName = sessionStorage.getItem(STORAGE_KEYS.name);
-    const storedServer = sessionStorage.getItem(STORAGE_KEYS.server);
-
-    if (storedPid && storedGameId && storedName && storedServer) {
-      // If we have a direct server address, bypass the allocator for a fast reconnect.
-      toast.loading('Reconnecting to your game...');
-      const [address, port] = storedServer.split(':');
-      connectToServer(address, Number(port));
-    }
-  }, []); // The empty dependency array ensures this runs only once on mount
-
-  useEffect(() => {
-    if (!hasSession) {
-      const fetchPublicGames = async () => {
-        try {
-          const allocatorUrl = import.meta.env.VITE_ALLOCATOR_URL || 'http://localhost:4000';
-          const response = await fetch(`${allocatorUrl}/games`);
-          if (!response.ok) return;
-          const data = await response.json();
-          setPublicGames(data);
-        } catch (err) {
-          console.error('Could not fetch public games.', err);
-        }
-      };
-      fetchPublicGames();
-      const interval = setInterval(fetchPublicGames, 10000); // Refresh every 10 seconds
-      return () => clearInterval(interval);
-    }
-  }, [hasSession]);
-
-  useEffect(() => {
-    hasSessionRef.current = hasSession;
-  }, [hasSession]);
-
-  useEffect(() => {
-    const observer = new ResizeObserver(entries => {
-      if (entries[0]) setBoardWidth(entries[0].contentRect.width);
-    });
-    if (boardContainerRef.current) observer.observe(boardContainerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
-    window.addEventListener('resize', checkIsMobile);
-    return () => window.removeEventListener('resize', checkIsMobile);
-  }, []);
-
-  useEffect(() => {
-    if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
-  }, [turns, activeTab]);
-
-  useEffect(() => {
-    activeTabRef.current = activeTab;
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (!myId) return;
-    const serverSide = players.whitePlayers.some(p => p.id === myId)
-      ? 'white'
-      : players.blackPlayers.some(p => p.id === myId)
-        ? 'black'
-        : 'spectator';
-    if (serverSide !== side) {
-      setSide(serverSide);
-      sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
-    }
-  }, [players, myId]);
-
-  // --- CONNECTION & SOCKET LOGIC ---
-  const connectToServer = (address: string, port: number) => {
-    sessionStorage.setItem(STORAGE_KEYS.server, `${address}:${port}`); // Store server address for fast reconnect
-    const serverAddress = `ws://${address}:${port}`;
-    const storedPid = sessionStorage.getItem(STORAGE_KEYS.pid) || undefined;
-    sessionStorage.setItem(STORAGE_KEYS.name, name);
-    const s = io(serverAddress, {
-      auth: { pid: storedPid, name },
+    // This effect runs once on component mount to connect
+    const s = io({
+      auth: {
+        pid: sessionStorage.getItem(STORAGE_KEYS.pid) || undefined,
+        name: sessionStorage.getItem(STORAGE_KEYS.name) || 'Guest',
+      },
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 500,
@@ -258,97 +164,78 @@ export default function App() {
       randomizationFactor: 0.2,
     });
     setSocket(s);
-  };
+    toast.loading('Connecting...');
 
-  const createGame = async () => {
-    if (!name.trim()) return toast.error('Please enter your name first.');
-    setIsAllocating(true);
-    toast.loading('Creating a new game...');
+    return () => {
+      s.disconnect();
+    };
+  }, []); // The empty dependency array ensures this runs only once on mount
 
-    try {
-      const allocatorUrl = import.meta.env.VITE_ALLOCATOR_URL || 'http://localhost:4000';
-      const response = await fetch(`${allocatorUrl}/create`, { method: 'POST' });
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Failed to create a game server.');
-      }
-
-      const { address, port, gameId: newGameId } = await response.json();
-      setGameId(newGameId);
-      sessionStorage.setItem(STORAGE_KEYS.gameId, newGameId); // Save gameId on creation
-      connectToServer(address, port);
-    } catch (err: any) {
-      console.error('Creation failed:', err);
-      toast.dismiss();
-      toast.error(err.message || 'Could not connect to the allocator service.');
-      setIsAllocating(false);
+  // --- (All other useEffects for resize, tabs, etc. are identical to original) ---
+  useEffect(() => {
+    const observer = new ResizeObserver(entries => {
+      if (entries[0]) setBoardWidth(entries[0].contentRect.width);
+    });
+    if (boardContainerRef.current) observer.observe(boardContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
+    window.addEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+  useEffect(() => {
+    if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
+  }, [turns, activeTab]);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+  useEffect(() => {
+    if (!myId) return;
+    const serverSide = players.whitePlayers.some(p => p.id === myId)
+      ? 'white'
+      : players.blackPlayers.some(p => p.id === myId)
+      ? 'black'
+      : 'spectator';
+    if (serverSide !== side) {
+      setSide(serverSide);
+      sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
-  };
+  }, [players, myId]);
+  // --- (End of other useEffects) ---
 
-  const joinGame = async (idToJoin: string) => {
-    if (!name.trim() || !idToJoin.trim()) {
-      return toast.error('Please enter your name and a Game ID.');
-    }
-    setIsAllocating(true);
-    toast.loading(`Finding game ${idToJoin}...`);
-
-    try {
-      const allocatorUrl = import.meta.env.VITE_ALLOCATOR_URL || 'http://localhost:4000';
-      const response = await fetch(`${allocatorUrl}/join/${idToJoin.trim()}`);
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Failed to find the game.');
-      }
-
-      const { address, port } = await response.json();
-      setGameId(idToJoin.trim());
-      sessionStorage.setItem(STORAGE_KEYS.gameId, idToJoin.trim()); // Save gameId on join
-      connectToServer(address, port);
-    } catch (err: any) {
-      console.error('Join failed:', err);
-      toast.dismiss();
-      toast.error(err.message || 'Could not find that game.');
-      setIsAllocating(false);
-    }
-  };
-
+  // --- CONNECTION & SOCKET LOGIC ---
   useEffect(() => {
     if (!socket) return;
 
     socket.on('connect', () => {
       toast.dismiss();
+      toast.success('Connected!');
       setAmDisconnected(false);
     });
 
     socket.on('disconnect', () => {
+      toast.error('Disconnected. Reconnecting...');
       setAmDisconnected(true);
-      if (!hasSessionRef.current) {
-        setSocket(null);
-        setIsAllocating(false);
-      }
     });
 
     socket.on('error', (data: { message: string }) => {
       toast.error(data.message);
-      if (!hasSessionRef.current) {
-        socket.disconnect();
-      }
     });
 
     socket.on('session', ({ id, name: serverName }: { id: string; name: string }) => {
-      toast.success('Connected!');
-      setHasSession(true);
       setMyId(id);
+      setName(serverName);
+      setNameInput(serverName);
       sessionStorage.setItem(STORAGE_KEYS.pid, id);
-      if (serverName && !sessionStorage.getItem(STORAGE_KEYS.name)) {
-        sessionStorage.setItem(STORAGE_KEYS.name, serverName);
-      }
+      sessionStorage.setItem(STORAGE_KEYS.name, serverName);
     });
 
+    // --- (All other socket listeners 'players', 'game_started', etc. are identical to original) ---
     socket.on('players', (p: Players) => setPlayers(p));
     socket.on(
       'game_started',
-      ({ moveNumber, side, visibility, proposals }: GameInfo & { proposals: Proposal[] }) => {
+      ({ moveNumber, side, proposals }: GameInfo & { proposals: Proposal[] }) => {
         setGameStatus(GameStatus.AwaitingProposals);
         setWinner(null);
         setEndReason(null);
@@ -357,7 +244,6 @@ export default function App() {
         setTurns([{ moveNumber, side, proposals: proposals || [] }]);
         setLastMoveSquares(null);
         setDrawOffer(null);
-        if (visibility) setVisibility(visibility);
       },
     );
     socket.on('game_reset', () => {
@@ -426,17 +312,14 @@ export default function App() {
     });
     socket.on(
       'game_status_update',
-      ({ status, visibility }: { status: GameStatus; visibility?: GameVisibility }) => {
+      ({ status }: { status: GameStatus; }) => {
         setGameStatus(status);
-        if (visibility) setVisibility(visibility);
       },
     );
     socket.on('draw_offer_update', ({ side }: { side: 'white' | 'black' | null }) =>
       setDrawOffer(side),
     );
-    socket.on('game_visibility_update', ({ visibility }: { visibility: GameVisibility }) =>
-      setVisibility(visibility),
-    );
+    // --- (End of socket listeners) ---
 
     return () => {
       socket.disconnect();
@@ -444,42 +327,13 @@ export default function App() {
   }, [socket, chess]);
 
   // --- GAME ACTIONS ---
-  const resetLocalGameState = () => {
-    setGameStatus(GameStatus.Lobby);
-    setWinner(null);
-    setEndReason(null);
-    setPgn('');
-    setTurns([]);
-    chess.reset();
-    setPosition(chess.fen());
-    setClocks({ whiteTime: 0, blackTime: 0 });
-    setLastMoveSquares(null);
-    setChatMessages([]);
-    setAmDisconnected(false);
-    setIsAllocating(false);
-    setGameId('');
-  };
-
-  const leaveGame = () => {
-    socket?.disconnect();
-    setSocket(null);
-    setHasSession(false);
-
-    // Clear all session data on explicit leave
-    Object.values(STORAGE_KEYS).forEach(key => {
-      sessionStorage.removeItem(key);
-    });
-
-    resetLocalGameState();
-  };
-
+  // --- (All game actions 'joinSide', 'resignGame', 'submitMove', 'copyPgn', etc. are identical to original) ---
   const joinSide = (s: 'white' | 'black' | 'spectator') =>
     socket?.emit('join_side', { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
-
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -489,28 +343,21 @@ export default function App() {
     else chosen = Math.random() < 0.5 ? 'white' : 'black';
     joinSide(chosen);
   };
-
   const joinSpectator = () => joinSide('spectator');
-
   const resignGame = () => {
     if (window.confirm('Are you sure you want to resign for your team?')) socket?.emit('resign');
   };
-
   const offerDraw = () => {
     if (window.confirm('Are you sure you want to offer a draw for your team?'))
       socket?.emit('offer_draw');
   };
-
   const acceptDraw = () => {
     if (window.confirm('Accept the draw offer for your team?')) socket?.emit('accept_draw');
   };
-
   const rejectDraw = () => {
     if (window.confirm('Reject the draw offer for your team?')) socket?.emit('reject_draw');
   };
-
   const startGame = () => socket?.emit('start_game');
-
   const resetGame = () => {
     if (window.confirm('Are you sure you want to reset the game?')) {
       socket?.emit('reset_game', (res: { success: boolean; error?: string }) => {
@@ -518,7 +365,6 @@ export default function App() {
       });
     }
   };
-
   const submitMove = (lan: string) => {
     if (!socket) return;
     socket.emit('play_move', lan, (res: { error?: string }) => {
@@ -528,7 +374,6 @@ export default function App() {
       }
     });
   };
-
   const onPromote = (promotionPiece: 'q' | 'r' | 'b' | 'n') => {
     if (!promotionMove) return;
     const { from, to } = promotionMove;
@@ -536,16 +381,13 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
-
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== 'p') return false;
     const rank = to[1];
     return piece.color === 'w' ? rank === '8' : rank === '1';
   }
-
   const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
-
   const copyPgn = () => {
     if (!pgn) return;
     navigator.clipboard
@@ -553,8 +395,18 @@ export default function App() {
       .then(() => toast.success('PGN copied!'))
       .catch(() => toast.error('Could not copy PGN.'));
   };
+  // --- (End of game actions) ---
+
+  // --- NEW ACTION ---
+  const handleChangeName = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nameInput.trim() || nameInput === name) return;
+    socket?.emit('set_name', nameInput.trim());
+    toast.success('Name updated!');
+  };
 
   // --- UI COMPONENTS ---
+  // --- (All UI components 'DisconnectedIcon', 'PromotionDialog', 'PlayerInfoBox', 'TabContent' are identical to original) ---
   const DisconnectedIcon = () => (
     <svg
       viewBox="0 0 24 24"
@@ -574,13 +426,11 @@ export default function App() {
       </g>{' '}
     </svg>
   );
-
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
     const promotionPieces = ['Q', 'R', 'B', 'N'];
     const pieceMap = turnColor === 'w' ? pieceToFigurineWhite : pieceToFigurineBlack;
-
     return (
       <div className="promotion-dialog">
         <h3>Promote to:</h3>
@@ -595,7 +445,6 @@ export default function App() {
       </div>
     );
   };
-
   const boardOptions = {
     position,
     boardOrientation: orientation,
@@ -652,7 +501,6 @@ export default function App() {
       return true;
     },
   };
-
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -680,7 +528,6 @@ export default function App() {
       </div>
     </div>
   );
-
   const TabContent = (
     <div className="info-tabs-content">
       <div className={'tab-panel players-panel ' + (activeTab === 'players' ? 'active' : '')}>
@@ -839,6 +686,7 @@ export default function App() {
       </div>
     </div>
   );
+  // --- (End of UI components) ---
 
   // --- RENDER LOGIC ---
   return (
@@ -855,255 +703,173 @@ export default function App() {
         </div>
       </div>
 
-      {amDisconnected && hasSession && (
-        <div className="offline-banner"> You’re offline. Trying to reconnect… </div>
-      )}
+      {amDisconnected && <div className="offline-banner"> You’re offline. Trying to reconnect… </div>}
 
-      {!hasSession ? (
-        <div className="login-box">
+      {/* --- SIMPLIFIED: No login box, just render the app --- */}
+      <div className="app-container">
+        <div className="header-bar">
           <h1>TeamChess</h1>
-
-          <div className="input-group">
+          
+          {/* --- NEW: Name change form --- */}
+          <form className="game-id-bar" onSubmit={handleChangeName}>
+            <strong>Your Name:</strong>
             <input
-              placeholder="Your name"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              disabled={isAllocating}
+              type="text"
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              style={{ flexGrow: 0, minWidth: '150px' }}
             />
-          </div>
+            <button type="submit">Set Name</button>
+            <span> {playerCount} Players </span>
+          </form>
+          {/* --- END: Name change form --- */}
 
-          <div className="input-group">
-            <button onClick={createGame} disabled={isAllocating || !name.trim()}>
-              {isAllocating ? 'Creating...' : '🚀 Create Private Game'}
-            </button>
-          </div>
-
-          {publicGames.length > 0 && (
-            <>
-              <hr style={{ margin: '20px 0', borderTop: '1px solid #eee' }} />
-              <h4>Or join a public game</h4>
-              <div className="public-games-list">
-                {publicGames.map(game => (
-                  <div key={game.id} className="public-game-item">
-                    <span>
-                      Game {game.id} ({game.players}/{MAX_PLAYERS_PER_GAME})
-                    </span>
-                    <button
-                      onClick={() => joinGame(game.id)}
-                      disabled={isAllocating || !name.trim()}
-                    >
-                      Join
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          <hr style={{ margin: '20px 0', borderTop: '1px solid #eee' }} />
-
-          <h4>Or join by ID</h4>
-          <div className="input-group">
-            <input
-              placeholder="Enter Game ID (e.g., BLUE-CAT-7)"
-              value={joinGameId}
-              onChange={e => setJoinGameId(e.target.value.toUpperCase())}
-              disabled={isAllocating}
-            />
-            <button
-              onClick={() => joinGame(joinGameId)}
-              disabled={isAllocating || !joinGameId.trim() || !name.trim()}
-            >
-              {isAllocating ? 'Joining...' : '🔗 Join Game'}
-            </button>
+          <div className="action-panel">
+            {' '}
+            {gameStatus === GameStatus.Lobby && (
+              <>
+                {' '}
+                {players.whitePlayers.length > 0 && players.blackPlayers.length > 0 && (
+                  <button onClick={startGame}>Start Game</button>
+                )}{' '}
+              </>
+            )}
+            {gameStatus !== GameStatus.Lobby && <button onClick={resetGame}>Reset Game</button>}
+            {gameStatus !== GameStatus.Over && (
+              <>
+                {' '}
+                {side === 'spectator' && (
+                  <>
+                    {' '}
+                    <button onClick={autoAssign}>Auto Assign</button>{' '}
+                    <button onClick={() => joinSide('white')}>Join White</button>{' '}
+                    <button onClick={() => joinSide('black')}>Join Black</button>{' '}
+                  </>
+                )}{' '}
+                {(side === 'white' || side === 'black') && (
+                  <>
+                    {' '}
+                    <button onClick={joinSpectator}>Join Spectators</button>{' '}
+                    {gameStatus === GameStatus.Lobby && (
+                      <button onClick={() => joinSide(side === 'white' ? 'black' : 'white')}>
+                        {' '}
+                        Switch to {side === 'white' ? 'Black' : 'White'}{' '}
+                      </button>
+                    )}{' '}
+                    {gameStatus === GameStatus.AwaitingProposals && (
+                      <>
+                        {' '}
+                        {drawOffer && drawOffer !== side ? (
+                          <>
+                            {' '}
+                            <button onClick={acceptDraw}>Accept Draw</button>{' '}
+                            <button onClick={rejectDraw}>Reject Draw</button>{' '}
+                          </>
+                        ) : drawOffer === side ? (
+                          <span style={{ fontStyle: 'italic' }}>Draw offered...</span>
+                        ) : (
+                          <>
+                            {' '}
+                            <button onClick={resignGame}>Resign</button>{' '}
+                            <button onClick={offerDraw}>Offer Draw</button>{' '}
+                          </>
+                        )}{' '}
+                      </>
+                    )}{' '}
+                  </>
+                )}{' '}
+              </>
+            )}
           </div>
         </div>
-      ) : (
-        <div className="app-container">
-          <div className="header-bar">
-            <h1>TeamChess</h1>
-            <div className="game-id-bar">
+
+        <div className="main-layout">
+          <div className="game-column">
+            <PlayerInfoBox
+              clockTime={orientation === 'white' ? clocks.blackTime : clocks.whiteTime}
+              lostPieces={orientation === 'white' ? lostBlackPieces : lostWhitePieces}
+              materialAdv={orientation === 'white' ? -materialBalance : materialBalance}
+              isActive={
+                gameStatus !== GameStatus.Lobby &&
+                gameStatus !== GameStatus.Over &&
+                current?.side === (orientation === 'white' ? 'black' : 'white')
+              }
+            />
+            <div ref={boardContainerRef} className="board-wrapper">
               {' '}
-              <strong>Game ID:</strong>{' '}
+              <Chessboard options={boardOptions} />
+              <PromotionDialog />{' '}
+            </div>
+            <PlayerInfoBox
+              clockTime={orientation === 'white' ? clocks.whiteTime : clocks.blackTime}
+              lostPieces={orientation === 'white' ? lostWhitePieces : lostBlackPieces}
+              materialAdv={orientation === 'white' ? materialBalance : -materialBalance}
+              isActive={
+                gameStatus !== GameStatus.Lobby &&
+                gameStatus !== GameStatus.Over &&
+                current?.side === (orientation === 'white' ? 'white' : 'black')
+              }
+            />
+            {gameStatus === GameStatus.Over && (
+              <div className="game-over-info">
+                {' '}
+                <p>
+                  {' '}
+                  {endReason && reasonMessages[endReason]
+                    ? reasonMessages[endReason](winner)
+                    : `🎉 Game over! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`}{' '}
+                </p>{' '}
+                {pgn && (
+                  <div>
+                    {' '}
+                    <div className="pgn-header">
+                      {' '}
+                      <strong>PGN</strong> <button onClick={copyPgn}>Copy</button>{' '}
+                    </div>{' '}
+                    <pre>{pgn}</pre>{' '}
+                  </div>
+                )}{' '}
+              </div>
+            )}
+          </div>
+          <div className="info-column">
+            <nav className="info-tabs-nav">
               <button
+                className={activeTab === 'players' ? 'active' : ''}
                 onClick={() => {
-                  navigator.clipboard
-                    .writeText(gameId)
-                    .then(() => toast.success('Game ID copied!'))
-                    .catch(() => toast.error('Copy not supported'));
+                  setActiveTab('players');
+                  setIsMobileInfoVisible(true);
                 }}
               >
                 {' '}
-                {gameId}{' '}
+                Players{' '}
               </button>
-              <span>
+              <button
+                className={activeTab === 'moves' ? 'active' : ''}
+                onClick={() => {
+                  setActiveTab('moves');
+                  setIsMobileInfoVisible(true);
+                }}
+              >
                 {' '}
-                {playerCount}/{MAX_PLAYERS_PER_GAME} Players{' '}
-              </span>
-            </div>
-            <div className="action-panel">
-              {' '}
-              <div className="visibility-control">
-                <label htmlFor="visibility-select">Visibility:</label>
-                <select
-                  id="visibility-select"
-                  value={visibility}
-                  onChange={e => {
-                    const newVisibility = e.target.value as GameVisibility;
-                    setVisibility(newVisibility);
-                    socket?.emit('set_game_visibility', { visibility: newVisibility });
-                  }}
-                >
-                  <option value={GameVisibility.Public}>Public</option>
-                  <option value={GameVisibility.Private}>Private</option>
-                  <option value={GameVisibility.Closed}>Closed</option>
-                </select>
-              </div>
-              {gameStatus === GameStatus.Lobby && (
-                <>
-                  {' '}
-                  {players.whitePlayers.length > 0 && players.blackPlayers.length > 0 && (
-                    <button onClick={startGame}>Start Game</button>
-                  )}{' '}
-                </>
-              )}
-              {gameStatus !== GameStatus.Lobby && <button onClick={resetGame}>Reset Game</button>}
-              {gameStatus !== GameStatus.Over && (
-                <>
-                  {' '}
-                  {side === 'spectator' && (
-                    <>
-                      {' '}
-                      <button onClick={autoAssign}>Auto Assign</button>{' '}
-                      <button onClick={() => joinSide('white')}>Join White</button>{' '}
-                      <button onClick={() => joinSide('black')}>Join Black</button>{' '}
-                    </>
-                  )}{' '}
-                  {(side === 'white' || side === 'black') && (
-                    <>
-                      {' '}
-                      <button onClick={joinSpectator}>Join Spectators</button>{' '}
-                      {gameStatus === GameStatus.Lobby && (
-                        <button onClick={() => joinSide(side === 'white' ? 'black' : 'white')}>
-                          {' '}
-                          Switch to {side === 'white' ? 'Black' : 'White'}{' '}
-                        </button>
-                      )}{' '}
-                      {gameStatus === GameStatus.AwaitingProposals && (
-                        <>
-                          {' '}
-                          {drawOffer && drawOffer !== side ? (
-                            <>
-                              {' '}
-                              <button onClick={acceptDraw}>Accept Draw</button>{' '}
-                              <button onClick={rejectDraw}>Reject Draw</button>{' '}
-                            </>
-                          ) : drawOffer === side ? (
-                            <span style={{ fontStyle: 'italic' }}>Draw offered...</span>
-                          ) : (
-                            <>
-                              {' '}
-                              <button onClick={resignGame}>Resign</button>{' '}
-                              <button onClick={offerDraw}>Offer Draw</button>{' '}
-                            </>
-                          )}{' '}
-                        </>
-                      )}{' '}
-                    </>
-                  )}{' '}
-                </>
-              )}
-              <button onClick={leaveGame}>Exit Game</button>
-            </div>
-          </div>
-          <div className="main-layout">
-            <div className="game-column">
-              <PlayerInfoBox
-                clockTime={orientation === 'white' ? clocks.blackTime : clocks.whiteTime}
-                lostPieces={orientation === 'white' ? lostBlackPieces : lostWhitePieces}
-                materialAdv={orientation === 'white' ? -materialBalance : materialBalance}
-                isActive={
-                  gameStatus !== GameStatus.Lobby &&
-                  gameStatus !== GameStatus.Over &&
-                  current?.side === (orientation === 'white' ? 'black' : 'white')
-                }
-              />
-              <div ref={boardContainerRef} className="board-wrapper">
+                Moves{' '}
+              </button>
+              <button
+                className={activeTab === 'chat' ? 'active' : ''}
+                onClick={() => {
+                  setActiveTab('chat');
+                  setHasUnreadMessages(false);
+                  setIsMobileInfoVisible(true);
+                }}
+              >
                 {' '}
-                <Chessboard options={boardOptions} />
-                <PromotionDialog />{' '}
-              </div>
-              <PlayerInfoBox
-                clockTime={orientation === 'white' ? clocks.whiteTime : clocks.blackTime}
-                lostPieces={orientation === 'white' ? lostWhitePieces : lostBlackPieces}
-                materialAdv={orientation === 'white' ? materialBalance : -materialBalance}
-                isActive={
-                  gameStatus !== GameStatus.Lobby &&
-                  gameStatus !== GameStatus.Over &&
-                  current?.side === (orientation === 'white' ? 'white' : 'black')
-                }
-              />
-              {gameStatus === GameStatus.Over && (
-                <div className="game-over-info">
-                  {' '}
-                  <p>
-                    {' '}
-                    {endReason && reasonMessages[endReason]
-                      ? reasonMessages[endReason](winner)
-                      : `🎉 Game over! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`}{' '}
-                  </p>{' '}
-                  {pgn && (
-                    <div>
-                      {' '}
-                      <div className="pgn-header">
-                        {' '}
-                        <strong>PGN</strong> <button onClick={copyPgn}>Copy</button>{' '}
-                      </div>{' '}
-                      <pre>{pgn}</pre>{' '}
-                    </div>
-                  )}{' '}
-                </div>
-              )}
-            </div>
-            <div className="info-column">
-              <nav className="info-tabs-nav">
-                <button
-                  className={activeTab === 'players' ? 'active' : ''}
-                  onClick={() => {
-                    setActiveTab('players');
-                    setIsMobileInfoVisible(true);
-                  }}
-                >
-                  {' '}
-                  Players{' '}
-                </button>
-                <button
-                  className={activeTab === 'moves' ? 'active' : ''}
-                  onClick={() => {
-                    setActiveTab('moves');
-                    setIsMobileInfoVisible(true);
-                  }}
-                >
-                  {' '}
-                  Moves{' '}
-                </button>
-                <button
-                  className={activeTab === 'chat' ? 'active' : ''}
-                  onClick={() => {
-                    setActiveTab('chat');
-                    setHasUnreadMessages(false);
-                    setIsMobileInfoVisible(true);
-                  }}
-                >
-                  {' '}
-                  Chat {hasUnreadMessages && <span className="unread-dot"></span>}{' '}
-                </button>
-              </nav>
-              {TabContent}
-            </div>
+                Chat {hasUnreadMessages && <span className="unread-dot"></span>}{' '}
+              </button>NaN
+            </nav>
+            {TabContent}
           </div>
         </div>
-      )}
+      </div>
     </>
   );
 }

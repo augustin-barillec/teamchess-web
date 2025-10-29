@@ -1,28 +1,37 @@
+// server/index.ts
 import http from 'http';
+import express from 'express';
 import { Server, Socket } from 'socket.io';
 import { nanoid } from 'nanoid';
 import { Chess } from 'chess.js';
 import path from 'path';
-import AgonesSDK from '@google-cloud/agones-sdk';
+import { fileURLToPath } from 'url';
+
+// Import types from the new shared file
 import {
   Player,
+  Players,
   EndReason,
   GameStatus,
-  MAX_PLAYERS_PER_GAME,
-  GameVisibility,
-} from '@teamchess/shared';
+  Proposal,
+  Selection,
+} from './shared_types.js';
 
-// --- Agones SDK Initialization ---
-const sdk = new AgonesSDK();
+// --- ESM __dirname fix ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// --- Load Engine ---
+// We use a dynamic import for the .cjs file
+const engineLoaderPath = path.resolve(__dirname, './load_engine.cjs');
+const { default: loadEngine } = await import(engineLoaderPath);
+type Engine = ReturnType<typeof loadEngine>;
 
 // --- Constants ---
 const DISCONNECT_GRACE_MS = 20000;
-const SHUTDOWN_GRACE_MS = 30000;
 const STOCKFISH_SEARCH_DEPTH = 15;
 const stockfishPath = path.join(
-  __dirname,
-  '..',
-  '..',
+  process.cwd(), // Use process.cwd() to get root in the new structure
   'node_modules',
   'stockfish',
   'src',
@@ -41,7 +50,6 @@ type Session = {
 };
 
 interface GameState {
-  gameId: string;
   whiteIds: Set<string>;
   blackIds: Set<string>;
   moveNumber: number;
@@ -50,63 +58,40 @@ interface GameState {
   whiteTime: number;
   blackTime: number;
   timerInterval?: NodeJS.Timeout;
-  engine: ReturnType<typeof loadEngine>;
+  engine: Engine;
   chess: Chess;
   status: GameStatus;
-  visibility: GameVisibility;
   endReason?: string;
   endWinner?: string | null;
   drawOffer?: 'white' | 'black';
-  shutdownTimer?: NodeJS.Timeout;
 }
 
 // --- Server State ---
 const sessions = new Map<string, Session>();
-let gameState: GameState | null = null;
+let gameState: GameState; // Will be initialized in startServer
 
 // --- Server Setup ---
-const server = http.createServer();
+const app = express();
+const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*' },
   pingInterval: 5000,
   pingTimeout: 5000,
 });
-const loadEngine = require('../load_engine.cjs') as (enginePath: string) => {
-  send(cmd: string, cb?: (data: string) => void, stream?: (data: string) => void): void;
-  quit(): void;
-};
 
 // --- Core Game Logic ---
-function countPlayersInGame(): number {
-  return sessions.size;
-}
-
-// --- NEW: Function to update Agones labels ---
-async function updateAgonesLabels() {
-  if (!gameState) return;
-  try {
-    await sdk.setLabel('visibility', gameState.visibility);
-    await sdk.setLabel('player-count', String(countPlayersInGame()));
-    console.log(
-      `Updated Agones labels: visibility=${gameState.visibility}, player-count=${countPlayersInGame()}`,
-    );
-  } catch (err) {
-    console.error('Failed to set GameServer labels:', err);
-  }
-}
-
 function getCleanPgn(chess: Chess): string {
   const fullPgn = chess.pgn();
   return fullPgn.replace(/^\[.*\]\n/gm, '').trim();
 }
 
-function broadcastPlayers(gameId: string) {
-  const room = io.sockets.adapter.rooms.get(gameId) || new Set<string>();
-  const onlinePids = new Set(
-    [...room]
-      .map(sid => io.sockets.sockets.get(sid)?.data.pid as string | undefined)
-      .filter((pid): pid is string => Boolean(pid)),
-  );
+function broadcastPlayers() {
+  const onlinePids = new Set<string>();
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.data.pid) {
+      onlinePids.add(socket.data.pid);
+    }
+  }
 
   const spectators: Player[] = [];
   const whitePlayers: Player[] = [];
@@ -118,13 +103,11 @@ function broadcastPlayers(gameId: string) {
     else if (sess.side === 'black') blackPlayers.push(p);
     else spectators.push(p);
   }
-  io.in(gameId).emit('players', { spectators, whitePlayers, blackPlayers });
-  // Call the new function to update labels whenever the player list changes
-  updateAgonesLabels();
+  io.emit('players', { spectators, whitePlayers, blackPlayers });
 }
 
-function sendSystemMessage(gameId: string, message: string) {
-  io.to(gameId).emit('chat_message', {
+function sendSystemMessage(message: string) {
+  io.emit('chat_message', {
     sender: 'System',
     senderId: 'system',
     message,
@@ -133,7 +116,7 @@ function sendSystemMessage(gameId: string, message: string) {
 }
 
 function endGame(reason: string, winner: string | null = null) {
-  if (!gameState || gameState.status === GameStatus.Over) return;
+  if (gameState.status === GameStatus.Over) return;
   if (gameState.timerInterval) clearInterval(gameState.timerInterval);
   gameState.engine.quit();
   gameState.status = GameStatus.Over;
@@ -141,23 +124,22 @@ function endGame(reason: string, winner: string | null = null) {
   gameState.endWinner = winner;
   gameState.drawOffer = undefined;
   const pgn = getCleanPgn(gameState.chess);
-  io.in(gameState.gameId).emit('game_over', { reason, winner, pgn });
-  io.in(gameState.gameId).emit('draw_offer_update', { side: null });
+  io.emit('game_over', { reason, winner, pgn });
+  io.emit('draw_offer_update', { side: null });
 }
 
 function startClock() {
-  if (!gameState || gameState.status !== GameStatus.AwaitingProposals) return;
+  if (gameState.status !== GameStatus.AwaitingProposals) return;
   if (gameState.timerInterval) clearInterval(gameState.timerInterval);
-  io.in(gameState.gameId).emit('clock_update', {
+  io.emit('clock_update', {
     whiteTime: gameState.whiteTime,
     blackTime: gameState.blackTime,
   });
   gameState.timerInterval = setInterval(() => {
-    if (!gameState) return;
     if (gameState.side === 'white') gameState.whiteTime--;
     else gameState.blackTime--;
 
-    io.in(gameState.gameId).emit('clock_update', {
+    io.emit('clock_update', {
       whiteTime: gameState.whiteTime,
       blackTime: gameState.blackTime,
     });
@@ -170,30 +152,23 @@ function startClock() {
 }
 
 async function chooseBestMove(
-  engine: ReturnType<typeof loadEngine>,
+  engine: Engine,
   fen: string,
   candidates: string[],
 ) {
-  // --- ADD THIS LOG ---
   console.log(`[chooseBestMove] Engine called to pick from: ${candidates.join(' ')}`);
-
   if (new Set(candidates).size === 1) {
-    // --- ADD THIS LOG ---
     console.log(`[chooseBestMove] Only one unique candidate, selecting: ${candidates[0]}`);
     return candidates[0];
   }
   return new Promise<string>(resolve => {
     engine.send(`position fen ${fen}`);
-
-    // --- ADD THIS LOG ---
     const goCommand = `go depth ${STOCKFISH_SEARCH_DEPTH} searchmoves ${candidates.join(' ')}`;
     console.log(`[chooseBestMove] Sending to engine: ${goCommand}`);
-
     engine.send(goCommand, (output: string) => {
-      // --- ADD THIS LOG ---
       console.log(`[chooseBestMove] Engine output: ${output}`);
       if (output.startsWith('bestmove')) {
-        console.log(`[chooseBestMove] Engine selected: ${output.split(' ')[1]}`); // --- ADD THIS LOG ---
+        console.log(`[chooseBestMove] Engine selected: ${output.split(' ')[1]}`);
         resolve(output.split(' ')[1]);
       }
     });
@@ -201,21 +176,22 @@ async function chooseBestMove(
 }
 
 function tryFinalizeTurn() {
-  if (!gameState || gameState.status !== GameStatus.AwaitingProposals) return;
+  if (gameState.status !== GameStatus.AwaitingProposals) return;
 
-  const room = io.sockets.adapter.rooms.get(gameState.gameId) || new Set<string>();
-  const onlinePids = new Set(
-    [...room]
-      .map(id => io.sockets.sockets.get(id)?.data.pid as string | undefined)
-      .filter((pid): pid is string => Boolean(pid)),
-  );
+  const onlinePids = new Set<string>();
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.data.pid) {
+      onlinePids.add(socket.data.pid);
+    }
+  }
+
   const sideSet = gameState.side === 'white' ? gameState.whiteIds : gameState.blackIds;
   const activeConnected = new Set([...sideSet].filter(pid => onlinePids.has(pid)));
   const entries = [...gameState.proposals.entries()].filter(([pid]) => activeConnected.has(pid));
 
   if (activeConnected.size > 0 && entries.length === activeConnected.size) {
     gameState.status = GameStatus.FinalizingTurn;
-    io.in(gameState.gameId).emit('game_status_update', { status: gameState.status });
+    io.emit('game_status_update', { status: gameState.status });
 
     if (gameState.timerInterval) {
       clearInterval(gameState.timerInterval);
@@ -225,7 +201,6 @@ function tryFinalizeTurn() {
     const candidates = entries.map(([, { lan }]) => lan);
     const currentFen = gameState.chess.fen();
     chooseBestMove(gameState.engine, currentFen, candidates).then(selLan => {
-      if (!gameState) return;
       try {
         const from = selLan.slice(0, 2);
         const to = selLan.slice(2, 4);
@@ -234,9 +209,7 @@ function tryFinalizeTurn() {
 
         const move = gameState.chess.move(params);
         if (!move) {
-          console.error(
-            `CRITICAL: An illegal move was selected. FEN: ${currentFen}, Move: ${selLan}`,
-          );
+          console.error(`CRITICAL: Illegal move. FEN: ${currentFen}, Move: ${selLan}`);
           return;
         }
         const fen = gameState.chess.fen();
@@ -244,14 +217,14 @@ function tryFinalizeTurn() {
         if (gameState.side === 'white') gameState.whiteTime += 3;
         else gameState.blackTime += 3;
 
-        io.in(gameState.gameId).emit('clock_update', {
+        io.emit('clock_update', {
           whiteTime: gameState.whiteTime,
           blackTime: gameState.blackTime,
         });
 
         const [selPid] = entries.find(([, { lan }]) => lan === selLan)!;
         const selName = sessions.get(selPid)?.name || 'Player';
-        io.in(gameState.gameId).emit('move_selected', {
+        io.emit('move_selected', {
           id: selPid,
           name: selName,
           moveNumber: gameState.moveNumber,
@@ -281,20 +254,16 @@ function tryFinalizeTurn() {
           gameState.side = gameState.side === 'white' ? 'black' : 'white';
           gameState.moveNumber++;
           gameState.status = GameStatus.AwaitingProposals;
-          io.in(gameState.gameId).emit('turn_change', {
+          io.emit('turn_change', {
             moveNumber: gameState.moveNumber,
             side: gameState.side,
           });
-          io.in(gameState.gameId).emit('game_status_update', { status: gameState.status });
-          io.in(gameState.gameId).emit('position_update', { fen });
+          io.emit('game_status_update', { status: gameState.status });
+          io.emit('position_update', { fen });
           startClock();
         }
       } catch (e) {
-        console.error(
-          `CRITICAL: chess.js threw an error on engine's move. FEN: ${currentFen}, Move: ${selLan}`,
-          e,
-        );
-        // Safely revert the state on error
+        console.error(`CRITICAL: Error on move. FEN: ${currentFen}, Move: ${selLan}`, e);
         gameState.status = GameStatus.AwaitingProposals;
       }
     });
@@ -302,38 +271,12 @@ function tryFinalizeTurn() {
 }
 
 function endIfOneSided() {
-  if (!gameState || gameState.status === GameStatus.Lobby || gameState.status === GameStatus.Over)
-    return;
+  if (gameState.status === GameStatus.Lobby || gameState.status === GameStatus.Over) return;
   const whiteAlive = gameState.whiteIds.size > 0;
   const blackAlive = gameState.blackIds.size > 0;
   if (whiteAlive && blackAlive) return;
   const winner = whiteAlive ? 'white' : blackAlive ? 'black' : null;
   endGame(EndReason.Abandonment, winner);
-}
-
-// --- Agones Shutdown Logic ---
-function checkAndShutdown() {
-  if (!gameState) return;
-  if (gameState.shutdownTimer) {
-    return;
-  }
-  gameState.shutdownTimer = setTimeout(() => {
-    if (countPlayersInGame() === 0) {
-      console.log('Game is empty. Shutting down via Agones SDK.');
-      sdk.shutdown();
-    } else {
-      if (gameState) gameState.shutdownTimer = undefined;
-    }
-  }, SHUTDOWN_GRACE_MS);
-  console.log(`Game empty. Scheduling shutdown in ${SHUTDOWN_GRACE_MS / 1000} seconds.`);
-}
-
-function cancelShutdown() {
-  if (gameState && gameState.shutdownTimer) {
-    console.log('Player joined, cancelling scheduled shutdown.');
-    clearTimeout(gameState.shutdownTimer);
-    gameState.shutdownTimer = undefined;
-  }
 }
 
 // --- Socket Event Handlers ---
@@ -343,28 +286,23 @@ function leave(this: Socket, explicit = false) {
   if (!pid) return;
   const sess = sessions.get(pid);
   if (!sess) return;
+
   const finalize = () => {
-    if (gameState) {
-      gameState.proposals.delete(pid);
-      if (sess.side === 'white') gameState.whiteIds.delete(pid);
-      if (sess.side === 'black') gameState.blackIds.delete(pid);
-      io.in(gameState.gameId).emit('proposal_removed', {
-        moveNumber: gameState.moveNumber,
-        side: gameState.side,
-        id: pid,
-      });
-      endIfOneSided();
-      tryFinalizeTurn();
-    }
-    broadcastPlayers(gameState!.gameId);
-    if (countPlayersInGame() === 0) {
-      checkAndShutdown();
-    }
+    gameState.proposals.delete(pid);
+    if (sess.side === 'white') gameState.whiteIds.delete(pid);
+    if (sess.side === 'black') gameState.blackIds.delete(pid);
+    io.emit('proposal_removed', {
+      moveNumber: gameState.moveNumber,
+      side: gameState.side,
+      id: pid,
+    });
+    endIfOneSided();
+    tryFinalizeTurn();
+    broadcastPlayers();
   };
 
   if (explicit) {
     sessions.delete(pid);
-    socket.leave(gameState!.gameId);
     finalize();
     return;
   }
@@ -375,25 +313,13 @@ function leave(this: Socket, explicit = false) {
     finalize();
   }, DISCONNECT_GRACE_MS);
 
-  broadcastPlayers(gameState!.gameId);
-  if (gameState) tryFinalizeTurn();
+  broadcastPlayers();
+  tryFinalizeTurn();
 }
 
 io.on('connection', (socket: Socket) => {
   const { pid: providedPid, name: providedName } =
     (socket.handshake.auth as { pid?: string; name?: string }) || {};
-
-  if (countPlayersInGame() >= MAX_PLAYERS_PER_GAME && !sessions.has(providedPid || '')) {
-    socket.emit('error', { message: 'This game is full.' });
-    socket.disconnect(true);
-    return;
-  }
-
-  if (gameState!.visibility === GameVisibility.Closed && !sessions.has(providedPid || '')) {
-    socket.emit('error', { message: 'This game is closed to new players.' });
-    socket.disconnect(true);
-    return;
-  }
 
   const pid = providedPid && sessions.has(providedPid) ? providedPid : nanoid();
   let sess = sessions.get(pid);
@@ -401,7 +327,6 @@ io.on('connection', (socket: Socket) => {
   if (!sess) {
     sess = { pid, name: providedName || 'Guest', side: 'spectator' };
     sessions.set(pid, sess);
-    cancelShutdown();
   } else {
     if (sess.reconnectTimer) {
       clearTimeout(sess.reconnectTimer);
@@ -414,48 +339,56 @@ io.on('connection', (socket: Socket) => {
   socket.data.name = sess.name;
   socket.data.side = sess.side;
 
-  socket.join(gameState!.gameId);
   socket.emit('session', { id: pid, name: sess.name });
-  socket.emit('game_status_update', {
-    status: gameState!.status,
-    visibility: gameState!.visibility,
-  });
-  if (gameState!.status !== GameStatus.Lobby) {
-    const currentProposals = Array.from(gameState!.proposals.entries()).map(([pid, proposal]) => ({
+  socket.emit('game_status_update', { status: gameState.status });
+
+  if (gameState.status !== GameStatus.Lobby) {
+    const currentProposals = Array.from(gameState.proposals.entries()).map(([pid, proposal]) => ({
       id: pid,
-      name: sessions.get(pid)?.name || 'Player', // Get player name from session
-      moveNumber: gameState!.moveNumber,
-      side: gameState!.side,
+      name: sessions.get(pid)?.name || 'Player',
+      moveNumber: gameState.moveNumber,
+      side: gameState.side,
       lan: proposal.lan,
       san: proposal.san,
     }));
     socket.emit('game_started', {
-      moveNumber: gameState!.moveNumber,
-      side: gameState!.side,
-      visibility: gameState!.visibility,
-      proposals: currentProposals, // Send the proposals with the initial state
+      moveNumber: gameState.moveNumber,
+      side: gameState.side,
+      proposals: currentProposals,
     });
-    socket.emit('position_update', { fen: gameState!.chess.fen() });
+    socket.emit('position_update', { fen: gameState.chess.fen() });
     socket.emit('clock_update', {
-      whiteTime: gameState!.whiteTime,
-      blackTime: gameState!.blackTime,
+      whiteTime: gameState.whiteTime,
+      blackTime: gameState.blackTime,
     });
-    if (gameState!.drawOffer) {
-      socket.emit('draw_offer_update', { side: gameState!.drawOffer });
+    if (gameState.drawOffer) {
+      socket.emit('draw_offer_update', { side: gameState.drawOffer });
     }
-    if (gameState!.status === GameStatus.Over) {
+    if (gameState.status === GameStatus.Over) {
       socket.emit('game_over', {
-        reason: gameState!.endReason,
-        winner: gameState!.endWinner,
-        pgn: getCleanPgn(gameState!.chess),
+        reason: gameState.endReason,
+        winner: gameState.endWinner,
+        pgn: getCleanPgn(gameState.chess),
       });
     }
   }
 
-  broadcastPlayers(gameState!.gameId);
+  broadcastPlayers();
+
+  socket.on('set_name', (name: string) => {
+    const newName = name.trim().slice(0, 30);
+    if (newName) {
+      const sess = sessions.get(pid);
+      if (sess) {
+        sess.name = newName;
+        socket.data.name = newName;
+        broadcastPlayers();
+        socket.emit('session', { id: pid, name: sess.name }); // Confirm name change
+      }
+    }
+  });
 
   socket.on('join_side', ({ side }, cb) => {
-    if (!gameState) return cb?.({ error: 'Game not initialized.' });
     const currentSess = sessions.get(pid);
     if (!currentSess) return;
 
@@ -473,13 +406,13 @@ io.on('connection', (socket: Socket) => {
       if (side === 'spectator') gameState.proposals.delete(pid);
       endIfOneSided();
     }
-    broadcastPlayers(gameState.gameId);
+    broadcastPlayers();
     tryFinalizeTurn();
     cb?.({ success: true });
   });
 
   socket.on('start_game', cb => {
-    if (!gameState || gameState.status !== GameStatus.Lobby) {
+    if (gameState.status !== GameStatus.Lobby) {
       return cb?.({ error: 'Game cannot be started.' });
     }
     const whites = new Set<string>();
@@ -489,28 +422,25 @@ io.on('connection', (socket: Socket) => {
       else if (s.side === 'black') blacks.add(s.pid);
     }
     if (whites.size === 0 || blacks.size === 0) {
-      return cb?.({ error: 'Both teams must have at least one player to start.' });
+      return cb?.({ error: 'Both teams must have at least one player.' });
     }
 
     gameState.status = GameStatus.AwaitingProposals;
     gameState.whiteIds = whites;
     gameState.blackIds = blacks;
 
-    io.in(gameState.gameId).emit('game_started', {
+    io.emit('game_started', {
       moveNumber: 1,
       side: 'white',
-      visibility: gameState.visibility,
-      gameId: gameState.gameId,
+      proposals: [],
     });
-    io.in(gameState.gameId).emit('position_update', { fen: gameState.chess.fen() });
+    io.emit('position_update', { fen: gameState.chess.fen() });
     startClock();
-    sendSystemMessage(gameState.gameId, `${socket.data.name} has started the game.`);
+    sendSystemMessage(`${socket.data.name} has started the game.`);
     cb?.({ success: true });
   });
 
   socket.on('reset_game', cb => {
-    if (!gameState) return cb?.({ error: 'Game not found.' });
-
     if (gameState.timerInterval) clearInterval(gameState.timerInterval);
     const engine = loadEngine(stockfishPath);
     engine.send('uci');
@@ -532,13 +462,13 @@ io.on('connection', (socket: Socket) => {
       endWinner: undefined,
       drawOffer: undefined,
     };
-    io.in(gameState.gameId).emit('game_reset');
-    sendSystemMessage(gameState.gameId, `${socket.data.name} has reset the game.`);
+    io.emit('game_reset');
+    sendSystemMessage(`${socket.data.name} has reset the game.`);
     cb?.({ success: true });
   });
 
   socket.on('play_move', (lan: string, cb) => {
-    if (!gameState || gameState.status !== GameStatus.AwaitingProposals)
+    if (gameState.status !== GameStatus.AwaitingProposals)
       return cb?.({ error: 'Not accepting proposals right now.' });
 
     const active = gameState.side === 'white' ? gameState.whiteIds : gameState.blackIds;
@@ -547,9 +477,8 @@ io.on('connection', (socket: Socket) => {
 
     if (gameState.drawOffer) {
       gameState.drawOffer = undefined;
-      io.in(gameState.gameId).emit('draw_offer_update', { side: null });
+      io.emit('draw_offer_update', { side: null });
       sendSystemMessage(
-        gameState.gameId,
         `${socket.data.name} proposed a move, automatically rejecting the draw offer.`,
       );
     }
@@ -564,7 +493,7 @@ io.on('connection', (socket: Socket) => {
     if (!move) return cb?.({ error: 'Illegal move.' });
 
     gameState.proposals.set(pid, { lan, san: move.san });
-    io.in(gameState.gameId).emit('move_submitted', {
+    io.emit('move_submitted', {
       id: pid,
       name: socket.data.name,
       moveNumber: gameState.moveNumber,
@@ -577,8 +506,8 @@ io.on('connection', (socket: Socket) => {
   });
 
   socket.on('chat_message', (message: string) => {
-    if (!gameState || !message.trim()) return;
-    io.to(gameState.gameId).emit('chat_message', {
+    if (!message.trim()) return;
+    io.emit('chat_message', {
       sender: socket.data.name,
       senderId: pid,
       message: message.trim(),
@@ -586,126 +515,77 @@ io.on('connection', (socket: Socket) => {
   });
 
   socket.on('resign', () => {
-    if (
-      !gameState ||
-      gameState.status !== GameStatus.AwaitingProposals ||
-      socket.data.side === 'spectator'
-    )
+    if (gameState.status !== GameStatus.AwaitingProposals || socket.data.side === 'spectator')
       return;
     const winner = socket.data.side === 'white' ? 'black' : 'white';
     sendSystemMessage(
-      gameState.gameId,
       `${socket.data.name} resigns on behalf of the ${socket.data.side} team.`,
     );
     endGame(EndReason.Resignation, winner);
   });
 
   socket.on('offer_draw', () => {
-    if (
-      !gameState ||
-      gameState.status !== GameStatus.AwaitingProposals ||
-      socket.data.side === 'spectator'
-    )
+    if (gameState.status !== GameStatus.AwaitingProposals || socket.data.side === 'spectator')
       return;
     if (gameState.drawOffer) return;
     gameState.drawOffer = socket.data.side;
-    io.in(gameState.gameId).emit('draw_offer_update', { side: socket.data.side });
-    sendSystemMessage(gameState.gameId, `${socket.data.name} offers a draw.`);
+    io.emit('draw_offer_update', { side: socket.data.side });
+    sendSystemMessage(`${socket.data.name} offers a draw.`);
   });
 
   socket.on('accept_draw', () => {
-    if (
-      !gameState ||
-      gameState.status !== GameStatus.AwaitingProposals ||
-      socket.data.side === 'spectator'
-    )
+    if (gameState.status !== GameStatus.AwaitingProposals || socket.data.side === 'spectator')
       return;
     if (!gameState.drawOffer || gameState.drawOffer === socket.data.side) return;
-    sendSystemMessage(gameState.gameId, `${socket.data.name} accepts the draw offer.`);
+    sendSystemMessage(`${socket.data.name} accepts the draw offer.`);
     endGame(EndReason.DrawAgreement, null);
   });
 
   socket.on('reject_draw', () => {
-    if (
-      !gameState ||
-      gameState.status !== GameStatus.AwaitingProposals ||
-      socket.data.side === 'spectator'
-    )
+    if (gameState.status !== GameStatus.AwaitingProposals || socket.data.side === 'spectator')
       return;
     if (!gameState.drawOffer || gameState.drawOffer === socket.data.side) return;
     gameState.drawOffer = undefined;
-    io.in(gameState.gameId).emit('draw_offer_update', { side: null });
-    sendSystemMessage(gameState.gameId, `${socket.data.name} rejects the draw offer.`);
-  });
-
-  socket.on('set_game_visibility', ({ visibility }) => {
-    if (!gameState) return;
-    if (Object.values(GameVisibility).includes(visibility)) {
-      gameState.visibility = visibility;
-      io.in(gameState.gameId).emit('game_visibility_update', { visibility });
-      sendSystemMessage(gameState.gameId, `${socket.data.name} set visibility to ${visibility}.`);
-      // Update the Agones label when visibility changes
-      updateAgonesLabels();
-    }
+    io.emit('draw_offer_update', { side: null });
+    sendSystemMessage(`${socket.data.name} rejects the draw offer.`);
   });
 
   socket.on('disconnect', () => leave.call(socket, false));
 });
 
 // --- Main Server Function ---
-async function startServer() {
-  try {
-    console.log('Connecting to Agones SDK...');
-    await sdk.connect();
-    console.log('Successfully connected to Agones SDK.');
+function startServer() {
+  console.log('Starting TeamChess server...');
 
-    const gameServer = await sdk.getGameServer();
-    const podName = gameServer.objectMeta.name;
-    const labels = Object.fromEntries(gameServer.objectMeta.labelsMap);
-    const gameId = labels['teamchess.dev/game-id'] || podName;
+  const engine = loadEngine(stockfishPath);
+  engine.send('uci');
 
-    const engine = loadEngine(stockfishPath);
-    engine.send('uci');
+  // Initialize the single, persistent game state
+  gameState = {
+    whiteIds: new Set(),
+    blackIds: new Set(),
+    moveNumber: 1,
+    side: 'white',
+    proposals: new Map(),
+    whiteTime: 600,
+    blackTime: 600,
+    engine,
+    chess: new Chess(),
+    status: GameStatus.Lobby,
+  };
 
-    gameState = {
-      gameId,
-      whiteIds: new Set(),
-      blackIds: new Set(),
-      moveNumber: 1,
-      side: 'white',
-      proposals: new Map(),
-      whiteTime: 600,
-      blackTime: 600,
-      engine,
-      chess: new Chess(),
-      status: GameStatus.Lobby,
-      visibility: GameVisibility.Private,
-    };
+  // Serve the static React build
+  const publicPath = path.join(__dirname, '..', 'public');
+  app.use(express.static(publicPath));
+  // Serve index.html for any unknown paths (SPA routing)
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(publicPath, 'index.html'));
+  });
 
-    const PORT = process.env.PORT || 3001;
-    server.listen(PORT, async () => {
-      console.log(`Game server listening on port ${PORT}`);
-      console.log(`Public Game ID: ${gameId}`);
-      console.log(`Internal Pod Name: ${podName}`);
-
-      await sdk.ready();
-      console.log('Server is READY.');
-
-      // Set initial labels
-      await updateAgonesLabels();
-
-      setInterval(() => {
-        sdk.health(err => {
-          if (err) {
-            console.error('Agones health check failed:', err);
-          }
-        });
-      }, 10000);
-    });
-  } catch (error) {
-    console.error('Failed to connect to Agones SDK or start the server:', error);
-    process.exit(1);
-  }
+  const PORT = process.env.PORT || 3001;
+  server.listen(PORT, () => {
+    console.log(`🚀 Server listening on port ${PORT}`);
+  });
 }
 
 startServer();

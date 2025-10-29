@@ -16,17 +16,9 @@ export type ChatMessage = {
   system?: boolean;
 };
 
-export const MAX_PLAYERS_PER_GAME = 10;
-export enum GameVisibility {
-  Public = 'Public',
-  Private = 'Private',
-  Closed = 'Closed',
-}
-
 export type GameInfo = {
   moveNumber: number;
   side: 'white' | 'black';
-  visibility?: GameVisibility;
 };
 export type Proposal = {
   id: string;
@@ -38,6 +30,7 @@ export type Proposal = {
 };
 
 export type Selection = Proposal & { fen: string };
+
 export enum GameStatus {
   Lobby = 'Lobby',
   AwaitingProposals = 'AwaitingProposals',

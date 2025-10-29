@@ -1,26 +1,24 @@
-# Git and Node specific
+# Git and Node
 .git
 .gitignore
 node_modules
-**/node_modules
 npm-debug.log
 
-# Build artifacts
+# Build artifacts from server
 dist
-build
-**/dist
-**/build
-*.tsbuildinfo
 
-# Docker files
-Dockerfile*
+# Build artifacts from client
+client/dist
+.vite
+
+# Docker
+Dockerfile
 docker-compose.yml
 .dockerignore
-nginx.conf
 
-# Other
-.husky
-README.md
+# Environment
+.env
+.env.*
 
-# Environment files should not be in the build context
-**/.env.*
+# TS build info
+*.tsbuildinfo
