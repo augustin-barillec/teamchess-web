@@ -1067,7 +1067,6 @@ export default function App() {
                 Chat{" "}
                 {hasUnreadMessages && <span className="unread-dot"></span>}{" "}
               </button>
-              NaN
             </nav>
             {TabContent}
           </div>
