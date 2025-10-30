@@ -143,25 +143,14 @@ async function chooseBestMove(
   fen: string,
   candidates: string[]
 ) {
-  console.log(
-    `[chooseBestMove] Engine called to pick from: ${candidates.join(" ")}`
-  );
   if (new Set(candidates).size === 1) {
-    console.log(
-      `[chooseBestMove] Only one unique candidate, selecting: ${candidates[0]}`
-    );
     return candidates[0];
   }
   return new Promise<string>((resolve) => {
     engine.send(`position fen ${fen}`);
     const goCommand = `go depth ${STOCKFISH_SEARCH_DEPTH} searchmoves ${candidates.join(" ")}`;
-    console.log(`[chooseBestMove] Sending to engine: ${goCommand}`);
     engine.send(goCommand, (output: string) => {
-      console.log(`[chooseBestMove] Engine output: ${output}`);
       if (output.startsWith("bestmove")) {
-        console.log(
-          `[chooseBestMove] Engine selected: ${output.split(" ")[1]}`
-        );
         resolve(output.split(" ")[1]);
       }
     });
