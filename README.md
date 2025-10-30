@@ -73,14 +73,14 @@ gcloud compute firewall-rules create http-80 \
 
 ### Step 3: Create the VM Instance
 
-This command will create a small e2-standard-2 server in the europe-west1 region, using Ubuntu 22.04, and apply our http-server firewall tag.
+This command will create a small e2-standard-2 server, using Ubuntu 22.04, and apply our http-server firewall tag.
 
 ```sh
 gcloud compute instances create teamchess-server \
     --machine-type=e2-standard-2 \
     --image-family=ubuntu-2204-lts \
     --image-project=ubuntu-os-cloud \
-    --region=europe-west1 \
+    --zone=europe-west1-b \
     --tags=http-server
 ```
 
@@ -89,7 +89,7 @@ gcloud compute instances create teamchess-server \
 1.  **SSH into your new VM:**
 
     ```sh
-    gcloud compute ssh teamchess-server --region=europe-west1
+    gcloud compute ssh teamchess-server --zone=europe-west1-b
     ```
 
     You are now inside the VM's terminal.
@@ -112,12 +112,12 @@ gcloud compute instances create teamchess-server \
     # Install prerequisites
     sudo apt-get install ca-certificates curl -y
     sudo install -m 0755 -d /etc/apt/keyrings
-    sudo curl -fsSL [https://download.docker.com/linux/ubuntu/gpg](https://download.docker.com/linux/ubuntu/gpg) -o /etc/apt/keyrings/docker.asc
+    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
     sudo chmod a+r /etc/apt/keyrings/docker.asc
 
     # Add the repository to Apt sources
     echo \
-      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] [https://download.docker.com/linux/ubuntu](https://download.docker.com/linux/ubuntu) \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
       $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
       sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     sudo apt-get update
@@ -141,7 +141,7 @@ gcloud compute instances create teamchess-server \
     Then run the SSH command again:
 
     ```sh
-    gcloud compute ssh teamchess-server --region=europe-west1
+    gcloud compute ssh teamchess-server --zone=europe-west1-b
     ```
 
 ### Step 5: Clone and Run Your Project
@@ -163,7 +163,7 @@ gcloud compute instances create teamchess-server \
 
     ```sh
     gcloud compute instances describe teamchess-server \
-        --region=europe-west1 \
+        --zone=europe-west1-b \
         --format='get(networkInterfaces[0].accessConfigs[0].natIP)'
     ```
 
@@ -191,7 +191,7 @@ Here is the simple workflow for when you've made code changes locally and want t
 1.  **SSH** into your VM:
 
     ```sh
-    gcloud compute ssh teamchess-server --region=europe-west1
+    gcloud compute ssh teamchess-server --zone=europe-west1-b
     ```
 
 2.  **Navigate** to your project directory:
