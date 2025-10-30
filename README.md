@@ -73,11 +73,11 @@ gcloud compute firewall-rules create http-80 \
 
 ### Step 3: Create the VM Instance
 
-This command will create a small `e2-micro` server in the `europe-west1` region, using Ubuntu 22.04, and apply our `http-server` firewall tag.
+This command will create a small e2-standard-2 server in the europe-west1 region, using Ubuntu 22.04, and apply our http-server firewall tag.
 
 ```sh
 gcloud compute instances create teamchess-server \
-    --machine-type=e2-micro \
+    --machine-type=e2-standard-2 \
     --image-family=ubuntu-2204-lts \
     --image-project=ubuntu-os-cloud \
     --region=europe-west1 \
