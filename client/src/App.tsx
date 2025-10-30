@@ -229,8 +229,6 @@ export default function App() {
       randomizationFactor: 0.2,
     });
     setSocket(s);
-    toast.loading("Connecting...");
-
     return () => {
       s.disconnect();
     };
@@ -272,13 +270,10 @@ export default function App() {
     if (!socket) return;
 
     socket.on("connect", () => {
-      toast.dismiss();
-      toast.success("Connected!");
       setAmDisconnected(false);
     });
 
     socket.on("disconnect", () => {
-      toast.error("Disconnected. Reconnecting...");
       setAmDisconnected(true);
     });
 
