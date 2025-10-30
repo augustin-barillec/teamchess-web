@@ -66,45 +66,6 @@ pre {
   margin-bottom: 8px;
 }
 
-.login-box {
-  max-width: 400px;
-  margin: 50px auto;
-  padding: 20px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background: #fff;
-}
-.input-group {
-  margin-top: 10px;
-  display: flex;
-  gap: 0.5rem;
-}
-.input-group input {
-  margin: 2px;
-  flex-grow: 1;
-}
-
-.public-games-list {
-  max-height: 150px;
-  overflow-y: auto;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 5px 10px;
-  margin-top: 10px;
-}
-
-.public-game-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 4px;
-  border-bottom: 1px solid #eee;
-}
-
-.public-game-item:last-child {
-  border-bottom: none;
-}
-
 .header-bar {
   display: flex;
   flex-wrap: wrap;
@@ -132,26 +93,6 @@ pre {
   gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
-}
-
-.visibility-control {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 4px 8px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background-color: #f9f9f9;
-}
-.visibility-control label {
-  font-size: 0.9em;
-  font-weight: 500;
-}
-.visibility-control select {
-  border-color: transparent;
-  background: none;
-  font-weight: bold;
-  padding: 2px;
 }
 
 .main-layout {
