@@ -1,5 +1,5 @@
 services:
-  teamchess:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
