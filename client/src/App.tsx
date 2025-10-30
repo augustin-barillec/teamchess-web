@@ -476,10 +476,33 @@ export default function App() {
     current?.proposals.some((p) => p.id === playerId);
   const copyPgn = () => {
     if (!pgn) return;
-    navigator.clipboard
-      .writeText(pgn)
-      .then(() => toast.success("PGN copied!"))
-      .catch(() => toast.error("Could not copy PGN."));
+
+    // 1. Create a temporary textarea element
+    const textArea = document.createElement("textarea");
+    textArea.value = pgn;
+
+    // 2. Make the textarea invisible and prevent page jumping
+    textArea.style.position = "fixed";
+    textArea.style.top = "-9999px";
+    textArea.style.left = "-9999px";
+
+    try {
+      // 3. Add it to the DOM
+      document.body.appendChild(textArea);
+
+      // 4. Select its text and execute the copy command
+      textArea.select();
+      document.execCommand("copy");
+
+      // 5. Show success
+      toast.success("PGN copied!");
+    } catch (err) {
+      // 6. Handle errors
+      toast.error("Could not copy PGN.");
+    } finally {
+      // 7. Clean up by removing the element
+      document.body.removeChild(textArea);
+    }
   };
 
   const handleStartEditName = () => {
