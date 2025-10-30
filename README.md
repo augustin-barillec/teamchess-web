@@ -8,27 +8,38 @@ TeamChess is a collaborative chess game. Everyone who connects to the server joi
 
 1.  **Join a Team:** You can join as **White**, **Black**, or a **Spectator**.
 2.  **Propose a Move:** All players on the team whose turn it is can propose a move.
-3.  **The Best Move Wins:** When all active players on the team have submitted a move, the server uses Stockfish to analyze all *proposed* moves and selects the best one to play on the board.
+3.  **The Best Move Wins:** When all active players on the team have submitted a move, the server uses Stockfish to analyze all _proposed_ moves and selects the best one to play on the board.
 
 ## Tech Stack
 
-* **Backend:** Node.js, Express, Socket.IO
-* **Frontend:** React, Vite, `react-chessboard`
-* **Engine:** Stockfish.js
-* **Container:** Docker & Docker Compose
+- **Backend:** Node.js, Express, Socket.IO
+- **Frontend:** React, Vite, `react-chessboard`
+- **Engine:** Stockfish.js
+- **Container:** Docker & Docker Compose
 
 ---
 
 ## 🚀 Local Development
 
-1.  **Build and run the container:**
+1.  **Install Dependencies & Git Hooks:**
+
+    ```sh
+    npm install
+    ```
+
+    This installs all local dependencies (like `husky` and `prettier`) and runs the `prepare` script to set up the pre-commit hooks. **This step is required** for your pre-commit formatting to work.
+
+2.  **Build and run the container:**
+
     ```sh
     docker compose up --build
     ```
-    This command will build the `Dockerfile`, start the container, and stream the server logs to your terminal.
 
-2.  **Access the game:**
-    Open `http://localhost` in your browser. The `docker-compose.yml` file maps your machine's port 80 to the container's port 3001.
+    This command will build the `Dockerfile` , start the container, and stream the server logs to your terminal.
+
+3.  **Access the game:**
+    Open `http://localhost` in your browser .
+    The `docker-compose.yaml` file maps your machine's port 80 to the container's port 3001 .
 
 ---
 
@@ -39,6 +50,7 @@ This guide will walk you through setting up a small, cheap virtual machine on Go
 ### Step 1: Install and Configure `gcloud` CLI
 
 1.  **Login to your Google Account:**
+
     ```sh
     gcloud auth login
     ```
@@ -57,7 +69,7 @@ gcloud compute firewall-rules create http-80 \
     --allow tcp:80 \
     --target-tags http-server \
     --description="Allow HTTP traffic on port 80"
-````
+```
 
 ### Step 3: Create the VM Instance
 
@@ -142,8 +154,8 @@ gcloud compute instances create teamchess-server \
     docker compose up --build -d
     ```
 
-      * `--build` forces it to build your image from the `Dockerfile`.
-      * `-d` (detached) runs the container in the background so you can close the SSH window.
+    - `--build` forces it to build your image from the `Dockerfile`.
+    - `-d` (detached) runs the container in the background so you can close the SSH window.
 
 ### Step 6: Find Your IP and Play\!
 
@@ -157,7 +169,7 @@ gcloud compute instances create teamchess-server \
 
 2.  **Play:** Paste the IP address (e.g., `http://34.123.45.67`) into your browser. Share it with your friends\!
 
------
+---
 
 ## ✏️ Updating Production (Deploying Changes)
 
@@ -201,4 +213,3 @@ Here is the simple workflow for when you've made code changes locally and want t
     ```
 
 That's it\! Docker Compose will intelligently rebuild the image and restart the container with your new code.
-
