@@ -1,4 +1,3 @@
-/* client/src/index.css */
 body {
   font-family: sans-serif;
   margin: 0;
@@ -24,7 +23,7 @@ button:hover {
   background-color: #f4f4f4;
 }
 
-input[type='text'],
+input[type="text"],
 select {
   padding: 8px 10px;
   border: 1px solid #ccc;
@@ -547,7 +546,7 @@ pre {
   inset: 0;
   background-color: #f8f8f8;
   z-index: 1000;
-  display: flex; /* Set in JSX but good to have here */
+  display: flex;
   flex-direction: column;
   padding: 10px;
   gap: 10px;
@@ -570,29 +569,23 @@ pre {
   font-size: 1.1em;
 }
 
-/* --- NEW: Correctly style the main content area of the overlay --- */
 .mobile-info-overlay .info-tabs-content {
   flex-grow: 1;
-  /* Allows this element to fill available space */
   min-height: 0;
-  /* Prevents flexbox overflow issues */
-  position: relative; /* Contains the tab panels */
+  position: relative;
   background: #fdfdfd;
   border: 1px solid #ccc;
-  border-bottom: none; /* No border between content and new footer */
+  border-bottom: none;
   border-radius: 8px 8px 0 0;
-  /* Rounds the top corners */
   overflow: hidden;
 }
 
-/* This rule makes sure the content inside the tab panel fills the container */
 .mobile-info-overlay .tab-panel.active {
   position: absolute;
   inset: 0;
   display: block;
 }
 
-/* This rule makes the scrolling lists fill the full height */
 .mobile-info-overlay .moves-list,
 .mobile-info-overlay .chat-box-container,
 .mobile-info-overlay .player-lists-container {

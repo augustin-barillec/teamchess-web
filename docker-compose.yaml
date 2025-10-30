@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     image: teamchess
     ports:
-      - "80:3001" # Host port 80 -> Container port 3001
+      - "80:3001"
     environment:
       - NODE_ENV=production
       - PORT=3001

@@ -1,4 +1,3 @@
-// client/src/App.tsx
 import { useState, useEffect, useMemo, useRef, CSSProperties } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { io, Socket } from "socket.io-client";
@@ -16,7 +15,7 @@ import {
   EndReason,
   ChatMessage,
   GameStatus,
-} from "../../server/shared_types"; // <-- IMPORT FROM NEW LOCATION
+} from "../../server/shared_types";
 
 const STORAGE_KEYS = {
   pid: "tc:pid",
@@ -24,7 +23,6 @@ const STORAGE_KEYS = {
   side: "tc:side",
 } as const;
 
-// --- (All constants like reasonMessages, pieceToFigurine, etc. are identical to original) ---
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
@@ -58,14 +56,11 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
-// --- (End of constants) ---
 
 export default function App() {
-  // --- STATE MANAGEMENT ---
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
 
-  // Player and Game state
   const [myId, setMyId] = useState<string>(
     sessionStorage.getItem(STORAGE_KEYS.pid) || ""
   );
@@ -117,7 +112,6 @@ export default function App() {
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(600);
 
-  // UI state
   const [activeTab, setActiveTab] = useState<"chat" | "moves" | "players">(
     "players"
   );
@@ -127,8 +121,6 @@ export default function App() {
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
 
-  // --- DERIVED STATE & MEMOS ---
-  // (All derived state like `current`, `orientation`, `kingInCheckSquare`, `lostWhitePieces` etc. is identical to original)
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
@@ -223,11 +215,8 @@ export default function App() {
       players.blackPlayers.length,
     [players]
   );
-  // --- (End of derived state) ---
 
-  // --- EFFECTS ---
   useEffect(() => {
-    // This effect runs once on component mount to connect
     const s = io({
       auth: {
         pid: sessionStorage.getItem(STORAGE_KEYS.pid) || undefined,
@@ -245,9 +234,8 @@ export default function App() {
     return () => {
       s.disconnect();
     };
-  }, []); // The empty dependency array ensures this runs only once on mount
+  }, []);
 
-  // --- (All other useEffects for resize, tabs, etc. are identical to original) ---
   useEffect(() => {
     const observer = new ResizeObserver((entries) => {
       if (entries[0]) setBoardWidth(entries[0].contentRect.width);
@@ -279,9 +267,7 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId]);
-  // --- (End of other useEffects) ---
 
-  // --- CONNECTION & SOCKET LOGIC ---
   useEffect(() => {
     if (!socket) return;
 
@@ -311,7 +297,6 @@ export default function App() {
       }
     );
 
-    // --- (All other socket listeners 'players', 'game_started', etc. are identical to original) ---
     socket.on("players", (p: Players) => setPlayers(p));
     socket.on(
       "game_started",
@@ -324,7 +309,6 @@ export default function App() {
         setWinner(null);
         setEndReason(null);
         setPgn("");
-        // Use the proposals from the server to initialize the turn state
         setTurns([{ moveNumber, side, proposals: proposals || [] }]);
         setLastMoveSquares(null);
         setDrawOffer(null);
@@ -414,15 +398,12 @@ export default function App() {
       "draw_offer_update",
       ({ side }: { side: "white" | "black" | null }) => setDrawOffer(side)
     );
-    // --- (End of socket listeners) ---
 
     return () => {
       socket.disconnect();
     };
   }, [socket, chess]);
 
-  // --- GAME ACTIONS ---
-  // --- (All game actions 'joinSide', 'resignGame', 'submitMove', 'copyPgn', etc. are identical to original) ---
   const joinSide = (s: "white" | "black" | "spectator") =>
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
@@ -497,9 +478,7 @@ export default function App() {
       .then(() => toast.success("PGN copied!"))
       .catch(() => toast.error("Could not copy PGN."));
   };
-  // --- (End of game actions) ---
 
-  // --- NEW ACTION ---
   const handleChangeName = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nameInput.trim() || nameInput === name) return;
@@ -507,8 +486,6 @@ export default function App() {
     toast.success("Name updated!");
   };
 
-  // --- UI COMPONENTS ---
-  // --- (All UI components 'DisconnectedIcon', 'PromotionDialog', 'PlayerInfoBox', 'TabContent' are identical to original) ---
   const DisconnectedIcon = () => (
     <svg
       viewBox="0 0 24 24"
@@ -843,9 +820,7 @@ export default function App() {
       </div>
     </div>
   );
-  // --- (End of UI components) ---
 
-  // --- RENDER LOGIC ---
   return (
     <>
       <Toaster position="top-center" />
@@ -867,12 +842,10 @@ export default function App() {
         </div>
       )}
 
-      {/* --- SIMPLIFIED: No login box, just render the app --- */}
       <div className="app-container">
         <div className="header-bar">
           <h1>TeamChess</h1>
 
-          {/* --- NEW: Name change form --- */}
           <form className="game-id-bar" onSubmit={handleChangeName}>
             <strong>Your Name:</strong>
             <input
@@ -884,7 +857,6 @@ export default function App() {
             <button type="submit">Set Name</button>
             <span> {playerCount} Players </span>
           </form>
-          {/* --- END: Name change form --- */}
 
           <div className="action-panel">
             {" "}
