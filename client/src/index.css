@@ -1,3 +1,5 @@
+/* client/src/index.css */
+
 body {
   font-family: sans-serif;
   margin: 0;
@@ -55,7 +57,8 @@ pre {
 .app-container {
   padding: 20px;
   max-width: 1600px;
-  margin: 0; /* Changed from '0 auto' to left-justify */
+  margin: 0;
+  /* Changed from '0 auto' to left-justify */
 }
 
 .offline-banner {
@@ -109,8 +112,8 @@ pre {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  justify-content: flex-start; /* MODIFIED: Align to the start/left */
+  /* gap: 1rem; - REMOVED */
   padding-bottom: 10px;
   border-bottom: 1px solid #ccc;
   margin-bottom: 15px;
@@ -119,9 +122,10 @@ pre {
   margin: 0;
   font-size: 1.5em;
   white-space: nowrap;
+  display: none; /* ADDED: Hide the H1 element */
 }
 .game-id-bar {
-  display: flex;
+  display: none; /* MODIFIED: Hide player count bar */
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
@@ -538,6 +542,12 @@ pre {
 
   .unread-dot {
     display: none;
+  }
+
+  /* ADDED: Justify buttons to the left on desktop */
+  .action-panel-desktop-left {
+    justify-content: flex-start;
+    flex-grow: 1;
   }
 }
 

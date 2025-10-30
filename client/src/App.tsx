@@ -1,3 +1,5 @@
+// client/src/App.tsx
+
 import {
   useState,
   useEffect,
@@ -23,13 +25,11 @@ import {
   ChatMessage,
   GameStatus,
 } from "../../server/shared_types";
-
 const STORAGE_KEYS = {
   pid: "tc:pid",
   name: "tc:name",
   side: "tc:side",
 } as const;
-
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
@@ -47,7 +47,6 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
-
 const pieceToFigurineWhite: Record<string, string> = {
   K: "♔",
   Q: "♕",
@@ -56,7 +55,6 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: "♘",
   P: "♙",
 };
-
 const pieceToFigurineBlack: Record<string, string> = {
   K: "♚",
   Q: "♛",
@@ -65,7 +63,6 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
-
 export default function App() {
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -134,7 +131,6 @@ export default function App() {
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
-
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: "k", color: chess.turn() };
@@ -152,7 +148,6 @@ export default function App() {
     });
     return square;
   }, [position, chess]);
-
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = {
       P: 8,
@@ -226,7 +221,6 @@ export default function App() {
       players.blackPlayers.length,
     [players]
   );
-
   useEffect(() => {
     const s = io({
       auth: {
@@ -252,22 +246,18 @@ export default function App() {
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
   }, []);
-
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener("resize", checkIsMobile);
     return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
-
   useEffect(() => {
     if (movesRef.current)
       movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
-
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
-
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some((p) => p.id === myId)
@@ -280,7 +270,6 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId, side]);
-
   useEffect(() => {
     if (!socket) return;
 
@@ -408,25 +397,21 @@ export default function App() {
       "draw_offer_update",
       ({ side }: { side: "white" | "black" | null }) => setDrawOffer(side)
     );
-
     return () => {
       socket.disconnect();
     };
   }, [socket, chess]);
-
   useEffect(() => {
     if (isEditingName && nameInputRef.current) {
       nameInputRef.current.focus();
     }
   }, [isEditingName]);
-
   const joinSide = (s: "white" | "black" | "spectator") =>
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
-
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -437,7 +422,6 @@ export default function App() {
     joinSide(chosen);
   };
   const joinSpectator = () => joinSide("spectator");
-
   const resignGame = () => {
     if (window.confirm("Are you sure you want to resign for your team?"))
       socket?.emit("resign");
@@ -482,7 +466,6 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
-
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== "p") return false;
@@ -491,7 +474,6 @@ export default function App() {
   }
   const hasPlayed = (playerId: string) =>
     current?.proposals.some((p) => p.id === playerId);
-
   const copyPgn = () => {
     if (!pgn) return;
     navigator.clipboard
@@ -505,7 +487,6 @@ export default function App() {
     // Ensure input is pre-filled with the current name
     setIsEditingName(true);
   };
-
   const submitNameChange = () => {
     const newName = nameInput.trim();
     if (!newName || newName === name) {
@@ -520,7 +501,6 @@ export default function App() {
     // <-- HIDE INPUT
     // The 'session' event will update 'name' and 'nameInput'
   };
-
   const handleNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       submitNameChange();
@@ -531,7 +511,6 @@ export default function App() {
       setIsEditingName(false); // <-- HIDE INPUT
     }
   };
-
   const DisconnectedIcon = () => (
     <svg
       viewBox="0 0 24 24"
@@ -556,7 +535,6 @@ export default function App() {
       </g>{" "}
     </svg>
   );
-
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
@@ -646,7 +624,6 @@ export default function App() {
       return true;
     },
   };
-
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -674,7 +651,6 @@ export default function App() {
       </div>
     </div>
   );
-
   const TabContent = (
     <div className="info-tabs-content">
       <div
@@ -870,7 +846,6 @@ export default function App() {
       </div>
     </div>
   );
-
   return (
     <>
       <Toaster position="top-center" />
@@ -894,13 +869,13 @@ export default function App() {
 
       <div className="app-container">
         <div className="header-bar">
-          <h1>TeamChess</h1>
+          {/* <h1>TeamChess</h1> - REMOVED */}
 
-          <div className="game-id-bar">
+          {/* <div className="game-id-bar">
             <span> {playerCount} Players </span>
-          </div>
+          </div> - REMOVED */}
 
-          <div className="action-panel">
+          <div className="action-panel **action-panel-desktop-left**">
             {" "}
             {isEditingName ? (
               <input
@@ -1057,6 +1032,7 @@ export default function App() {
               </div>
             )}
           </div>
+
           <div className="info-column">
             <nav className="info-tabs-nav">
               <button
