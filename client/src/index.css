@@ -55,7 +55,7 @@ pre {
 .app-container {
   padding: 20px;
   max-width: 1600px;
-  margin: 0 auto;
+  margin: 0; /* Changed from '0 auto' to left-justify */
 }
 
 .offline-banner {

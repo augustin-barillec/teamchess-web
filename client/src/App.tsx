@@ -1,4 +1,11 @@
-import { useState, useEffect, useMemo, useRef, CSSProperties } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  CSSProperties,
+  KeyboardEvent,
+} from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { io, Socket } from "socket.io-client";
 import { Chess } from "chess.js";
@@ -40,6 +47,7 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
+
 const pieceToFigurineWhite: Record<string, string> = {
   K: "♔",
   Q: "♕",
@@ -60,7 +68,6 @@ const pieceToFigurineBlack: Record<string, string> = {
 export default function App() {
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
-
   const [myId, setMyId] = useState<string>(
     sessionStorage.getItem(STORAGE_KEYS.pid) || ""
   );
@@ -120,10 +127,10 @@ export default function App() {
   const activeTabRef = useRef(activeTab);
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
-
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
+
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: "k", color: chess.turn() };
@@ -140,7 +147,7 @@ export default function App() {
       });
     });
     return square;
-  }, [position]);
+  }, [position, chess]);
 
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = {
@@ -206,7 +213,7 @@ export default function App() {
       lostBlackPieces: lostB.map((p) => p.figurine),
       materialBalance: balance,
     };
-  }, [position]);
+  }, [position, chess]);
 
   const playerCount = useMemo(
     () =>
@@ -241,18 +248,22 @@ export default function App() {
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
   }, []);
+
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener("resize", checkIsMobile);
     return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
+
   useEffect(() => {
     if (movesRef.current)
       movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
+
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some((p) => p.id === myId)
@@ -264,7 +275,7 @@ export default function App() {
       setSide(serverSide);
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
-  }, [players, myId]);
+  }, [players, myId, side]);
 
   useEffect(() => {
     if (!socket) return;
@@ -405,6 +416,7 @@ export default function App() {
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
+
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -415,6 +427,7 @@ export default function App() {
     joinSide(chosen);
   };
   const joinSpectator = () => joinSide("spectator");
+
   const resignGame = () => {
     if (window.confirm("Are you sure you want to resign for your team?"))
       socket?.emit("resign");
@@ -451,6 +464,7 @@ export default function App() {
       }
     });
   };
+
   const onPromote = (promotionPiece: "q" | "r" | "b" | "n") => {
     if (!promotionMove) return;
     const { from, to } = promotionMove;
@@ -458,6 +472,7 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
+
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== "p") return false;
@@ -466,6 +481,7 @@ export default function App() {
   }
   const hasPlayed = (playerId: string) =>
     current?.proposals.some((p) => p.id === playerId);
+
   const copyPgn = () => {
     if (!pgn) return;
     navigator.clipboard
@@ -474,11 +490,24 @@ export default function App() {
       .catch(() => toast.error("Could not copy PGN."));
   };
 
-  const handleChangeName = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nameInput.trim() || nameInput === name) return;
-    socket?.emit("set_name", nameInput.trim());
-    toast.success("Name updated!");
+  const submitNameChange = () => {
+    const newName = nameInput.trim();
+    if (!newName || newName === name) {
+      setNameInput(name); // Revert to original name if empty or unchanged
+      return;
+    }
+    socket?.emit("set_name", newName);
+    // The 'session' event will update 'name' and 'nameInput'
+  };
+
+  const handleNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      submitNameChange();
+      e.currentTarget.blur();
+    } else if (e.key === "Escape") {
+      setNameInput(name); // Revert changes
+      e.currentTarget.blur();
+    }
   };
 
   const DisconnectedIcon = () => (
@@ -505,6 +534,7 @@ export default function App() {
       </g>{" "}
     </svg>
   );
+
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
@@ -530,6 +560,7 @@ export default function App() {
       </div>
     );
   };
+
   const boardOptions = {
     position,
     boardOrientation: orientation,
@@ -593,6 +624,7 @@ export default function App() {
       return true;
     },
   };
+
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -620,6 +652,7 @@ export default function App() {
       </div>
     </div>
   );
+
   const TabContent = (
     <div className="info-tabs-content">
       <div
@@ -730,7 +763,7 @@ export default function App() {
                             <strong>{p.name}</strong>
                           ) : (
                             p.name
-                          )}:{" "}
+                          )}{" "}
                           {isSel ? (
                             <span className="moves-list-item">{p.san}</span>
                           ) : (
@@ -841,17 +874,19 @@ export default function App() {
         <div className="header-bar">
           <h1>TeamChess</h1>
 
-          <form className="game-id-bar" onSubmit={handleChangeName}>
-            <strong>Your Name:</strong>
+          <div className="game-id-bar">
             <input
               type="text"
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
+              onBlur={submitNameChange}
+              onKeyDown={handleNameKeyDown}
               style={{ flexGrow: 0, minWidth: "150px" }}
+              placeholder="Set your name"
+              aria-label="Set your name (Enter to save)"
             />
-            <button type="submit">Set Name</button>
             <span> {playerCount} Players </span>
-          </form>
+          </div>
 
           <div className="action-panel">
             {" "}
