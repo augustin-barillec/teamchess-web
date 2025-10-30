@@ -501,27 +501,33 @@ export default function App() {
   };
 
   const handleStartEditName = () => {
-    setNameInput(name); // Ensure input is pre-filled with the current name
+    setNameInput(name);
+    // Ensure input is pre-filled with the current name
     setIsEditingName(true);
   };
 
   const submitNameChange = () => {
     const newName = nameInput.trim();
     if (!newName || newName === name) {
-      setNameInput(name); // Revert to original name if empty or unchanged
-      setIsEditingName(false); // <-- HIDE INPUT
+      setNameInput(name);
+      // Revert to original name if empty or unchanged
+      setIsEditingName(false);
+      // <-- HIDE INPUT
       return;
     }
     socket?.emit("set_name", newName);
-    setIsEditingName(false); // <-- HIDE INPUT
+    setIsEditingName(false);
+    // <-- HIDE INPUT
     // The 'session' event will update 'name' and 'nameInput'
   };
 
   const handleNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      submitNameChange(); // This will now also hide the input
+      submitNameChange();
+      // This will now also hide the input
     } else if (e.key === "Escape") {
-      setNameInput(name); // Revert changes
+      setNameInput(name);
+      // Revert changes
       setIsEditingName(false); // <-- HIDE INPUT
     }
   };
@@ -891,6 +897,11 @@ export default function App() {
           <h1>TeamChess</h1>
 
           <div className="game-id-bar">
+            <span> {playerCount} Players </span>
+          </div>
+
+          <div className="action-panel">
+            {" "}
             {isEditingName ? (
               <input
                 ref={nameInputRef}
@@ -906,11 +917,6 @@ export default function App() {
             ) : (
               <button onClick={handleStartEditName}>Set Name</button>
             )}
-            <span> {playerCount} Players </span>
-          </div>
-
-          <div className="action-panel">
-            {" "}
             {gameStatus === GameStatus.Lobby && (
               <>
                 {" "}
