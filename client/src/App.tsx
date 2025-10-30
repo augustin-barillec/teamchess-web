@@ -56,6 +56,7 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: "♘",
   P: "♙",
 };
+
 const pieceToFigurineBlack: Record<string, string> = {
   K: "♚",
   Q: "♛",
@@ -127,6 +128,9 @@ export default function App() {
   const activeTabRef = useRef(activeTab);
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
@@ -410,6 +414,12 @@ export default function App() {
     };
   }, [socket, chess]);
 
+  useEffect(() => {
+    if (isEditingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
+  }, [isEditingName]);
+
   const joinSide = (s: "white" | "black" | "spectator") =>
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
@@ -490,23 +500,29 @@ export default function App() {
       .catch(() => toast.error("Could not copy PGN."));
   };
 
+  const handleStartEditName = () => {
+    setNameInput(name); // Ensure input is pre-filled with the current name
+    setIsEditingName(true);
+  };
+
   const submitNameChange = () => {
     const newName = nameInput.trim();
     if (!newName || newName === name) {
       setNameInput(name); // Revert to original name if empty or unchanged
+      setIsEditingName(false); // <-- HIDE INPUT
       return;
     }
     socket?.emit("set_name", newName);
+    setIsEditingName(false); // <-- HIDE INPUT
     // The 'session' event will update 'name' and 'nameInput'
   };
 
   const handleNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      submitNameChange();
-      e.currentTarget.blur();
+      submitNameChange(); // This will now also hide the input
     } else if (e.key === "Escape") {
       setNameInput(name); // Revert changes
-      e.currentTarget.blur();
+      setIsEditingName(false); // <-- HIDE INPUT
     }
   };
 
@@ -875,16 +891,21 @@ export default function App() {
           <h1>TeamChess</h1>
 
           <div className="game-id-bar">
-            <input
-              type="text"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              onBlur={submitNameChange}
-              onKeyDown={handleNameKeyDown}
-              style={{ flexGrow: 0, minWidth: "150px" }}
-              placeholder="Set your name"
-              aria-label="Set your name (Enter to save)"
-            />
+            {isEditingName ? (
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                onBlur={submitNameChange}
+                onKeyDown={handleNameKeyDown}
+                style={{ flexGrow: 0, minWidth: "150px" }}
+                placeholder="Set your name"
+                aria-label="Set your name (Enter to save)"
+              />
+            ) : (
+              <button onClick={handleStartEditName}>Set Name</button>
+            )}
             <span> {playerCount} Players </span>
           </div>
 
