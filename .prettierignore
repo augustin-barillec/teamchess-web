@@ -1,0 +1,13 @@
+# Build artifacts
+dist
+client/dist
+.vite
+
+# Dependencies
+node_modules
+
+# Lockfiles
+package-lock.json
+
+# Git
+.git

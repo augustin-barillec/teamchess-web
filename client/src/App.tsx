@@ -1,9 +1,13 @@
 // client/src/App.tsx
-import { useState, useEffect, useMemo, useRef, CSSProperties } from 'react';
-import { Toaster, toast } from 'react-hot-toast';
-import { io, Socket } from 'socket.io-client';
-import { Chess } from 'chess.js';
-import { Chessboard, PieceDropHandlerArgs, PieceHandlerArgs } from 'react-chessboard';
+import { useState, useEffect, useMemo, useRef, CSSProperties } from "react";
+import { Toaster, toast } from "react-hot-toast";
+import { io, Socket } from "socket.io-client";
+import { Chess } from "chess.js";
+import {
+  Chessboard,
+  PieceDropHandlerArgs,
+  PieceHandlerArgs,
+} from "react-chessboard";
 import {
   Players,
   GameInfo,
@@ -12,36 +16,47 @@ import {
   EndReason,
   ChatMessage,
   GameStatus,
-} from '../../server/shared_types'; // <-- IMPORT FROM NEW LOCATION
+} from "../../server/shared_types"; // <-- IMPORT FROM NEW LOCATION
 
 const STORAGE_KEYS = {
-  pid: 'tc:pid',
-  name: 'tc:name',
-  side: 'tc:side',
+  pid: "tc:pid",
+  name: "tc:name",
+  side: "tc:side",
 } as const;
 
 // --- (All constants like reasonMessages, pieceToFigurine, etc. are identical to original) ---
 const reasonMessages: Record<string, (winner: string | null) => string> = {
-  [EndReason.Checkmate]: winner =>
+  [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
   [EndReason.Stalemate]: () => `🤝 Game drawn by stalemate.`,
   [EndReason.Threefold]: () => `🤝 Game drawn by threefold repetition.`,
   [EndReason.Insufficient]: () => `🤝 Game drawn by insufficient material.`,
   [EndReason.DrawRule]: () => `🤝 Game drawn by rule (e.g. fifty-move).`,
-  [EndReason.Resignation]: winner =>
+  [EndReason.Resignation]: (winner) =>
     `🏳️ Resignation!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
   [EndReason.DrawAgreement]: () => `🤝 Draw agreed.`,
-  [EndReason.Timeout]: winner => `⏱️ Time!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
-  [EndReason.Abandonment]: winner =>
+  [EndReason.Timeout]: (winner) =>
+    `⏱️ Time!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
+  [EndReason.Abandonment]: (winner) =>
     `🚫 Forfeit!\n${
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
 const pieceToFigurineWhite: Record<string, string> = {
-  K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘', P: '♙',
+  K: "♔",
+  Q: "♕",
+  R: "♖",
+  B: "♗",
+  N: "♘",
+  P: "♙",
 };
 const pieceToFigurineBlack: Record<string, string> = {
-  K: '♚', Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟',
+  K: "♚",
+  Q: "♛",
+  R: "♜",
+  B: "♝",
+  N: "♞",
+  P: "♟",
 };
 // --- (End of constants) ---
 
@@ -51,35 +66,61 @@ export default function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
 
   // Player and Game state
-  const [myId, setMyId] = useState<string>(sessionStorage.getItem(STORAGE_KEYS.pid) || '');
-  const [name, setName] = useState(sessionStorage.getItem(STORAGE_KEYS.name) || 'Guest');
-  const [nameInput, setNameInput] = useState(sessionStorage.getItem(STORAGE_KEYS.name) || 'Guest');
-  const [side, setSide] = useState<'spectator' | 'white' | 'black'>(
-    (sessionStorage.getItem(STORAGE_KEYS.side) as 'spectator' | 'white' | 'black') || 'spectator',
+  const [myId, setMyId] = useState<string>(
+    sessionStorage.getItem(STORAGE_KEYS.pid) || ""
+  );
+  const [name, setName] = useState(
+    sessionStorage.getItem(STORAGE_KEYS.name) || "Guest"
+  );
+  const [nameInput, setNameInput] = useState(
+    sessionStorage.getItem(STORAGE_KEYS.name) || "Guest"
+  );
+  const [side, setSide] = useState<"spectator" | "white" | "black">(
+    (sessionStorage.getItem(STORAGE_KEYS.side) as
+      | "spectator"
+      | "white"
+      | "black") || "spectator"
   );
   const [players, setPlayers] = useState<Players>({
-    spectators: [], whitePlayers: [], blackPlayers: [],
+    spectators: [],
+    whitePlayers: [],
+    blackPlayers: [],
   });
   const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Lobby);
-  const [winner, setWinner] = useState<'white' | 'black' | null>(null);
+  const [winner, setWinner] = useState<"white" | "black" | null>(null);
   const [endReason, setEndReason] = useState<string | null>(null);
-  const [pgn, setPgn] = useState('');
+  const [pgn, setPgn] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [turns, setTurns] = useState<
-    { moveNumber: number; side: 'white' | 'black'; proposals: Proposal[]; selection?: Selection }[]
+    {
+      moveNumber: number;
+      side: "white" | "black";
+      proposals: Proposal[];
+      selection?: Selection;
+    }[]
   >([]);
   const [chess] = useState(new Chess());
   const [position, setPosition] = useState(chess.fen());
   const [clocks, setClocks] = useState({ whiteTime: 0, blackTime: 0 });
-  const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
-  const [legalSquareStyles, setLegalSquareStyles] = useState<Record<string, CSSProperties>>({});
-  const [drawOffer, setDrawOffer] = useState<'white' | 'black' | null>(null);
-  const [promotionMove, setPromotionMove] = useState<{ from: string; to: string } | null>(null);
+  const [lastMoveSquares, setLastMoveSquares] = useState<{
+    from: string;
+    to: string;
+  } | null>(null);
+  const [legalSquareStyles, setLegalSquareStyles] = useState<
+    Record<string, CSSProperties>
+  >({});
+  const [drawOffer, setDrawOffer] = useState<"white" | "black" | null>(null);
+  const [promotionMove, setPromotionMove] = useState<{
+    from: string;
+    to: string;
+  } | null>(null);
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(600);
 
   // UI state
-  const [activeTab, setActiveTab] = useState<'chat' | 'moves' | 'players'>('players');
+  const [activeTab, setActiveTab] = useState<"chat" | "moves" | "players">(
+    "players"
+  );
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const movesRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef(activeTab);
@@ -89,16 +130,20 @@ export default function App() {
   // --- DERIVED STATE & MEMOS ---
   // (All derived state like `current`, `orientation`, `kingInCheckSquare`, `lostWhitePieces` etc. is identical to original)
   const current = turns[turns.length - 1];
-  const orientation: 'white' | 'black' = side === 'black' ? 'black' : 'white';
+  const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
-    const kingPiece = { type: 'k', color: chess.turn() };
+    const kingPiece = { type: "k", color: chess.turn() };
     let square: string | null = null;
     chess.board().forEach((row, rowIndex) => {
       row.forEach((piece, colIndex) => {
-        if (piece && piece.type === kingPiece.type && piece.color === kingPiece.color) {
-          square = `${'abcdefgh'[colIndex]}${8 - rowIndex}`;
+        if (
+          piece &&
+          piece.type === kingPiece.type &&
+          piece.color === kingPiece.color
+        ) {
+          square = `${"abcdefgh"[colIndex]}${8 - rowIndex}`;
         }
       });
     });
@@ -106,23 +151,51 @@ export default function App() {
   }, [position]);
 
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
-    const initial: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1 };
-    const currWhite: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
-    const currBlack: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, K: 0 };
+    const initial: Record<string, number> = {
+      P: 8,
+      N: 2,
+      B: 2,
+      R: 2,
+      Q: 1,
+      K: 1,
+    };
+    const currWhite: Record<string, number> = {
+      P: 0,
+      N: 0,
+      B: 0,
+      R: 0,
+      Q: 0,
+      K: 0,
+    };
+    const currBlack: Record<string, number> = {
+      P: 0,
+      N: 0,
+      B: 0,
+      R: 0,
+      Q: 0,
+      K: 0,
+    };
     chess
       .board()
       .flat()
-      .forEach(piece => {
+      .forEach((piece) => {
         if (piece) {
           const type = piece.type.toUpperCase();
-          if (piece.color === 'w') currWhite[type]++;
+          if (piece.color === "w") currWhite[type]++;
           else currBlack[type]++;
         }
       });
     const lostW: { type: string; figurine: string }[] = [];
     const lostB: { type: string; figurine: string }[] = [];
-    const order = ['P', 'N', 'B', 'R', 'Q', 'K'];
-    const values: Record<string, number> = { P: 1, N: 3, B: 3, R: 5, Q: 9, K: 0 };
+    const order = ["P", "N", "B", "R", "Q", "K"];
+    const values: Record<string, number> = {
+      P: 1,
+      N: 3,
+      B: 3,
+      R: 5,
+      Q: 9,
+      K: 0,
+    };
     Object.entries(initial).forEach(([type, count]) => {
       const wCount = currWhite[type] || 0;
       const bCount = currBlack[type] || 0;
@@ -137,15 +210,18 @@ export default function App() {
     const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
     const balance = blackLostValue - whiteLostValue;
     return {
-      lostWhitePieces: lostW.map(p => p.figurine),
-      lostBlackPieces: lostB.map(p => p.figurine),
+      lostWhitePieces: lostW.map((p) => p.figurine),
+      lostBlackPieces: lostB.map((p) => p.figurine),
       materialBalance: balance,
     };
   }, [position]);
 
   const playerCount = useMemo(
-    () => players.spectators.length + players.whitePlayers.length + players.blackPlayers.length,
-    [players],
+    () =>
+      players.spectators.length +
+      players.whitePlayers.length +
+      players.blackPlayers.length,
+    [players]
   );
   // --- (End of derived state) ---
 
@@ -155,7 +231,7 @@ export default function App() {
     const s = io({
       auth: {
         pid: sessionStorage.getItem(STORAGE_KEYS.pid) || undefined,
-        name: sessionStorage.getItem(STORAGE_KEYS.name) || 'Guest',
+        name: sessionStorage.getItem(STORAGE_KEYS.name) || "Guest",
       },
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -164,7 +240,7 @@ export default function App() {
       randomizationFactor: 0.2,
     });
     setSocket(s);
-    toast.loading('Connecting...');
+    toast.loading("Connecting...");
 
     return () => {
       s.disconnect();
@@ -173,7 +249,7 @@ export default function App() {
 
   // --- (All other useEffects for resize, tabs, etc. are identical to original) ---
   useEffect(() => {
-    const observer = new ResizeObserver(entries => {
+    const observer = new ResizeObserver((entries) => {
       if (entries[0]) setBoardWidth(entries[0].contentRect.width);
     });
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
@@ -181,22 +257,23 @@ export default function App() {
   }, []);
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
-    window.addEventListener('resize', checkIsMobile);
-    return () => window.removeEventListener('resize', checkIsMobile);
+    window.addEventListener("resize", checkIsMobile);
+    return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
   useEffect(() => {
-    if (movesRef.current) movesRef.current.scrollTop = movesRef.current.scrollHeight;
+    if (movesRef.current)
+      movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
   useEffect(() => {
     if (!myId) return;
-    const serverSide = players.whitePlayers.some(p => p.id === myId)
-      ? 'white'
-      : players.blackPlayers.some(p => p.id === myId)
-      ? 'black'
-      : 'spectator';
+    const serverSide = players.whitePlayers.some((p) => p.id === myId)
+      ? "white"
+      : players.blackPlayers.some((p) => p.id === myId)
+        ? "black"
+        : "spectator";
     if (serverSide !== side) {
       setSide(serverSide);
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
@@ -208,49 +285,56 @@ export default function App() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('connect', () => {
+    socket.on("connect", () => {
       toast.dismiss();
-      toast.success('Connected!');
+      toast.success("Connected!");
       setAmDisconnected(false);
     });
 
-    socket.on('disconnect', () => {
-      toast.error('Disconnected. Reconnecting...');
+    socket.on("disconnect", () => {
+      toast.error("Disconnected. Reconnecting...");
       setAmDisconnected(true);
     });
 
-    socket.on('error', (data: { message: string }) => {
+    socket.on("error", (data: { message: string }) => {
       toast.error(data.message);
     });
 
-    socket.on('session', ({ id, name: serverName }: { id: string; name: string }) => {
-      setMyId(id);
-      setName(serverName);
-      setNameInput(serverName);
-      sessionStorage.setItem(STORAGE_KEYS.pid, id);
-      sessionStorage.setItem(STORAGE_KEYS.name, serverName);
-    });
+    socket.on(
+      "session",
+      ({ id, name: serverName }: { id: string; name: string }) => {
+        setMyId(id);
+        setName(serverName);
+        setNameInput(serverName);
+        sessionStorage.setItem(STORAGE_KEYS.pid, id);
+        sessionStorage.setItem(STORAGE_KEYS.name, serverName);
+      }
+    );
 
     // --- (All other socket listeners 'players', 'game_started', etc. are identical to original) ---
-    socket.on('players', (p: Players) => setPlayers(p));
+    socket.on("players", (p: Players) => setPlayers(p));
     socket.on(
-      'game_started',
-      ({ moveNumber, side, proposals }: GameInfo & { proposals: Proposal[] }) => {
+      "game_started",
+      ({
+        moveNumber,
+        side,
+        proposals,
+      }: GameInfo & { proposals: Proposal[] }) => {
         setGameStatus(GameStatus.AwaitingProposals);
         setWinner(null);
         setEndReason(null);
-        setPgn('');
+        setPgn("");
         // Use the proposals from the server to initialize the turn state
         setTurns([{ moveNumber, side, proposals: proposals || [] }]);
         setLastMoveSquares(null);
         setDrawOffer(null);
-      },
+      }
     );
-    socket.on('game_reset', () => {
+    socket.on("game_reset", () => {
       setGameStatus(GameStatus.Lobby);
       setWinner(null);
       setEndReason(null);
-      setPgn('');
+      setPgn("");
       setTurns([]);
       chess.reset();
       setPosition(chess.fen());
@@ -258,25 +342,29 @@ export default function App() {
       setLastMoveSquares(null);
       setDrawOffer(null);
     });
-    socket.on('clock_update', ({ whiteTime, blackTime }) => setClocks({ whiteTime, blackTime }));
-    socket.on('position_update', ({ fen }) => {
+    socket.on("clock_update", ({ whiteTime, blackTime }) =>
+      setClocks({ whiteTime, blackTime })
+    );
+    socket.on("position_update", ({ fen }) => {
       chess.load(fen);
       setPosition(fen);
     });
-    socket.on('move_submitted', (m: Proposal) =>
-      setTurns(ts =>
-        ts.map(t =>
+    socket.on("move_submitted", (m: Proposal) =>
+      setTurns((ts) =>
+        ts.map((t) =>
           t.moveNumber === m.moveNumber && t.side === m.side
             ? { ...t, proposals: [...t.proposals, m] }
-            : t,
-        ),
-      ),
+            : t
+        )
+      )
     );
-    socket.on('move_selected', (sel: Selection) => {
-      setTurns(ts =>
-        ts.map(t =>
-          t.moveNumber === sel.moveNumber && t.side === sel.side ? { ...t, selection: sel } : t,
-        ),
+    socket.on("move_selected", (sel: Selection) => {
+      setTurns((ts) =>
+        ts.map((t) =>
+          t.moveNumber === sel.moveNumber && t.side === sel.side
+            ? { ...t, selection: sel }
+            : t
+        )
       );
       chess.load(sel.fen);
       const from = sel.lan.slice(0, 2);
@@ -284,40 +372,47 @@ export default function App() {
       setLastMoveSquares({ from, to });
       setPosition(sel.fen);
     });
-    socket.on('turn_change', ({ moveNumber, side }: GameInfo) =>
-      setTurns(ts => [...ts, { moveNumber, side, proposals: [] }]),
+    socket.on("turn_change", ({ moveNumber, side }: GameInfo) =>
+      setTurns((ts) => [...ts, { moveNumber, side, proposals: [] }])
     );
-    socket.on('proposal_removed', ({ moveNumber, side, id }) =>
-      setTurns(ts =>
-        ts.map(t =>
+    socket.on("proposal_removed", ({ moveNumber, side, id }) =>
+      setTurns((ts) =>
+        ts.map((t) =>
           t.moveNumber === moveNumber && t.side === side
-            ? { ...t, proposals: t.proposals.filter(p => p.id !== id) }
-            : t,
-        ),
-      ),
+            ? { ...t, proposals: t.proposals.filter((p) => p.id !== id) }
+            : t
+        )
+      )
     );
     socket.on(
-      'game_over',
-      ({ reason, winner, pgn: newPgn }: { reason: string; winner: string | null; pgn: string }) => {
+      "game_over",
+      ({
+        reason,
+        winner,
+        pgn: newPgn,
+      }: {
+        reason: string;
+        winner: string | null;
+        pgn: string;
+      }) => {
         setGameStatus(GameStatus.Over);
         setWinner(winner);
         setEndReason(reason);
         setPgn(newPgn);
         setDrawOffer(null);
-      },
+      }
     );
-    socket.on('chat_message', (msg: ChatMessage) => {
-      setChatMessages(msgs => [...msgs, msg]);
-      if (!msg.system && activeTabRef.current !== 'chat') setHasUnreadMessages(true);
+    socket.on("chat_message", (msg: ChatMessage) => {
+      setChatMessages((msgs) => [...msgs, msg]);
+      if (!msg.system && activeTabRef.current !== "chat")
+        setHasUnreadMessages(true);
+    });
+    socket.on("game_status_update", ({ status }: { status: GameStatus }) => {
+      setGameStatus(status);
     });
     socket.on(
-      'game_status_update',
-      ({ status }: { status: GameStatus; }) => {
-        setGameStatus(status);
-      },
-    );
-    socket.on('draw_offer_update', ({ side }: { side: 'white' | 'black' | null }) =>
-      setDrawOffer(side),
+      "draw_offer_update",
+      ({ side }: { side: "white" | "black" | null }) => setDrawOffer(side)
     );
     // --- (End of socket listeners) ---
 
@@ -328,8 +423,8 @@ export default function App() {
 
   // --- GAME ACTIONS ---
   // --- (All game actions 'joinSide', 'resignGame', 'submitMove', 'copyPgn', etc. are identical to original) ---
-  const joinSide = (s: 'white' | 'black' | 'spectator') =>
-    socket?.emit('join_side', { side: s }, (res: { error?: string }) => {
+  const joinSide = (s: "white" | "black" | "spectator") =>
+    socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
@@ -337,44 +432,50 @@ export default function App() {
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
-    let chosen: 'white' | 'black';
-    if (whiteCount < blackCount) chosen = 'white';
-    else if (blackCount < whiteCount) chosen = 'black';
-    else chosen = Math.random() < 0.5 ? 'white' : 'black';
+    let chosen: "white" | "black";
+    if (whiteCount < blackCount) chosen = "white";
+    else if (blackCount < whiteCount) chosen = "black";
+    else chosen = Math.random() < 0.5 ? "white" : "black";
     joinSide(chosen);
   };
-  const joinSpectator = () => joinSide('spectator');
+  const joinSpectator = () => joinSide("spectator");
   const resignGame = () => {
-    if (window.confirm('Are you sure you want to resign for your team?')) socket?.emit('resign');
+    if (window.confirm("Are you sure you want to resign for your team?"))
+      socket?.emit("resign");
   };
   const offerDraw = () => {
-    if (window.confirm('Are you sure you want to offer a draw for your team?'))
-      socket?.emit('offer_draw');
+    if (window.confirm("Are you sure you want to offer a draw for your team?"))
+      socket?.emit("offer_draw");
   };
   const acceptDraw = () => {
-    if (window.confirm('Accept the draw offer for your team?')) socket?.emit('accept_draw');
+    if (window.confirm("Accept the draw offer for your team?"))
+      socket?.emit("accept_draw");
   };
   const rejectDraw = () => {
-    if (window.confirm('Reject the draw offer for your team?')) socket?.emit('reject_draw');
+    if (window.confirm("Reject the draw offer for your team?"))
+      socket?.emit("reject_draw");
   };
-  const startGame = () => socket?.emit('start_game');
+  const startGame = () => socket?.emit("start_game");
   const resetGame = () => {
-    if (window.confirm('Are you sure you want to reset the game?')) {
-      socket?.emit('reset_game', (res: { success: boolean; error?: string }) => {
-        if (res.error) return toast.error(res.error);
-      });
+    if (window.confirm("Are you sure you want to reset the game?")) {
+      socket?.emit(
+        "reset_game",
+        (res: { success: boolean; error?: string }) => {
+          if (res.error) return toast.error(res.error);
+        }
+      );
     }
   };
   const submitMove = (lan: string) => {
     if (!socket) return;
-    socket.emit('play_move', lan, (res: { error?: string }) => {
+    socket.emit("play_move", lan, (res: { error?: string }) => {
       if (res?.error) toast.error(res.error);
       else if (isMobile) {
-        toast.success('Move submitted ✔️');
+        toast.success("Move submitted ✔️");
       }
     });
   };
-  const onPromote = (promotionPiece: 'q' | 'r' | 'b' | 'n') => {
+  const onPromote = (promotionPiece: "q" | "r" | "b" | "n") => {
     if (!promotionMove) return;
     const { from, to } = promotionMove;
     const lan = from + to + promotionPiece;
@@ -383,17 +484,18 @@ export default function App() {
   };
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
-    if (!piece || piece.type !== 'p') return false;
+    if (!piece || piece.type !== "p") return false;
     const rank = to[1];
-    return piece.color === 'w' ? rank === '8' : rank === '1';
+    return piece.color === "w" ? rank === "8" : rank === "1";
   }
-  const hasPlayed = (playerId: string) => current?.proposals.some(p => p.id === playerId);
+  const hasPlayed = (playerId: string) =>
+    current?.proposals.some((p) => p.id === playerId);
   const copyPgn = () => {
     if (!pgn) return;
     navigator.clipboard
       .writeText(pgn)
-      .then(() => toast.success('PGN copied!'))
-      .catch(() => toast.error('Could not copy PGN.'));
+      .then(() => toast.success("PGN copied!"))
+      .catch(() => toast.error("Could not copy PGN."));
   };
   // --- (End of game actions) ---
 
@@ -401,8 +503,8 @@ export default function App() {
   const handleChangeName = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nameInput.trim() || nameInput === name) return;
-    socket?.emit('set_name', nameInput.trim());
-    toast.success('Name updated!');
+    socket?.emit("set_name", nameInput.trim());
+    toast.success("Name updated!");
   };
 
   // --- UI COMPONENTS ---
@@ -411,34 +513,45 @@ export default function App() {
     <svg
       viewBox="0 0 24 24"
       xmlns="http://www.w3.org/2000/svg"
-      style={{ width: '16px', height: '16px', fill: '#000000', verticalAlign: 'middle' }}
+      style={{
+        width: "16px",
+        height: "16px",
+        fill: "#000000",
+        verticalAlign: "middle",
+      }}
     >
-      {' '}
+      {" "}
       <g id="Wi-Fi_Off" data-name="Wi-Fi Off">
-        {' '}
+        {" "}
         <g>
-          {' '}
-          <path d="M10.37,6.564a12.392,12.392,0,0,1,10.71,3.93c.436.476,1.141-.233.708-.708A13.324,13.324,0,0,0,10.37,5.564c-.631.076-.638,1.077,0,1Z" />{' '}
-          <path d="M13.907,10.283A8.641,8.641,0,0,1,18.349,12.9c.434.477,1.139-.232.707-.707a9.586,9.586,0,0,0-4.883-2.871c-.626-.146-.893.818-.266.965Z" />{' '}
-          <circle cx="12.003" cy="16.922" r="1.12" />{' '}
-          <path d="M19.773,19.06a.5.5,0,0,1-.71.71l-5.84-5.84A4.478,4.478,0,0,0,8.7,15.24c-.43.48-1.14-.23-.71-.7a5.47,5.47,0,0,1,4.06-1.78l-2.37-2.37a8.693,8.693,0,0,0-4.03,2.53c-.43.48-1.13-.23-.7-.71A9.439,9.439,0,0,1,8.893,9.6L6.883,7.59a12.557,12.557,0,0,0-3.96,2.94a.5.5,0,1,1-.7-.71,13.109,13.109,0,0,1,3.91-2.98l-1.9-1.9a.5.5,0,0,1,.71-.71Z" />{' '}
-        </g>{' '}
-      </g>{' '}
+          {" "}
+          <path d="M10.37,6.564a12.392,12.392,0,0,1,10.71,3.93c.436.476,1.141-.233.708-.708A13.324,13.324,0,0,0,10.37,5.564c-.631.076-.638,1.077,0,1Z" />{" "}
+          <path d="M13.907,10.283A8.641,8.641,0,0,1,18.349,12.9c.434.477,1.139-.232.707-.707a9.586,9.586,0,0,0-4.883-2.871c-.626-.146-.893.818-.266.965Z" />{" "}
+          <circle cx="12.003" cy="16.922" r="1.12" />{" "}
+          <path d="M19.773,19.06a.5.5,0,0,1-.71.71l-5.84-5.84A4.478,4.478,0,0,0,8.7,15.24c-.43.48-1.14-.23-.71-.7a5.47,5.47,0,0,1,4.06-1.78l-2.37-2.37a8.693,8.693,0,0,0-4.03,2.53c-.43.48-1.13-.23-.7-.71A9.439,9.439,0,0,1,8.893,9.6L6.883,7.59a12.557,12.557,0,0,0-3.96,2.94a.5.5,0,1,1-.7-.71,13.109,13.109,0,0,1,3.91-2.98l-1.9-1.9a.5.5,0,0,1,.71-.71Z" />{" "}
+        </g>{" "}
+      </g>{" "}
     </svg>
   );
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
-    const promotionPieces = ['Q', 'R', 'B', 'N'];
-    const pieceMap = turnColor === 'w' ? pieceToFigurineWhite : pieceToFigurineBlack;
+    const promotionPieces = ["Q", "R", "B", "N"];
+    const pieceMap =
+      turnColor === "w" ? pieceToFigurineWhite : pieceToFigurineBlack;
     return (
       <div className="promotion-dialog">
         <h3>Promote to:</h3>
         <div className="promotion-choices">
-          {promotionPieces.map(p => (
-            <button key={p} onClick={() => onPromote(p.toLowerCase() as 'q' | 'r' | 'b' | 'n')}>
-              {' '}
-              {pieceMap[p]}{' '}
+          {promotionPieces.map((p) => (
+            <button
+              key={p}
+              onClick={() =>
+                onPromote(p.toLowerCase() as "q" | "r" | "b" | "n")
+              }
+            >
+              {" "}
+              {pieceMap[p]}{" "}
             </button>
           ))}
         </div>
@@ -452,8 +565,10 @@ export default function App() {
     squareStyles: {
       ...(lastMoveSquares
         ? {
-            [lastMoveSquares.from]: { backgroundColor: 'rgba(245,246,110,0.75)' },
-            [lastMoveSquares.to]: { backgroundColor: 'rgba(245,246,110,0.75)' },
+            [lastMoveSquares.from]: {
+              backgroundColor: "rgba(245,246,110,0.75)",
+            },
+            [lastMoveSquares.to]: { backgroundColor: "rgba(245,246,110,0.75)" },
           }
         : {}),
       ...legalSquareStyles,
@@ -461,7 +576,7 @@ export default function App() {
         ? {
             [kingInCheckSquare]: {
               background:
-                'radial-gradient(ellipse at center, rgba(255,0,0,0.5) 0%, rgba(255,0,0,0) 75%)',
+                "radial-gradient(ellipse at center, rgba(255,0,0,0.5) 0%, rgba(255,0,0,0) 75%)",
             },
           }
         : {}),
@@ -470,8 +585,8 @@ export default function App() {
     onPieceDrag: ({ square }: PieceHandlerArgs) => {
       const moves = chess.moves({ square: square, verbose: true });
       const highlights: Record<string, CSSProperties> = {};
-      moves.forEach(m => {
-        highlights[m.to] = { backgroundColor: 'rgba(0,255,0,0.2)' };
+      moves.forEach((m) => {
+        highlights[m.to] = { backgroundColor: "rgba(0,255,0,0.2)" };
       });
       setLegalSquareStyles(highlights);
     },
@@ -482,14 +597,19 @@ export default function App() {
       setLegalSquareStyles({});
       const from = sourceSquare;
       const to = targetSquare;
-      if (gameStatus !== GameStatus.AwaitingProposals || side !== current.side) return false;
+      if (gameStatus !== GameStatus.AwaitingProposals || side !== current.side)
+        return false;
       const isPromotion = needsPromotion(from, to);
       try {
-        const move = chess.move({ from, to, promotion: isPromotion ? 'q' : undefined });
+        const move = chess.move({
+          from,
+          to,
+          promotion: isPromotion ? "q" : undefined,
+        });
         if (!move) return false;
         chess.undo();
       } catch (e) {
-        toast.error('Illegal move!');
+        toast.error("Illegal move!");
         return false;
       }
       if (isPromotion) {
@@ -513,123 +633,155 @@ export default function App() {
     isActive: boolean;
   }) => (
     <div className="game-player-info">
-      <div className={'clock-box ' + (isActive ? 'active' : '')}>
-        {String(Math.floor(clockTime / 60)).padStart(2, '0')}:
-        {String(clockTime % 60).padStart(2, '0')}
+      <div className={"clock-box " + (isActive ? "active" : "")}>
+        {String(Math.floor(clockTime / 60)).padStart(2, "0")}:
+        {String(clockTime % 60).padStart(2, "0")}
       </div>
       <div className="material-display">
-        <span>{lostPieces.join(' ')}</span>
+        <span>{lostPieces.join(" ")}</span>
         <span
           className="material-adv-label"
-          style={{ visibility: materialAdv === 0 ? 'hidden' : 'visible' }}
+          style={{ visibility: materialAdv === 0 ? "hidden" : "visible" }}
         >
-          {materialAdv > 0 ? `+${materialAdv}` : ''}
+          {materialAdv > 0 ? `+${materialAdv}` : ""}
         </span>
       </div>
     </div>
   );
   const TabContent = (
     <div className="info-tabs-content">
-      <div className={'tab-panel players-panel ' + (activeTab === 'players' ? 'active' : '')}>
+      <div
+        className={
+          "tab-panel players-panel " + (activeTab === "players" ? "active" : "")
+        }
+      >
         <h3>Players</h3>
         <div className="player-lists-container">
           <div>
-            {' '}
-            <h3>Spectators</h3>{' '}
+            {" "}
+            <h3>Spectators</h3>{" "}
             <ul className="player-list">
-              {' '}
-              {players.spectators.map(p => {
+              {" "}
+              {players.spectators.map((p) => {
                 const isMe = p.id === myId;
                 const disconnected = isMe ? amDisconnected : !p.connected;
                 return (
                   <li key={p.id}>
-                    {' '}
-                    {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}{' '}
-                    {disconnected && <DisconnectedIcon />}{' '}
+                    {" "}
+                    {isMe ? (
+                      <strong>{p.name}</strong>
+                    ) : (
+                      <span>{p.name}</span>
+                    )}{" "}
+                    {disconnected && <DisconnectedIcon />}{" "}
                   </li>
                 );
-              })}{' '}
-            </ul>{' '}
+              })}{" "}
+            </ul>{" "}
           </div>
           <div>
-            {' '}
-            <h3>White</h3>{' '}
+            {" "}
+            <h3>White</h3>{" "}
             <ul className="player-list">
-              {' '}
-              {players.whitePlayers.map(p => {
+              {" "}
+              {players.whitePlayers.map((p) => {
                 const isMe = p.id === myId;
                 const disconnected = isMe ? amDisconnected : !p.connected;
                 return (
                   <li key={p.id}>
-                    {' '}
-                    {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}{' '}
-                    {disconnected && <DisconnectedIcon />} {hasPlayed(p.id) && <span>✔️</span>}{' '}
+                    {" "}
+                    {isMe ? (
+                      <strong>{p.name}</strong>
+                    ) : (
+                      <span>{p.name}</span>
+                    )}{" "}
+                    {disconnected && <DisconnectedIcon />}{" "}
+                    {hasPlayed(p.id) && <span>✔️</span>}{" "}
                   </li>
                 );
-              })}{' '}
-            </ul>{' '}
+              })}{" "}
+            </ul>{" "}
           </div>
           <div>
-            {' '}
-            <h3>Black</h3>{' '}
+            {" "}
+            <h3>Black</h3>{" "}
             <ul className="player-list">
-              {' '}
-              {players.blackPlayers.map(p => {
+              {" "}
+              {players.blackPlayers.map((p) => {
                 const isMe = p.id === myId;
                 const disconnected = isMe ? amDisconnected : !p.connected;
                 return (
                   <li key={p.id}>
-                    {' '}
-                    {isMe ? <strong>{p.name}</strong> : <span>{p.name}</span>}{' '}
-                    {disconnected && <DisconnectedIcon />} {hasPlayed(p.id) && <span>✔️</span>}{' '}
+                    {" "}
+                    {isMe ? (
+                      <strong>{p.name}</strong>
+                    ) : (
+                      <span>{p.name}</span>
+                    )}{" "}
+                    {disconnected && <DisconnectedIcon />}{" "}
+                    {hasPlayed(p.id) && <span>✔️</span>}{" "}
                   </li>
                 );
-              })}{' '}
-            </ul>{' '}
+              })}{" "}
+            </ul>{" "}
           </div>
         </div>
       </div>
-      <div className={'tab-panel moves-panel ' + (activeTab === 'moves' ? 'active' : '')}>
+      <div
+        className={
+          "tab-panel moves-panel " + (activeTab === "moves" ? "active" : "")
+        }
+      >
         <h3>Moves</h3>
-        {turns.some(t => t.selection) ? (
+        {turns.some((t) => t.selection) ? (
           <div ref={movesRef} className="moves-list">
-            {' '}
+            {" "}
             {turns
-              .filter(t => t.selection)
-              .map(t => (
+              .filter((t) => t.selection)
+              .map((t) => (
                 <div
                   key={`${t.side}-${t.moveNumber}`}
                   className="move-turn-header"
-                  style={{ marginBottom: '1rem' }}
+                  style={{ marginBottom: "1rem" }}
                 >
-                  {' '}
-                  <strong>{t.moveNumber}</strong>{' '}
-                  <ul style={{ margin: 4, paddingLeft: '1.2rem' }}>
-                    {' '}
-                    {t.proposals.map(p => {
+                  {" "}
+                  <strong>{t.moveNumber}</strong>{" "}
+                  <ul style={{ margin: 4, paddingLeft: "1.2rem" }}>
+                    {" "}
+                    {t.proposals.map((p) => {
                       const isSel = t.selection!.lan === p.lan;
 
                       return (
                         <li key={p.id}>
-                          {' '}
-                          {p.id === myId ? <strong>{p.name}</strong> : p.name}:{' '}
-                          {isSel ? <span className="moves-list-item">{p.san}</span> : p.san}{' '}
+                          {" "}
+                          {p.id === myId ? (
+                            <strong>{p.name}</strong>
+                          ) : (
+                            p.name
+                          )}:{" "}
+                          {isSel ? (
+                            <span className="moves-list-item">{p.san}</span>
+                          ) : (
+                            p.san
+                          )}{" "}
                         </li>
                       );
-                    })}{' '}
-                  </ul>{' '}
+                    })}{" "}
+                  </ul>{" "}
                 </div>
-              ))}{' '}
+              ))}{" "}
           </div>
         ) : (
-          <p style={{ padding: '10px', fontStyle: 'italic' }}>No moves played yet.</p>
+          <p style={{ padding: "10px", fontStyle: "italic" }}>
+            No moves played yet.
+          </p>
         )}
       </div>
-      <div className={'tab-panel ' + (activeTab === 'chat' ? 'active' : '')}>
+      <div className={"tab-panel " + (activeTab === "chat" ? "active" : "")}>
         <h3>Chat</h3>
         <div className="chat-box-container">
           <div className="chat-messages">
-            {' '}
+            {" "}
             {chatMessages
               .slice()
               .reverse()
@@ -637,37 +789,42 @@ export default function App() {
                 if (msg.system) {
                   return (
                     <div key={idx} className="chat-message-item system">
-                      {' '}
-                      {msg.message}{' '}
+                      {" "}
+                      {msg.message}{" "}
                     </div>
                   );
                 }
                 return (
                   <div
                     key={idx}
-                    className={'chat-message-item ' + (myId === msg.senderId ? 'own' : 'other')}
+                    className={
+                      "chat-message-item " +
+                      (myId === msg.senderId ? "own" : "other")
+                    }
                   >
-                    {' '}
+                    {" "}
                     {myId === msg.senderId ? (
                       <strong>{msg.sender}:</strong>
                     ) : (
                       <span>{msg.sender}:</span>
-                    )}{' '}
-                    {msg.message}{' '}
+                    )}{" "}
+                    {msg.message}{" "}
                   </div>
                 );
-              })}{' '}
+              })}{" "}
           </div>
           <div className="chat-form">
             <form
-              onSubmit={e => {
+              onSubmit={(e) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
-                const input = form.elements.namedItem('chatInput') as HTMLInputElement;
+                const input = form.elements.namedItem(
+                  "chatInput"
+                ) as HTMLInputElement;
                 const message = input.value;
                 if (message.trim()) {
-                  socket?.emit('chat_message', message);
-                  input.value = '';
+                  socket?.emit("chat_message", message);
+                  input.value = "";
                 }
               }}
             >
@@ -694,7 +851,7 @@ export default function App() {
       <Toaster position="top-center" />
       <div
         className="mobile-info-overlay"
-        style={{ display: isMobileInfoVisible ? 'flex' : 'none' }}
+        style={{ display: isMobileInfoVisible ? "flex" : "none" }}
       >
         {TabContent}
         <div className="mobile-info-header">
@@ -703,21 +860,26 @@ export default function App() {
         </div>
       </div>
 
-      {amDisconnected && <div className="offline-banner"> You’re offline. Trying to reconnect… </div>}
+      {amDisconnected && (
+        <div className="offline-banner">
+          {" "}
+          You’re offline. Trying to reconnect…{" "}
+        </div>
+      )}
 
       {/* --- SIMPLIFIED: No login box, just render the app --- */}
       <div className="app-container">
         <div className="header-bar">
           <h1>TeamChess</h1>
-          
+
           {/* --- NEW: Name change form --- */}
           <form className="game-id-bar" onSubmit={handleChangeName}>
             <strong>Your Name:</strong>
             <input
               type="text"
               value={nameInput}
-              onChange={e => setNameInput(e.target.value)}
-              style={{ flexGrow: 0, minWidth: '150px' }}
+              onChange={(e) => setNameInput(e.target.value)}
+              style={{ flexGrow: 0, minWidth: "150px" }}
             />
             <button type="submit">Set Name</button>
             <span> {playerCount} Players </span>
@@ -725,59 +887,78 @@ export default function App() {
           {/* --- END: Name change form --- */}
 
           <div className="action-panel">
-            {' '}
+            {" "}
             {gameStatus === GameStatus.Lobby && (
               <>
-                {' '}
-                {players.whitePlayers.length > 0 && players.blackPlayers.length > 0 && (
-                  <button onClick={startGame}>Start Game</button>
-                )}{' '}
+                {" "}
+                {players.whitePlayers.length > 0 &&
+                  players.blackPlayers.length > 0 && (
+                    <button onClick={startGame}>Start Game</button>
+                  )}{" "}
               </>
             )}
-            {gameStatus !== GameStatus.Lobby && <button onClick={resetGame}>Reset Game</button>}
+            {gameStatus !== GameStatus.Lobby && (
+              <button onClick={resetGame}>Reset Game</button>
+            )}
             {gameStatus !== GameStatus.Over && (
               <>
-                {' '}
-                {side === 'spectator' && (
+                {" "}
+                {side === "spectator" && (
                   <>
-                    {' '}
-                    <button onClick={autoAssign}>Auto Assign</button>{' '}
-                    <button onClick={() => joinSide('white')}>Join White</button>{' '}
-                    <button onClick={() => joinSide('black')}>Join Black</button>{' '}
+                    {" "}
+                    <button onClick={autoAssign}>Auto Assign</button>{" "}
+                    <button onClick={() => joinSide("white")}>
+                      Join White
+                    </button>{" "}
+                    <button onClick={() => joinSide("black")}>
+                      Join Black
+                    </button>{" "}
                   </>
-                )}{' '}
-                {(side === 'white' || side === 'black') && (
+                )}{" "}
+                {(side === "white" || side === "black") && (
                   <>
-                    {' '}
-                    <button onClick={joinSpectator}>Join Spectators</button>{' '}
+                    {" "}
+                    <button onClick={joinSpectator}>
+                      Join Spectators
+                    </button>{" "}
                     {gameStatus === GameStatus.Lobby && (
-                      <button onClick={() => joinSide(side === 'white' ? 'black' : 'white')}>
-                        {' '}
-                        Switch to {side === 'white' ? 'Black' : 'White'}{' '}
+                      <button
+                        onClick={() =>
+                          joinSide(side === "white" ? "black" : "white")
+                        }
+                      >
+                        {" "}
+                        Switch to {side === "white" ? "Black" : "White"}{" "}
                       </button>
-                    )}{' '}
+                    )}{" "}
                     {gameStatus === GameStatus.AwaitingProposals && (
                       <>
-                        {' '}
+                        {" "}
                         {drawOffer && drawOffer !== side ? (
                           <>
-                            {' '}
-                            <button onClick={acceptDraw}>Accept Draw</button>{' '}
-                            <button onClick={rejectDraw}>Reject Draw</button>{' '}
+                            {" "}
+                            <button onClick={acceptDraw}>
+                              Accept Draw
+                            </button>{" "}
+                            <button onClick={rejectDraw}>
+                              Reject Draw
+                            </button>{" "}
                           </>
                         ) : drawOffer === side ? (
-                          <span style={{ fontStyle: 'italic' }}>Draw offered...</span>
+                          <span style={{ fontStyle: "italic" }}>
+                            Draw offered...
+                          </span>
                         ) : (
                           <>
-                            {' '}
-                            <button onClick={resignGame}>Resign</button>{' '}
-                            <button onClick={offerDraw}>Offer Draw</button>{' '}
+                            {" "}
+                            <button onClick={resignGame}>Resign</button>{" "}
+                            <button onClick={offerDraw}>Offer Draw</button>{" "}
                           </>
-                        )}{' '}
+                        )}{" "}
                       </>
-                    )}{' '}
+                    )}{" "}
                   </>
-                )}{' '}
+                )}{" "}
               </>
             )}
           </div>
@@ -786,85 +967,102 @@ export default function App() {
         <div className="main-layout">
           <div className="game-column">
             <PlayerInfoBox
-              clockTime={orientation === 'white' ? clocks.blackTime : clocks.whiteTime}
-              lostPieces={orientation === 'white' ? lostBlackPieces : lostWhitePieces}
-              materialAdv={orientation === 'white' ? -materialBalance : materialBalance}
+              clockTime={
+                orientation === "white" ? clocks.blackTime : clocks.whiteTime
+              }
+              lostPieces={
+                orientation === "white" ? lostBlackPieces : lostWhitePieces
+              }
+              materialAdv={
+                orientation === "white" ? -materialBalance : materialBalance
+              }
               isActive={
                 gameStatus !== GameStatus.Lobby &&
                 gameStatus !== GameStatus.Over &&
-                current?.side === (orientation === 'white' ? 'black' : 'white')
+                current?.side === (orientation === "white" ? "black" : "white")
               }
             />
             <div ref={boardContainerRef} className="board-wrapper">
-              {' '}
+              {" "}
               <Chessboard options={boardOptions} />
-              <PromotionDialog />{' '}
+              <PromotionDialog />{" "}
             </div>
             <PlayerInfoBox
-              clockTime={orientation === 'white' ? clocks.whiteTime : clocks.blackTime}
-              lostPieces={orientation === 'white' ? lostWhitePieces : lostBlackPieces}
-              materialAdv={orientation === 'white' ? materialBalance : -materialBalance}
+              clockTime={
+                orientation === "white" ? clocks.whiteTime : clocks.blackTime
+              }
+              lostPieces={
+                orientation === "white" ? lostWhitePieces : lostBlackPieces
+              }
+              materialAdv={
+                orientation === "white" ? materialBalance : -materialBalance
+              }
               isActive={
                 gameStatus !== GameStatus.Lobby &&
                 gameStatus !== GameStatus.Over &&
-                current?.side === (orientation === 'white' ? 'white' : 'black')
+                current?.side === (orientation === "white" ? "white" : "black")
               }
             />
             {gameStatus === GameStatus.Over && (
               <div className="game-over-info">
-                {' '}
+                {" "}
                 <p>
-                  {' '}
+                  {" "}
                   {endReason && reasonMessages[endReason]
                     ? reasonMessages[endReason](winner)
-                    : `🎉 Game over! ${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`}{' '}
-                </p>{' '}
+                    : `🎉 Game over! ${
+                        winner?.[0].toUpperCase() + winner?.slice(1)
+                      } wins!`}{" "}
+                </p>{" "}
                 {pgn && (
                   <div>
-                    {' '}
+                    {" "}
                     <div className="pgn-header">
-                      {' '}
-                      <strong>PGN</strong> <button onClick={copyPgn}>Copy</button>{' '}
-                    </div>{' '}
-                    <pre>{pgn}</pre>{' '}
+                      {" "}
+                      <strong>PGN</strong>{" "}
+                      <button onClick={copyPgn}>Copy</button>{" "}
+                    </div>{" "}
+                    <pre>{pgn}</pre>{" "}
                   </div>
-                )}{' '}
+                )}{" "}
               </div>
             )}
           </div>
           <div className="info-column">
             <nav className="info-tabs-nav">
               <button
-                className={activeTab === 'players' ? 'active' : ''}
+                className={activeTab === "players" ? "active" : ""}
                 onClick={() => {
-                  setActiveTab('players');
+                  setActiveTab("players");
                   setIsMobileInfoVisible(true);
                 }}
               >
-                {' '}
-                Players{' '}
+                {" "}
+                Players{" "}
               </button>
               <button
-                className={activeTab === 'moves' ? 'active' : ''}
+                className={activeTab === "moves" ? "active" : ""}
                 onClick={() => {
-                  setActiveTab('moves');
+                  setActiveTab("moves");
                   setIsMobileInfoVisible(true);
                 }}
               >
-                {' '}
-                Moves{' '}
+                {" "}
+                Moves{" "}
               </button>
               <button
-                className={activeTab === 'chat' ? 'active' : ''}
+                className={activeTab === "chat" ? "active" : ""}
                 onClick={() => {
-                  setActiveTab('chat');
+                  setActiveTab("chat");
                   setHasUnreadMessages(false);
                   setIsMobileInfoVisible(true);
                 }}
               >
-                {' '}
-                Chat {hasUnreadMessages && <span className="unread-dot"></span>}{' '}
-              </button>NaN
+                {" "}
+                Chat{" "}
+                {hasUnreadMessages && <span className="unread-dot"></span>}{" "}
+              </button>
+              NaN
             </nav>
             {TabContent}
           </div>

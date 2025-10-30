@@ -22,3 +22,6 @@ docker-compose.yml
 
 # TS build info
 *.tsbuildinfo
+
+# Husky dev tools
+.husky

@@ -8,7 +8,8 @@
     "dev": "ts-node-esm server/index.ts",
     "build:client": "vite build client",
     "build:server": "tsc -p tsconfig.json",
-    "build": "npm run build:client && npm run build:server"
+    "build": "npm run build:client && npm run build:server",
+    "prepare": "husky"
   },
   "dependencies": {
     "chess.js": "^1.4.0",
@@ -30,6 +31,12 @@
     "@vitejs/plugin-react": "^4.7.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
-    "vite": "^7.1.4"
+    "vite": "^7.1.4",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.7",
+    "prettier": "^3.3.2"
+  },
+  "lint-staged": {
+    "*.{js,cjs,ts,tsx,css,md,json}": "prettier --write"
   }
 }
