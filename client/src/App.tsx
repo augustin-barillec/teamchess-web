@@ -1,5 +1,3 @@
-// client/src/App.tsx
-
 import {
   useState,
   useEffect,
@@ -8,6 +6,7 @@ import {
   CSSProperties,
   KeyboardEvent,
 } from "react";
+import type { ChangeEvent, RefObject } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { io, Socket } from "socket.io-client";
 import { Chess } from "chess.js";
@@ -25,11 +24,13 @@ import {
   ChatMessage,
   GameStatus,
 } from "../../server/shared_types";
+
 const STORAGE_KEYS = {
   pid: "tc:pid",
   name: "tc:name",
   side: "tc:side",
 } as const;
+
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
@@ -47,6 +48,7 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
+
 const pieceToFigurineWhite: Record<string, string> = {
   K: "♔",
   Q: "♕",
@@ -55,6 +57,7 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: "♘",
   P: "♙",
 };
+
 const pieceToFigurineBlack: Record<string, string> = {
   K: "♚",
   Q: "♛",
@@ -63,6 +66,50 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
+
+interface NameChangeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: () => void;
+  value: string;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
+  inputRef: RefObject<HTMLInputElement>;
+}
+
+const NameChangeModal: React.FC<NameChangeModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  value,
+  onChange,
+  onKeyDown,
+  inputRef,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="name-modal-overlay" onClick={onClose}>
+      <div className="name-modal-dialog" onClick={(e) => e.stopPropagation()}>
+        <h3>Change Your Name</h3>
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={onChange}
+          onKeyDown={onKeyDown}
+          placeholder="Set your name"
+          aria-label="Set your name (Enter to save)"
+        />
+        <div className="name-modal-buttons">
+          <button onClick={onClose}>Cancel</button>
+          <button onClick={onSubmit}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -125,12 +172,13 @@ export default function App() {
   const activeTabRef = useRef(activeTab);
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
-  const [isEditingName, setIsEditingName] = useState(false);
+  const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
+
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: "k", color: chess.turn() };
@@ -148,6 +196,7 @@ export default function App() {
     });
     return square;
   }, [position, chess]);
+
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = {
       P: 8,
@@ -221,6 +270,7 @@ export default function App() {
       players.blackPlayers.length,
     [players]
   );
+
   useEffect(() => {
     const s = io({
       auth: {
@@ -246,18 +296,22 @@ export default function App() {
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
   }, []);
+
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener("resize", checkIsMobile);
     return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
+
   useEffect(() => {
     if (movesRef.current)
       movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
+
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some((p) => p.id === myId)
@@ -270,6 +324,7 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId, side]);
+
   useEffect(() => {
     if (!socket) return;
 
@@ -397,21 +452,25 @@ export default function App() {
       "draw_offer_update",
       ({ side }: { side: "white" | "black" | null }) => setDrawOffer(side)
     );
+
     return () => {
       socket.disconnect();
     };
   }, [socket, chess]);
+
   useEffect(() => {
-    if (isEditingName && nameInputRef.current) {
+    if (isNameModalOpen && nameInputRef.current) {
       nameInputRef.current.focus();
     }
-  }, [isEditingName]);
+  }, [isNameModalOpen]);
+
   const joinSide = (s: "white" | "black" | "spectator") =>
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
+
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -422,6 +481,7 @@ export default function App() {
     joinSide(chosen);
   };
   const joinSpectator = () => joinSide("spectator");
+
   const resignGame = () => {
     if (window.confirm("Are you sure you want to resign for your team?"))
       socket?.emit("resign");
@@ -466,6 +526,7 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
+
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== "p") return false;
@@ -474,13 +535,12 @@ export default function App() {
   }
   const hasPlayed = (playerId: string) =>
     current?.proposals.some((p) => p.id === playerId);
+
   const copyPgn = () => {
     if (!pgn) return;
-
     // 1. Create a temporary textarea element
     const textArea = document.createElement("textarea");
     textArea.value = pgn;
-
     // 2. Make the textarea invisible and prevent page jumping
     textArea.style.position = "fixed";
     textArea.style.top = "-9999px";
@@ -489,11 +549,9 @@ export default function App() {
     try {
       // 3. Add it to the DOM
       document.body.appendChild(textArea);
-
       // 4. Select its text and execute the copy command
       textArea.select();
       document.execCommand("copy");
-
       // 5. Show success
       toast.success("PGN copied!");
     } catch (err) {
@@ -505,35 +563,34 @@ export default function App() {
     }
   };
 
-  const handleStartEditName = () => {
-    setNameInput(name);
-    // Ensure input is pre-filled with the current name
-    setIsEditingName(true);
+  const openNameModal = () => {
+    setNameInput(name); // Ensure input is pre-filled with the current name
+    setIsNameModalOpen(true);
   };
+
+  const closeNameModal = () => {
+    setIsNameModalOpen(false);
+    setNameInput(name); // Revert changes on close
+  };
+
   const submitNameChange = () => {
     const newName = nameInput.trim();
     if (!newName || newName === name) {
-      setNameInput(name);
-      // Revert to original name if empty or unchanged
-      setIsEditingName(false);
-      // <-- HIDE INPUT
+      closeNameModal(); // Revert to original name if empty or unchanged
       return;
     }
     socket?.emit("set_name", newName);
-    setIsEditingName(false);
-    // <-- HIDE INPUT
+    setIsNameModalOpen(false); // <-- HIDE MODAL
     // The 'session' event will update 'name' and 'nameInput'
   };
   const handleNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      submitNameChange();
-      // This will now also hide the input
+      submitNameChange(); // This will now also hide the modal
     } else if (e.key === "Escape") {
-      setNameInput(name);
-      // Revert changes
-      setIsEditingName(false); // <-- HIDE INPUT
+      closeNameModal(); // Revert changes & hide modal
     }
   };
+
   const DisconnectedIcon = () => (
     <svg
       viewBox="0 0 24 24"
@@ -558,6 +615,7 @@ export default function App() {
       </g>{" "}
     </svg>
   );
+
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
@@ -647,6 +705,7 @@ export default function App() {
       return true;
     },
   };
+
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -674,6 +733,7 @@ export default function App() {
       </div>
     </div>
   );
+
   const TabContent = (
     <div className="info-tabs-content">
       <div
@@ -695,7 +755,14 @@ export default function App() {
                   <li key={p.id}>
                     {" "}
                     {isMe ? (
-                      <strong>{p.name}</strong>
+                      <strong>
+                        <button
+                          className="clickable-name"
+                          onClick={openNameModal}
+                        >
+                          {p.name}
+                        </button>
+                      </strong>
                     ) : (
                       <span>{p.name}</span>
                     )}{" "}
@@ -717,7 +784,14 @@ export default function App() {
                   <li key={p.id}>
                     {" "}
                     {isMe ? (
-                      <strong>{p.name}</strong>
+                      <strong>
+                        <button
+                          className="clickable-name"
+                          onClick={openNameModal}
+                        >
+                          {p.name}
+                        </button>
+                      </strong>
                     ) : (
                       <span>{p.name}</span>
                     )}{" "}
@@ -740,7 +814,14 @@ export default function App() {
                   <li key={p.id}>
                     {" "}
                     {isMe ? (
-                      <strong>{p.name}</strong>
+                      <strong>
+                        <button
+                          className="clickable-name"
+                          onClick={openNameModal}
+                        >
+                          {p.name}
+                        </button>
+                      </strong>
                     ) : (
                       <span>{p.name}</span>
                     )}{" "}
@@ -869,9 +950,19 @@ export default function App() {
       </div>
     </div>
   );
+
   return (
     <>
       <Toaster position="top-center" />
+      <NameChangeModal
+        isOpen={isNameModalOpen}
+        onClose={closeNameModal}
+        onSubmit={submitNameChange}
+        value={nameInput}
+        onChange={(e) => setNameInput(e.target.value)}
+        onKeyDown={handleNameKeyDown}
+        inputRef={nameInputRef}
+      />
       <div
         className="mobile-info-overlay"
         style={{ display: isMobileInfoVisible ? "flex" : "none" }}
@@ -900,21 +991,7 @@ export default function App() {
 
           <div className="action-panel **action-panel-desktop-left**">
             {" "}
-            {isEditingName ? (
-              <input
-                ref={nameInputRef}
-                type="text"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                onBlur={submitNameChange}
-                onKeyDown={handleNameKeyDown}
-                style={{ flexGrow: 0, minWidth: "150px" }}
-                placeholder="Set your name"
-                aria-label="Set your name (Enter to save)"
-              />
-            ) : (
-              <button onClick={handleStartEditName}>Set Name</button>
-            )}
+            {/* "Set Name" button removed as requested */}
             {gameStatus === GameStatus.Lobby && (
               <>
                 {" "}
