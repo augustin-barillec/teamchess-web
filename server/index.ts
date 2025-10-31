@@ -5,16 +5,13 @@ import { nanoid } from "nanoid";
 import { Chess } from "chess.js";
 import path from "path";
 import { fileURLToPath } from "url";
-
 import { Player, EndReason, GameStatus } from "./shared_types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const engineLoaderPath = path.resolve(__dirname, "./load_engine.cjs");
 const { default: loadEngine } = await import(engineLoaderPath);
 type Engine = ReturnType<typeof loadEngine>;
-
 const DISCONNECT_GRACE_MS = 20000;
 const STOCKFISH_SEARCH_DEPTH = 15;
 const stockfishPath = path.join(
@@ -24,14 +21,13 @@ const stockfishPath = path.join(
   "src",
   "stockfish-nnue-16.js"
 );
-
 type Side = "white" | "black" | "spectator";
 type PlayerSide = "white" | "black";
-
 type Session = {
   pid: string;
   name: string;
   side: Side;
+  intent?: "resign" | "draw";
   reconnectTimer?: NodeJS.Timeout;
 };
 
@@ -62,7 +58,6 @@ const io = new Server(server, {
   pingInterval: 5000,
   pingTimeout: 5000,
 });
-
 function getCleanPgn(chess: Chess): string {
   const fullPgn = chess.pgn();
   return fullPgn.replace(/^\[.*\]\n/gm, "").trim();
@@ -79,12 +74,12 @@ function broadcastPlayers() {
   const spectators: Player[] = [];
   const whitePlayers: Player[] = [];
   const blackPlayers: Player[] = [];
-
   for (const sess of sessions.values()) {
     const p: Player = {
       id: sess.pid,
       name: sess.name,
       connected: onlinePids.has(sess.pid),
+      intent: sess.intent,
     };
     if (sess.side === "white") whitePlayers.push(p);
     else if (sess.side === "black") blackPlayers.push(p);
@@ -148,7 +143,9 @@ async function chooseBestMove(
   }
   return new Promise<string>((resolve) => {
     engine.send(`position fen ${fen}`);
-    const goCommand = `go depth ${STOCKFISH_SEARCH_DEPTH} searchmoves ${candidates.join(" ")}`;
+    const goCommand = `go depth ${STOCKFISH_SEARCH_DEPTH} searchmoves ${candidates.join(
+      " "
+    )}`;
     engine.send(goCommand, (output: string) => {
       if (output.startsWith("bestmove")) {
         resolve(output.split(" ")[1]);
@@ -175,11 +172,9 @@ function tryFinalizeTurn() {
   const entries = [...gameState.proposals.entries()].filter(([pid]) =>
     activeConnected.has(pid)
   );
-
   if (activeConnected.size > 0 && entries.length === activeConnected.size) {
     gameState.status = GameStatus.FinalizingTurn;
     io.emit("game_status_update", { status: gameState.status });
-
     if (gameState.timerInterval) {
       clearInterval(gameState.timerInterval);
       gameState.timerInterval = undefined;
@@ -385,6 +380,18 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
+  socket.on("set_intent", (intent: "resign" | "draw" | null) => {
+    const sess = sessions.get(pid);
+    if (sess) {
+      if (intent === null) {
+        delete sess.intent;
+      } else {
+        sess.intent = intent;
+      }
+      broadcastPlayers();
+    }
+  });
+
   socket.on("join_side", ({ side }, cb) => {
     const currentSess = sessions.get(pid);
     if (!currentSess) return;
@@ -401,13 +408,13 @@ io.on("connection", (socket: Socket) => {
       else if (side === "black") gameState.blackIds.add(pid);
 
       if (side === "spectator") gameState.proposals.delete(pid);
+
       endIfOneSided();
     }
     broadcastPlayers();
     tryFinalizeTurn();
     cb?.({ success: true });
   });
-
   socket.on("start_game", (cb) => {
     if (gameState.status !== GameStatus.Lobby) {
       return cb?.({ error: "Game cannot be started." });
@@ -436,7 +443,6 @@ io.on("connection", (socket: Socket) => {
     sendSystemMessage(`${socket.data.name} has started the game.`);
     cb?.({ success: true });
   });
-
   socket.on("reset_game", (cb) => {
     if (gameState.timerInterval) clearInterval(gameState.timerInterval);
     const engine = loadEngine(stockfishPath);
@@ -463,7 +469,6 @@ io.on("connection", (socket: Socket) => {
     sendSystemMessage(`${socket.data.name} has reset the game.`);
     cb?.({ success: true });
   });
-
   socket.on("play_move", (lan: string, cb) => {
     if (gameState.status !== GameStatus.AwaitingProposals)
       return cb?.({ error: "Not accepting proposals right now." });
@@ -511,7 +516,6 @@ io.on("connection", (socket: Socket) => {
       message: message.trim(),
     });
   });
-
   socket.on("resign", () => {
     if (
       gameState.status !== GameStatus.AwaitingProposals ||
@@ -524,7 +528,6 @@ io.on("connection", (socket: Socket) => {
     );
     endGame(EndReason.Resignation, winner);
   });
-
   socket.on("offer_draw", () => {
     if (
       gameState.status !== GameStatus.AwaitingProposals ||
@@ -536,7 +539,6 @@ io.on("connection", (socket: Socket) => {
     io.emit("draw_offer_update", { side: socket.data.side });
     sendSystemMessage(`${socket.data.name} offers a draw.`);
   });
-
   socket.on("accept_draw", () => {
     if (
       gameState.status !== GameStatus.AwaitingProposals ||
@@ -548,7 +550,6 @@ io.on("connection", (socket: Socket) => {
     sendSystemMessage(`${socket.data.name} accepts the draw offer.`);
     endGame(EndReason.DrawAgreement, null);
   });
-
   socket.on("reject_draw", () => {
     if (
       gameState.status !== GameStatus.AwaitingProposals ||
@@ -561,7 +562,6 @@ io.on("connection", (socket: Socket) => {
     io.emit("draw_offer_update", { side: null });
     sendSystemMessage(`${socket.data.name} rejects the draw offer.`);
   });
-
   socket.on("disconnect", () => leave.call(socket, false));
 });
 
@@ -570,7 +570,6 @@ function startServer() {
 
   const engine = loadEngine(stockfishPath);
   engine.send("uci");
-
   gameState = {
     whiteIds: new Set(),
     blackIds: new Set(),
@@ -583,13 +582,11 @@ function startServer() {
     chess: new Chess(),
     status: GameStatus.Lobby,
   };
-
   const publicPath = path.join(__dirname, "..", "public");
   app.use(express.static(publicPath));
   app.get(/.*/, (req, res) => {
     res.sendFile(path.join(publicPath, "index.html"));
   });
-
   const PORT = process.env.PORT || 3001;
   server.listen(PORT, () => {
     console.log(`🚀 Server listening on port ${PORT}`);

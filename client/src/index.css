@@ -260,6 +260,27 @@ pre {
   width: 100%;
 }
 
+.name-modal-intents {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #eee;
+}
+.name-modal-intents p {
+  margin: 0;
+  font-weight: bold;
+  font-size: 0.9em;
+  color: #555;
+}
+.name-modal-intents button {
+  text-align: left;
+  background: #f9f9f9;
+}
+.name-modal-intents button:hover {
+  background: #f0f0f0;
+}
+
 .name-modal-buttons {
   display: flex;
   gap: 0.5rem;

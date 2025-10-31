@@ -2,6 +2,7 @@ export interface Player {
   id: string;
   name: string;
   connected: boolean;
+  intent?: "resign" | "draw";
 }
 
 export type Players = {
@@ -15,37 +16,35 @@ export type ChatMessage = {
   message: string;
   system?: boolean;
 };
-
 export type GameInfo = {
   moveNumber: number;
-  side: 'white' | 'black';
+  side: "white" | "black";
 };
 export type Proposal = {
   id: string;
   name: string;
   moveNumber: number;
-  side: 'white' | 'black';
+  side: "white" | "black";
   lan: string;
   san?: string;
 };
 
 export type Selection = Proposal & { fen: string };
-
 export enum GameStatus {
-  Lobby = 'Lobby',
-  AwaitingProposals = 'AwaitingProposals',
-  FinalizingTurn = 'FinalizingTurn',
-  Over = 'Over',
+  Lobby = "Lobby",
+  AwaitingProposals = "AwaitingProposals",
+  FinalizingTurn = "FinalizingTurn",
+  Over = "Over",
 }
 
 export enum EndReason {
-  Checkmate = 'checkmate',
-  Stalemate = 'stalemate',
-  Threefold = 'threefold repetition',
-  Insufficient = 'insufficient material',
-  DrawRule = 'draw by rule',
-  Resignation = 'resignation',
-  DrawAgreement = 'draw by agreement',
-  Timeout = 'timeout',
-  Abandonment = 'abandonment',
+  Checkmate = "checkmate",
+  Stalemate = "stalemate",
+  Threefold = "threefold repetition",
+  Insufficient = "insufficient material",
+  DrawRule = "draw by rule",
+  Resignation = "resignation",
+  DrawAgreement = "draw by agreement",
+  Timeout = "timeout",
+  Abandonment = "abandonment",
 }
