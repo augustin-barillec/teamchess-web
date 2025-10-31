@@ -30,7 +30,6 @@ type Session = {
   intent?: "resign" | "draw";
   reconnectTimer?: NodeJS.Timeout;
 };
-
 interface GameState {
   whiteIds: Set<string>;
   blackIds: Set<string>;
@@ -104,6 +103,13 @@ function endGame(reason: string, winner: string | null = null) {
   gameState.status = GameStatus.Over;
   gameState.endReason = reason;
   gameState.endWinner = winner;
+
+  for (const sess of sessions.values()) {
+    sess.intent = undefined;
+  }
+
+  broadcastPlayers();
+
   gameState.drawOffer = undefined;
   const pgn = getCleanPgn(gameState.chess);
   io.emit("game_over", { reason, winner, pgn });
@@ -379,7 +385,6 @@ io.on("connection", (socket: Socket) => {
       }
     }
   });
-
   socket.on("set_intent", (intent: "resign" | "draw" | null) => {
     const sess = sessions.get(pid);
     if (sess) {
@@ -391,7 +396,6 @@ io.on("connection", (socket: Socket) => {
       broadcastPlayers();
     }
   });
-
   socket.on("join_side", ({ side }, cb) => {
     const currentSess = sessions.get(pid);
     if (!currentSess) return;
@@ -399,6 +403,10 @@ io.on("connection", (socket: Socket) => {
     const prevSide = currentSess.side;
     currentSess.side = side;
     socket.data.side = side;
+
+    if (side === "spectator") {
+      currentSess.intent = undefined;
+    }
 
     if (gameState.status !== GameStatus.Lobby) {
       if (prevSide === "white") gameState.whiteIds.delete(pid);
@@ -447,6 +455,10 @@ io.on("connection", (socket: Socket) => {
     if (gameState.timerInterval) clearInterval(gameState.timerInterval);
     const engine = loadEngine(stockfishPath);
     engine.send("uci");
+
+    for (const sess of sessions.values()) {
+      sess.intent = undefined;
+    }
 
     gameState = {
       ...gameState,

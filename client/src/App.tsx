@@ -65,29 +65,36 @@ const pieceToFigurineBlack: Record<string, string> = {
 interface NameChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: () => void;
+  onSave: () => void;
   value: string;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   inputRef: RefObject<HTMLInputElement>;
-  socket: Socket | null;
+  gameStatus: GameStatus;
+  side: "white" | "black" | "spectator";
+  currentIntent: "resign" | "draw" | undefined;
+  pendingIntent: "resign" | "draw" | null | undefined;
+  setPendingIntent: (intent: "resign" | "draw" | null) => void;
 }
 
 const NameChangeModal: React.FC<NameChangeModalProps> = ({
   isOpen,
   onClose,
-  onSubmit,
+  onSave,
   value,
   onChange,
   onKeyDown,
   inputRef,
-  socket,
+  gameStatus,
+  side,
+  pendingIntent,
+  setPendingIntent,
 }) => {
   if (!isOpen) return null;
   return (
     <div className="name-modal-overlay" onClick={onClose}>
       <div className="name-modal-dialog" onClick={(e) => e.stopPropagation()}>
-        <h3>Change Your Name</h3>
+        <h3>Player Settings</h3>
         <input
           ref={inputRef}
           type="text"
@@ -98,28 +105,39 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
           aria-label="Set your name (Enter to save)"
         />
 
-        <div className="name-modal-intents">
-          <p>Set your status:</p>
-          <button onClick={() => socket?.emit("set_intent", "resign")}>
-            🏳️ Resign
-          </button>
-          <button onClick={() => socket?.emit("set_intent", "draw")}>
-            🤝 Offer Draw
-          </button>
-          <button onClick={() => socket?.emit("set_intent", null)}>
-            Clear Status
-          </button>
-        </div>
+        {gameStatus === GameStatus.AwaitingProposals &&
+          (side === "white" || side === "black") && (
+            <div className="name-modal-intents">
+              <p>Set your status:</p>
+              <button
+                className={pendingIntent === "resign" ? "selected" : ""}
+                onClick={() => setPendingIntent("resign")}
+              >
+                🏳️ Resign
+              </button>
+              <button
+                className={pendingIntent === "draw" ? "selected" : ""}
+                onClick={() => setPendingIntent("draw")}
+              >
+                🤝 Offer Draw
+              </button>
+              <button
+                className={!pendingIntent ? "selected" : ""}
+                onClick={() => setPendingIntent(null)}
+              >
+                Clear Status
+              </button>
+            </div>
+          )}
 
         <div className="name-modal-buttons">
           <button onClick={onClose}>Cancel</button>
-          <button onClick={onSubmit}>Save Name</button>
+          <button onClick={onSave}>Save</button>
         </div>
       </div>
     </div>
   );
 };
-
 export default function App() {
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -132,6 +150,9 @@ export default function App() {
   const [nameInput, setNameInput] = useState(
     sessionStorage.getItem(STORAGE_KEYS.name) || "Guest"
   );
+  const [pendingIntent, setPendingIntent] = useState<
+    "resign" | "draw" | null | undefined
+  >();
   const [side, setSide] = useState<"spectator" | "white" | "black">(
     (sessionStorage.getItem(STORAGE_KEYS.side) as
       | "spectator"
@@ -533,54 +554,64 @@ export default function App() {
     current?.proposals.some((p) => p.id === playerId);
   const copyPgn = () => {
     if (!pgn) return;
-    // 1. Create a temporary textarea element
     const textArea = document.createElement("textarea");
     textArea.value = pgn;
-    // 2. Make the textarea invisible and prevent page jumping
     textArea.style.position = "fixed";
     textArea.style.top = "-9999px";
     textArea.style.left = "-9999px";
 
     try {
-      // 3. Add it to the DOM
       document.body.appendChild(textArea);
-      // 4. Select its text and execute the copy command
       textArea.select();
       document.execCommand("copy");
-      // 5. Show success
       toast.success("PGN copied!");
     } catch (err) {
-      // 6. Handle errors
       toast.error("Could not copy PGN.");
     } finally {
-      // 7. Clean up by removing the element
       document.body.removeChild(textArea);
     }
   };
 
   const openNameModal = () => {
-    setNameInput(name); // Ensure input is pre-filled with the current name
+    setNameInput(name);
+    const myPlayer =
+      players.whitePlayers.find((p) => p.id === myId) ||
+      players.blackPlayers.find((p) => p.id === myId) ||
+      players.spectators.find((p) => p.id === myId);
+    setPendingIntent(myPlayer?.intent);
     setIsNameModalOpen(true);
   };
   const closeNameModal = () => {
     setIsNameModalOpen(false);
-    setNameInput(name); // Revert changes on close
+    setNameInput(name);
+    setPendingIntent(undefined);
   };
-  const submitNameChange = () => {
+  const submitSave = () => {
     const newName = nameInput.trim();
-    if (!newName || newName === name) {
-      closeNameModal(); // Revert to original name if empty or unchanged
-      return;
+
+    if (newName && newName !== name) {
+      socket?.emit("set_name", newName);
     }
-    socket?.emit("set_name", newName);
-    setIsNameModalOpen(false); // <-- HIDE MODAL
-    // The 'session' event will update 'name' and 'nameInput'
+
+    const myPlayer =
+      players.whitePlayers.find((p) => p.id === myId) ||
+      players.blackPlayers.find((p) => p.id === myId) ||
+      players.spectators.find((p) => p.id === myId);
+    const currentIntent = myPlayer?.intent;
+
+    const pIntent = pendingIntent || undefined;
+
+    if (pIntent !== currentIntent) {
+      socket?.emit("set_intent", pendingIntent || null);
+    }
+
+    setIsNameModalOpen(false);
   };
   const handleNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      submitNameChange(); // This will now also hide the modal
+      submitSave();
     } else if (e.key === "Escape") {
-      closeNameModal(); // Revert changes & hide modal
+      closeNameModal();
     }
   };
   const DisconnectedIcon = () => (
@@ -945,18 +976,29 @@ export default function App() {
       </div>
     </div>
   );
+
+  const myPlayer =
+    players.whitePlayers.find((p) => p.id === myId) ||
+    players.blackPlayers.find((p) => p.id === myId) ||
+    players.spectators.find((p) => p.id === myId);
+  const myIntent = myPlayer?.intent;
+
   return (
     <>
       <Toaster position="top-center" />
       <NameChangeModal
         isOpen={isNameModalOpen}
         onClose={closeNameModal}
-        onSubmit={submitNameChange}
+        onSave={submitSave}
         value={nameInput}
         onChange={(e) => setNameInput(e.target.value)}
         onKeyDown={handleNameKeyDown}
         inputRef={nameInputRef}
-        socket={socket}
+        gameStatus={gameStatus}
+        side={side}
+        currentIntent={myIntent}
+        pendingIntent={pendingIntent}
+        setPendingIntent={setPendingIntent}
       />
       <div
         className="mobile-info-overlay"

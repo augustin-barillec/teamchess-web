@@ -280,7 +280,11 @@ pre {
 .name-modal-intents button:hover {
   background: #f0f0f0;
 }
-
+.name-modal-intents button.selected {
+  background-color: #d8e6c3;
+  border-color: #adc490;
+  font-weight: bold;
+}
 .name-modal-buttons {
   display: flex;
   gap: 0.5rem;
