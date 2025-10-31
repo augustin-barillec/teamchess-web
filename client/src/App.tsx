@@ -204,6 +204,7 @@ export default function App() {
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
+  const [isPgnVisible, setIsPgnVisible] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const current = turns[turns.length - 1];
@@ -461,6 +462,7 @@ export default function App() {
         setEndReason(reason);
         setPgn(newPgn);
         setDrawOffer(null);
+        setIsPgnVisible(false);
       }
     );
     socket.on("chat_message", (msg: ChatMessage) => {
@@ -571,7 +573,6 @@ export default function App() {
       document.body.removeChild(textArea);
     }
   };
-
   const openNameModal = () => {
     setNameInput(name);
     const myPlayer =
@@ -588,7 +589,6 @@ export default function App() {
   };
   const submitSave = () => {
     const newName = nameInput.trim();
-
     if (newName && newName !== name) {
       socket?.emit("set_name", newName);
     }
@@ -976,7 +976,6 @@ export default function App() {
       </div>
     </div>
   );
-
   const myPlayer =
     players.whitePlayers.find((p) => p.id === myId) ||
     players.blackPlayers.find((p) => p.id === myId) ||
@@ -1161,9 +1160,12 @@ export default function App() {
                     <div className="pgn-header">
                       {" "}
                       <strong>PGN</strong>{" "}
+                      <button onClick={() => setIsPgnVisible(!isPgnVisible)}>
+                        {isPgnVisible ? "Hide" : "Show"}
+                      </button>{" "}
                       <button onClick={copyPgn}>Copy</button>{" "}
                     </div>{" "}
-                    <pre>{pgn}</pre>{" "}
+                    {isPgnVisible && <pre>{pgn}</pre>}{" "}
                   </div>
                 )}{" "}
               </div>
