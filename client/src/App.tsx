@@ -24,6 +24,8 @@ import {
   ChatMessage,
   GameStatus,
 } from "../../server/shared_types";
+import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
+
 const STORAGE_KEYS = {
   pid: "tc:pid",
   name: "tc:name",
@@ -206,6 +208,9 @@ export default function App() {
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [isPgnVisible, setIsPgnVisible] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const [chatInput, setChatInput] = useState("");
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
 
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
@@ -614,6 +619,12 @@ export default function App() {
       closeNameModal();
     }
   };
+
+  const onEmojiClick = (emojiObject: EmojiClickData) => {
+    setChatInput((prevInput) => prevInput + emojiObject.emoji);
+    setIsEmojiPickerOpen(false); // Optional: close picker on selection
+  };
+
   const DisconnectedIcon = () => (
     <svg
       viewBox="0 0 24 24"
@@ -947,17 +958,24 @@ export default function App() {
               })}{" "}
           </div>
           <div className="chat-form">
+            {isEmojiPickerOpen && (
+              <div className="emoji-picker-container">
+                <EmojiPicker
+                  onEmojiClick={onEmojiClick}
+                  autoFocusSearch={false}
+                  height={350}
+                  width="100%"
+                />
+              </div>
+            )}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const input = form.elements.namedItem(
-                  "chatInput"
-                ) as HTMLInputElement;
-                const message = input.value;
+                // Get message from state
+                const message = chatInput;
                 if (message.trim()) {
                   socket?.emit("chat_message", message);
-                  input.value = "";
+                  setChatInput(""); // Reset state
                 }
               }}
             >
@@ -969,7 +987,16 @@ export default function App() {
                 autoCapitalize="off"
                 spellCheck="false"
                 placeholder="Type a message..."
+                value={chatInput} // Use state value
+                onChange={(e) => setChatInput(e.target.value)} // Update state
               />
+              <button
+                type="button"
+                className="emoji-toggle-btn"
+                onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
+              >
+                😀
+              </button>
             </form>
           </div>
         </div>

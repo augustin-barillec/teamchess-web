@@ -223,7 +223,8 @@ pre {
   font-weight: bold;
   color: inherit; /* No color change */
   cursor: pointer;
-  text-decoration: none; /* No underline */
+  text-decoration: none;
+  /* No underline */
 }
 .clickable-name:hover {
   background-color: rgba(0, 0, 0, 0.05); /* Subtle background hover */
@@ -395,12 +396,47 @@ pre {
   border-top: 1px solid #ccc;
   padding: 10px;
   background: #fff;
+  position: relative; /* This is needed for positioning the picker */
+}
+.chat-form form {
+  display: flex; /* Make input and button sit side-by-side */
+  gap: 5px;
 }
 .chat-form input {
   width: 100%;
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
+  flex-grow: 1; /* Allow input to take up available space */
+}
+
+/* New styles for the emoji button and picker */
+.emoji-toggle-btn {
+  flex-shrink: 0;
+  padding: 0 10px;
+  font-size: 1.5rem;
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.emoji-toggle-btn:hover {
+  background-color: #f4f4f4;
+}
+
+.emoji-picker-container {
+  position: absolute;
+  bottom: 100%; /* Position picker above the chat input area */
+  right: 0;
+  z-index: 1010; /* Ensure it's on top of other content */
+  margin-bottom: 5px;
+  /* The picker component has its own shadow and border */
+}
+
+/* Fix picker height in mobile overlay */
+.mobile-info-overlay .emoji-picker-container {
+  height: 350px;
+  overflow: hidden;
 }
 
 .moves-list {
