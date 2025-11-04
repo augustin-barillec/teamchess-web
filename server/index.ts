@@ -321,7 +321,7 @@ io.on("connection", (socket: Socket) => {
   let sess = sessions.get(pid);
 
   if (!sess) {
-    sess = { pid, name: providedName || "Guest", side: "spectator" };
+    sess = { pid, name: providedName || "Player", side: "spectator" };
     sessions.set(pid, sess);
   } else {
     if (sess.reconnectTimer) {

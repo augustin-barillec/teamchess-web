@@ -145,10 +145,10 @@ export default function App() {
     sessionStorage.getItem(STORAGE_KEYS.pid) || ""
   );
   const [name, setName] = useState(
-    sessionStorage.getItem(STORAGE_KEYS.name) || "Guest"
+    sessionStorage.getItem(STORAGE_KEYS.name) || "Player"
   );
   const [nameInput, setNameInput] = useState(
-    sessionStorage.getItem(STORAGE_KEYS.name) || "Guest"
+    sessionStorage.getItem(STORAGE_KEYS.name) || "Player"
   );
   const [pendingIntent, setPendingIntent] = useState<
     "resign" | "draw" | null | undefined
@@ -304,7 +304,7 @@ export default function App() {
     const s = io({
       auth: {
         pid: sessionStorage.getItem(STORAGE_KEYS.pid) || undefined,
-        name: sessionStorage.getItem(STORAGE_KEYS.name) || "Guest",
+        name: sessionStorage.getItem(STORAGE_KEYS.name) || "Player",
       },
       reconnection: true,
       reconnectionAttempts: Infinity,
