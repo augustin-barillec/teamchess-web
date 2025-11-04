@@ -208,6 +208,7 @@ export default function App() {
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [isPgnVisible, setIsPgnVisible] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   const [chatInput, setChatInput] = useState("");
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -623,6 +624,7 @@ export default function App() {
   const onEmojiClick = (emojiObject: EmojiClickData) => {
     setChatInput((prevInput) => prevInput + emojiObject.emoji);
     setIsEmojiPickerOpen(false); // Optional: close picker on selection
+    chatInputRef.current?.focus();
   };
 
   const DisconnectedIcon = () => (
@@ -980,6 +982,7 @@ export default function App() {
               }}
             >
               <textarea
+                ref={chatInputRef}
                 name="chatInput"
                 autoComplete="off"
                 autoCorrect="off"
