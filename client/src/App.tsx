@@ -979,8 +979,7 @@ export default function App() {
                 }
               }}
             >
-              <input
-                type="text"
+              <textarea
                 name="chatInput"
                 autoComplete="off"
                 autoCorrect="off"
@@ -989,6 +988,19 @@ export default function App() {
                 placeholder="Type a message..."
                 value={chatInput} // Use state value
                 onChange={(e) => setChatInput(e.target.value)} // Update state
+                rows={1} // Start as a single line
+                onKeyDown={(e) => {
+                  // Check for "Enter" key without the "Shift" key
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault(); // Prevent a new line from being added
+                    const message = chatInput.trim();
+                    if (message) {
+                      socket?.emit("chat_message", message);
+                      setChatInput("");
+                    }
+                  }
+                  // Pressing "Shift+Enter" will now create a new line
+                }}
               />
               <button
                 type="button"

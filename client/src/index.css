@@ -402,12 +402,19 @@ pre {
   display: flex; /* Make input and button sit side-by-side */
   gap: 5px;
 }
-.chat-form input {
+.chat-form textarea {
+  /* Changed from input to textarea */
   width: 100%;
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
   flex-grow: 1; /* Allow input to take up available space */
+
+  /* --- Add these new lines --- */
+  resize: none; /* Prevents the user from resizing the textarea */
+  font-family: sans-serif; /* Ensures it uses the same font as the app */
+  font-size: 0.9em; /* Matches the original input font size */
+  line-height: 1.3; /* Makes wrapped text easier to read */
 }
 
 /* New styles for the emoji button and picker */
