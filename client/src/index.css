@@ -649,3 +649,9 @@ pre {
 .mobile-info-overlay .player-lists-container {
   height: 100%;
 }
+
+.emoji-picker-container input[type="text"]::placeholder,
+.emoji-picker-container input[type="search"]::placeholder {
+  color: transparent !important;
+  opacity: 0 !important; /* Fallback for older browsers */
+}
