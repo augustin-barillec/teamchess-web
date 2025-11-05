@@ -657,21 +657,34 @@ pre {
   height: 100%;
 }
 
-/* --- REPLACEMENT CSS for Emoji Picker Search --- */
+/* --- CSS for Emoji Picker Search (Icon disappears on type) --- */
 
-/* This hides the <div> that acts as the lens icon */
+/* 1. By default, the search icon is visible */
 .emoji-picker-container .epr-icn-search {
+  display: block !important;
+}
+
+/* 2. By default, the search input has large padding for the icon */
+.emoji-picker-container input[placeholder="Search"] {
+  /* Use the library's default padding: 0 30px */
+  padding: 0 30px !important;
+  /* Optional: Add a smooth transition */
+  transition: padding 0.15s ease-out;
+}
+
+/* 3. When typing (placeholder is hidden), HIDE the icon */
+.emoji-picker-container
+  .epr-search-container:has(input[placeholder="Search"]:not(:placeholder-shown))
+  .epr-icn-search {
   display: none !important;
 }
 
-/* This finds the input and overrides its 'padding: 0 30px' shorthand
-  to remove the left-padding that was intended for the icon.
-*/
-.emoji-picker-container input[placeholder="Search"] {
+/* 4. When typing, reduce the input's left padding */
+.emoji-picker-container input[placeholder="Search"]:not(:placeholder-shown) {
   padding: 0 10px !important;
 }
 
-/* This part is from your original file to hide the placeholder text */
+/* 5. Keep the rule to hide the placeholder text */
 .emoji-picker-container input[type="text"]::placeholder,
 .emoji-picker-container input[type="search"]::placeholder {
   color: transparent !important;
