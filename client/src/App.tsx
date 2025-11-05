@@ -964,7 +964,7 @@ export default function App() {
               <div className="emoji-picker-container">
                 <EmojiPicker
                   onEmojiClick={onEmojiClick}
-                  autoFocusSearch={false}
+                  autoFocusSearch={true}
                   height={350}
                   width="100%"
                 />
