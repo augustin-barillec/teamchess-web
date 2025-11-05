@@ -657,8 +657,23 @@ pre {
   height: 100%;
 }
 
+/* --- REPLACEMENT CSS for Emoji Picker Search --- */
+
+/* This hides the <div> that acts as the lens icon */
+.emoji-picker-container .epr-icn-search {
+  display: none !important;
+}
+
+/* This finds the input and overrides its 'padding: 0 30px' shorthand
+  to remove the left-padding that was intended for the icon.
+*/
+.emoji-picker-container input[placeholder="Search"] {
+  padding: 0 10px !important;
+}
+
+/* This part is from your original file to hide the placeholder text */
 .emoji-picker-container input[type="text"]::placeholder,
 .emoji-picker-container input[type="search"]::placeholder {
   color: transparent !important;
-  opacity: 0 !important; /* Fallback for older browsers */
+  opacity: 0 !important;
 }
