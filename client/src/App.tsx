@@ -1010,7 +1010,7 @@ export default function App() {
                 className="emoji-toggle-btn"
                 onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
               >
-                😀
+                ♟️
               </button>
             </form>
           </div>
