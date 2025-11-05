@@ -967,6 +967,7 @@ export default function App() {
                   autoFocusSearch={true}
                   height={350}
                   width="100%"
+                  previewConfig={{ showPreview: false }}
                 />
               </div>
             )}
