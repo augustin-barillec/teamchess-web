@@ -690,3 +690,8 @@ pre {
   color: transparent !important;
   opacity: 0 !important;
 }
+
+.emoji-picker-container .EmojiPickerReact {
+  --epr-emoji-size: 24px;
+  --epr-emoji-gap: 6px;
+}

@@ -209,7 +209,8 @@ export default function App() {
   const [isPgnVisible, setIsPgnVisible] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
-
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const [chatInput, setChatInput] = useState("");
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
 
@@ -492,6 +493,32 @@ export default function App() {
       nameInputRef.current.focus();
     }
   }, [isNameModalOpen]);
+
+  useEffect(() => {
+    if (!isEmojiPickerOpen) return; // Only run if picker is open
+
+    const handleClickOutside = (event: MouseEvent) => {
+      // Check if the click is outside the picker
+      const isOutsidePicker =
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target as Node);
+
+      // Check if the click is outside the toggle button
+      const isOutsideButton =
+        emojiButtonRef.current &&
+        !emojiButtonRef.current.contains(event.target as Node);
+
+      if (isOutsidePicker && isOutsideButton) {
+        setIsEmojiPickerOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isEmojiPickerOpen]); // Re-run when the picker's state changes
+
   const joinSide = (s: "white" | "black" | "spectator") =>
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
@@ -620,13 +647,12 @@ export default function App() {
       closeNameModal();
     }
   };
-
   const onEmojiClick = (emojiObject: EmojiClickData) => {
     setChatInput((prevInput) => prevInput + emojiObject.emoji);
-    setIsEmojiPickerOpen(false); // Optional: close picker on selection
+    setIsEmojiPickerOpen(false);
+    // Optional: close picker on selection
     chatInputRef.current?.focus();
   };
-
   const DisconnectedIcon = () => (
     <svg
       viewBox="0 0 24 24"
@@ -961,7 +987,7 @@ export default function App() {
           </div>
           <div className="chat-form">
             {isEmojiPickerOpen && (
-              <div className="emoji-picker-container">
+              <div className="emoji-picker-container" ref={emojiPickerRef}>
                 <EmojiPicker
                   onEmojiClick={onEmojiClick}
                   autoFocusSearch={true}
@@ -996,7 +1022,8 @@ export default function App() {
                 onKeyDown={(e) => {
                   // Check for "Enter" key without the "Shift" key
                   if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault(); // Prevent a new line from being added
+                    e.preventDefault();
+                    // Prevent a new line from being added
                     const message = chatInput.trim();
                     if (message) {
                       socket?.emit("chat_message", message);
@@ -1008,6 +1035,7 @@ export default function App() {
               />
               <button
                 type="button"
+                ref={emojiButtonRef}
                 className="emoji-toggle-btn"
                 onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
               >

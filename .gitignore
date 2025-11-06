@@ -1,0 +1,20 @@
+# Dependencies
+/node_modules
+
+# Build Artifacts
+/dist
+/client/dist
+/.vite
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+npm-debug.log
+*.log
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
