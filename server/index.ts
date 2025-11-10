@@ -134,8 +134,7 @@ function endGame(reason: string, winner: string | null = null) {
     ? reasonMessages[reason](winner)
     : `🎉 Game over! ${
         winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
-      } wins!`;
-  // Fallback
+      } wins!`; // Fallback
   // ---------------- END CORRECTION ----------------
 
   // Send it as a system chat message
@@ -372,6 +371,13 @@ io.on("connection", (socket: Socket) => {
   socket.emit("session", { id: pid, name: sess.name });
   socket.emit("game_status_update", { status: gameState.status });
 
+  // --- MODIFICATION 1: Always send clock on connect ---
+  socket.emit("clock_update", {
+    whiteTime: gameState.whiteTime,
+    blackTime: gameState.blackTime,
+  });
+  // ----------------------------------------------------
+
   if (gameState.status !== GameStatus.Lobby) {
     const currentProposals = Array.from(gameState.proposals.entries()).map(
       ([pid, proposal]) => ({
@@ -389,6 +395,7 @@ io.on("connection", (socket: Socket) => {
       proposals: currentProposals,
     });
     socket.emit("position_update", { fen: gameState.chess.fen() });
+    // This clock update is now redundant, but harmless
     socket.emit("clock_update", {
       whiteTime: gameState.whiteTime,
       blackTime: gameState.blackTime,
@@ -465,6 +472,14 @@ io.on("connection", (socket: Socket) => {
       drawOffer: undefined,
     };
     io.emit("game_reset");
+
+    // --- MODIFICATION 2: Broadcast new clock times on reset ---
+    io.emit("clock_update", {
+      whiteTime: gameState.whiteTime,
+      blackTime: gameState.blackTime,
+    });
+    // ----------------------------------------------------------
+
     sendSystemMessage(`${socket.data.name} has reset the game.`);
     cb?.({ success: true });
   });
@@ -504,7 +519,6 @@ io.on("connection", (socket: Socket) => {
       sendSystemMessage(
         `${socket.data.name} has started the game by playing the first move.`
       );
-
       // 4. IMPORTANT: The game is now in 'AwaitingProposals' status,
       //    so we let the function continue to process the move.
     } else if (gameState.status !== GameStatus.AwaitingProposals) {
@@ -517,7 +531,6 @@ io.on("connection", (socket: Socket) => {
       gameState.side === "white" ? gameState.whiteIds : gameState.blackIds;
     if (!active.has(pid)) return cb?.({ error: "Not your turn." });
     if (gameState.proposals.has(pid)) return cb?.({ error: "Already moved." });
-
     if (gameState.drawOffer) {
       gameState.drawOffer = undefined;
       io.emit("draw_offer_update", { side: null });
