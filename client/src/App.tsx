@@ -89,7 +89,7 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
   return (
     <div className="name-modal-overlay" onClick={onClose}>
       <div className="name-modal-dialog" onClick={(e) => e.stopPropagation()}>
-        <h3>Player Settings</h3>
+        <h3>Change Name</h3>
         <input
           ref={inputRef}
           type="text"
