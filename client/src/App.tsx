@@ -24,6 +24,7 @@ import {
   ChatMessage,
   GameStatus,
 } from "../../server/shared_types";
+
 const STORAGE_KEYS = {
   pid: "tc:pid",
   name: "tc:name",
@@ -72,6 +73,7 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
+
 interface NameChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -446,15 +448,14 @@ export default function App() {
         // ---------------- CORRECTED LOGIC HERE ----------------
         const gameOverMessage = reasonMessages[reason]
           ? reasonMessages[reason](winner)
-          : `🎉 Game over! ${
-              winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
-            } wins!`;
+          : `🎉 Game 
+ over! ${winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""} wins!`;
         // ---------------- END CORRECTION ----------------
 
         if (isMobile) {
           // 'toast' is already imported
           toast(gameOverMessage, {
-            duration: 5000, // Make it last a bit longer
+            duration: 5000, // Make it last a
             icon: "♟️",
           });
         }
@@ -476,7 +477,8 @@ export default function App() {
     return () => {
       socket.disconnect();
     };
-  }, [socket, chess, isMobile]); // Added isMobile to dependency array
+  }, [socket, chess, isMobile]);
+  // Added isMobile to dependency array
   useEffect(() => {
     if (isNameModalOpen && nameInputRef.current) {
       nameInputRef.current.focus();
@@ -518,7 +520,6 @@ export default function App() {
       socket?.emit("reject_draw");
   };
 
-  const startGame = () => socket?.emit("start_game");
   const resetGame = () => {
     if (window.confirm("Are you sure you want to reset the game?")) {
       socket?.emit(
@@ -685,8 +686,25 @@ export default function App() {
       setLegalSquareStyles({});
       const from = sourceSquare;
       const to = targetSquare;
-      if (gameStatus !== GameStatus.AwaitingProposals || side !== current.side)
+
+      // --- BUG FIX: Allow moves from Lobby (for white) or AwaitingProposals (for current side) ---
+      if (gameStatus === GameStatus.Lobby) {
+        if (side !== "white") {
+          toast.error("Only White can make the first move to start the game.");
+          return false; // Not white, can't start
+        }
+        // If side IS white, we fall through to the move logic
+      } else if (gameStatus === GameStatus.AwaitingProposals) {
+        if (!current || side !== current.side) {
+          return false; // Not your turn
+        }
+        // If it IS your turn, we fall through to the move logic
+      } else {
+        // Game is not in a state to accept moves (e.g., Finalizing, Over)
         return false;
+      }
+      // --- END BUG FIX ---
+
       const isPromotion = needsPromotion(from, to);
       try {
         const move = chess.move({
@@ -1001,21 +1019,13 @@ export default function App() {
           {/* <h1>TeamChess</h1> - REMOVED */}
 
           {/* <div className="game-id-bar">
-            <span> {playerCount} Players </span>
+          
+           <span> {playerCount} Players </span>
           </div> - REMOVED */}
 
           <div className="action-panel **action-panel-desktop-left**">
             {" "}
             {/* "Set Name" button removed as requested */}
-            {gameStatus === GameStatus.Lobby && (
-              <>
-                {" "}
-                {players.whitePlayers.length > 0 &&
-                  players.blackPlayers.length > 0 && (
-                    <button onClick={startGame}>Start Game</button>
-                  )}{" "}
-              </>
-            )}
             {gameStatus !== GameStatus.Lobby && (
               <button onClick={resetGame}>Reset Game</button>
             )}

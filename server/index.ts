@@ -21,7 +21,6 @@ const stockfishPath = path.join(
   "src",
   "stockfish-nnue-16.js"
 );
-
 // ---------------- CORRECTED LOGIC HERE ----------------
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
@@ -135,7 +134,8 @@ function endGame(reason: string, winner: string | null = null) {
     ? reasonMessages[reason](winner)
     : `🎉 Game over! ${
         winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
-      } wins!`; // Fallback
+      } wins!`;
+  // Fallback
   // ---------------- END CORRECTION ----------------
 
   // Send it as a system chat message
@@ -442,34 +442,6 @@ io.on("connection", (socket: Socket) => {
     tryFinalizeTurn();
     cb?.({ success: true });
   });
-  socket.on("start_game", (cb) => {
-    if (gameState.status !== GameStatus.Lobby) {
-      return cb?.({ error: "Game cannot be started." });
-    }
-    const whites = new Set<string>();
-    const blacks = new Set<string>();
-    for (const s of sessions.values()) {
-      if (s.side === "white") whites.add(s.pid);
-      else if (s.side === "black") blacks.add(s.pid);
-    }
-    if (whites.size === 0 || blacks.size === 0) {
-      return cb?.({ error: "Both teams must have at least one player." });
-    }
-
-    gameState.status = GameStatus.AwaitingProposals;
-    gameState.whiteIds = whites;
-    gameState.blackIds = blacks;
-
-    io.emit("game_started", {
-      moveNumber: 1,
-      side: "white",
-      proposals: [],
-    });
-    io.emit("position_update", { fen: gameState.chess.fen() });
-    startClock();
-    sendSystemMessage(`${socket.data.name} has started the game.`);
-    cb?.({ success: true });
-  });
   socket.on("reset_game", (cb) => {
     if (gameState.timerInterval) clearInterval(gameState.timerInterval);
     const engine = loadEngine(stockfishPath);
@@ -497,9 +469,50 @@ io.on("connection", (socket: Socket) => {
     cb?.({ success: true });
   });
   socket.on("play_move", (lan: string, cb) => {
-    if (gameState.status !== GameStatus.AwaitingProposals)
-      return cb?.({ error: "Not accepting proposals right now." });
+    // --- NEW LOGIC TO START GAME ---
+    if (gameState.status === GameStatus.Lobby) {
+      // 1. Check if the player is White
+      if (socket.data.side !== "white") {
+        return cb?.({ error: "Only the White team can start the game." });
+      }
 
+      // 2. Check if Black team has players (logic from old "start_game" handler)
+      const whites = new Set<string>();
+      const blacks = new Set<string>();
+      for (const s of sessions.values()) {
+        if (s.side === "white") whites.add(s.pid);
+        else if (s.side === "black") blacks.add(s.pid);
+      }
+      if (blacks.size === 0) {
+        return cb?.({
+          error: "Both teams must have at least one player to start.",
+        }); //
+      }
+
+      // 3. Execute the "start_game" logic
+      gameState.status = GameStatus.AwaitingProposals;
+      gameState.whiteIds = whites;
+      gameState.blackIds = blacks;
+
+      io.emit("game_started", {
+        moveNumber: 1,
+        side: "white",
+        proposals: [],
+      });
+      io.emit("position_update", { fen: gameState.chess.fen() });
+      startClock();
+      sendSystemMessage(
+        `${socket.data.name} has started the game by playing the first move.`
+      );
+
+      // 4. IMPORTANT: The game is now in 'AwaitingProposals' status,
+      //    so we let the function continue to process the move.
+    } else if (gameState.status !== GameStatus.AwaitingProposals) {
+      // --- This was the original check, now as an 'else if' ---
+      return cb?.({ error: "Not accepting proposals right now." });
+    }
+
+    // --- ORIGINAL LOGIC CONTINUES BELOW ---
     const active =
       gameState.side === "white" ? gameState.whiteIds : gameState.blackIds;
     if (!active.has(pid)) return cb?.({ error: "Not your turn." });
