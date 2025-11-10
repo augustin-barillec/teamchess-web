@@ -73,7 +73,6 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
-
 interface NameChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -120,6 +119,92 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
     </div>
   );
 };
+
+// --- NEW COMPONENT ADDED HERE ---
+interface ActionsPanelProps {
+  gameStatus: GameStatus;
+  side: "white" | "black" | "spectator";
+  drawOffer: "white" | "black" | null;
+  pgn: string;
+  resetGame: () => void;
+  autoAssign: () => void;
+  joinSide: (side: "white" | "black" | "spectator") => void;
+  joinSpectator: () => void;
+  resignGame: () => void;
+  offerDraw: () => void;
+  acceptDraw: () => void;
+  rejectDraw: () => void;
+  copyPgn: () => void;
+}
+
+const ActionsPanel: React.FC<ActionsPanelProps> = ({
+  gameStatus,
+  side,
+  drawOffer,
+  pgn,
+  resetGame,
+  autoAssign,
+  joinSide,
+  joinSpectator,
+  resignGame,
+  offerDraw,
+  acceptDraw,
+  rejectDraw,
+  copyPgn,
+}) => {
+  // This JSX is from the old .header-bar
+  return (
+    <>
+      {gameStatus !== GameStatus.Lobby && (
+        <button onClick={resetGame}>Reset Game</button>
+      )}
+      {gameStatus !== GameStatus.Over && (
+        <>
+          {side === "spectator" && (
+            <>
+              <button onClick={autoAssign}>Auto Assign</button>
+              <button onClick={() => joinSide("white")}>Join White</button>
+              <button onClick={() => joinSide("black")}>Join Black</button>
+            </>
+          )}
+          {(side === "white" || side === "black") && (
+            <>
+              <button onClick={joinSpectator}>Join Spectators</button>
+              {gameStatus === GameStatus.Lobby && (
+                <button
+                  onClick={() => joinSide(side === "white" ? "black" : "white")}
+                >
+                  Switch to {side === "white" ? "Black" : "White"}
+                </button>
+              )}
+              {gameStatus === GameStatus.AwaitingProposals && (
+                <>
+                  {drawOffer && drawOffer !== side ? (
+                    <>
+                      <button onClick={acceptDraw}>Accept Draw</button>
+                      <button onClick={rejectDraw}>Reject Draw</button>
+                    </>
+                  ) : drawOffer === side ? (
+                    <span style={{ fontStyle: "italic" }}>Draw offered...</span>
+                  ) : (
+                    <>
+                      <button onClick={resignGame}>Resign</button>
+                      <button onClick={offerDraw}>Offer Draw</button>
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </>
+      )}
+      {gameStatus === GameStatus.Over && pgn && (
+        <button onClick={copyPgn}>Copy PGN</button>
+      )}
+    </>
+  );
+};
+// --- END NEW COMPONENT ---
 
 export default function App() {
   const [amDisconnected, setAmDisconnected] = useState(false);
@@ -175,9 +260,12 @@ export default function App() {
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(600);
 
-  const [activeTab, setActiveTab] = useState<"chat" | "moves" | "players">(
-    "players"
-  );
+  // --- MODIFIED STATE ---
+  const [activeTab, setActiveTab] = useState<
+    "chat" | "moves" | "players" | "actions"
+  >("players");
+  // --- END MODIFICATION ---
+
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const movesRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef(activeTab);
@@ -448,8 +536,9 @@ export default function App() {
         // ---------------- CORRECTED LOGIC HERE ----------------
         const gameOverMessage = reasonMessages[reason]
           ? reasonMessages[reason](winner)
-          : `🎉 Game 
- over! ${winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""} wins!`;
+          : `🎉 Game over! ${
+              winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
+            } wins!`;
         // ---------------- END CORRECTION ----------------
 
         if (isMobile) {
@@ -756,6 +845,33 @@ export default function App() {
   );
   const TabContent = (
     <div className="info-tabs-content">
+      {/* --- NEW ACTIONS PANEL ADDED HERE --- */}
+      <div
+        className={
+          "tab-panel actions-panel " + (activeTab === "actions" ? "active" : "")
+        }
+      >
+        <h3>Actions</h3>
+        <div className="actions-panel-content">
+          <ActionsPanel
+            gameStatus={gameStatus}
+            side={side}
+            drawOffer={drawOffer}
+            pgn={pgn}
+            resetGame={resetGame}
+            autoAssign={autoAssign}
+            joinSide={joinSide}
+            joinSpectator={joinSpectator}
+            resignGame={resignGame}
+            offerDraw={offerDraw}
+            acceptDraw={acceptDraw}
+            rejectDraw={rejectDraw}
+            copyPgn={copyPgn}
+          />
+        </div>
+      </div>
+      {/* --- END NEW PANEL --- */}
+
       <div
         className={
           "tab-panel players-panel " + (activeTab === "players" ? "active" : "")
@@ -1019,81 +1135,10 @@ export default function App() {
           {/* <h1>TeamChess</h1> - REMOVED */}
 
           {/* <div className="game-id-bar">
-          
-           <span> {playerCount} Players </span>
+            <span> {playerCount} Players </span>
           </div> - REMOVED */}
 
-          <div className="action-panel **action-panel-desktop-left**">
-            {" "}
-            {/* "Set Name" button removed as requested */}
-            {gameStatus !== GameStatus.Lobby && (
-              <button onClick={resetGame}>Reset Game</button>
-            )}
-            {gameStatus !== GameStatus.Over && (
-              <>
-                {" "}
-                {side === "spectator" && (
-                  <>
-                    {" "}
-                    <button onClick={autoAssign}>Auto Assign</button>{" "}
-                    <button onClick={() => joinSide("white")}>
-                      Join White
-                    </button>{" "}
-                    <button onClick={() => joinSide("black")}>
-                      Join Black
-                    </button>{" "}
-                  </>
-                )}{" "}
-                {(side === "white" || side === "black") && (
-                  <>
-                    {" "}
-                    <button onClick={joinSpectator}>
-                      Join Spectators
-                    </button>{" "}
-                    {gameStatus === GameStatus.Lobby && (
-                      <button
-                        onClick={() =>
-                          joinSide(side === "white" ? "black" : "white")
-                        }
-                      >
-                        {" "}
-                        Switch to {side === "white" ? "Black" : "White"}{" "}
-                      </button>
-                    )}{" "}
-                    {gameStatus === GameStatus.AwaitingProposals && (
-                      <>
-                        {" "}
-                        {drawOffer && drawOffer !== side ? (
-                          <>
-                            {" "}
-                            <button onClick={acceptDraw}>
-                              Accept Draw
-                            </button>{" "}
-                            <button onClick={rejectDraw}>
-                              Reject Draw
-                            </button>{" "}
-                          </>
-                        ) : drawOffer === side ? (
-                          <span style={{ fontStyle: "italic" }}>
-                            Draw offered...
-                          </span>
-                        ) : (
-                          <>
-                            {" "}
-                            <button onClick={resignGame}>Resign</button>{" "}
-                            <button onClick={offerDraw}>Offer Draw</button>{" "}
-                          </>
-                        )}{" "}
-                      </>
-                    )}{" "}
-                  </>
-                )}{" "}
-              </>
-            )}
-            {gameStatus === GameStatus.Over && pgn && (
-              <button onClick={copyPgn}>Copy PGN</button>
-            )}
-          </div>
+          {/* --- ACTION PANEL DIV REMOVED FROM HERE --- */}
         </div>
 
         <div className="main-layout">
@@ -1140,6 +1185,17 @@ export default function App() {
 
           <div className="info-column">
             <nav className="info-tabs-nav">
+              {/* --- NEW "ACTIONS" TAB BUTTON --- */}
+              <button
+                className={activeTab === "actions" ? "active" : ""}
+                onClick={() => {
+                  setActiveTab("actions");
+                  setIsMobileInfoVisible(true);
+                }}
+              >
+                Actions
+              </button>
+              {/* --- END NEW BUTTON --- */}
               <button
                 className={activeTab === "players" ? "active" : ""}
                 onClick={() => {

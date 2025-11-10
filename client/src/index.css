@@ -420,6 +420,22 @@ pre {
   gap: 0.5rem;
 }
 
+/* --- NEW STYLES ADDED HERE --- */
+.actions-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 10px;
+  height: 600px; /* Match other panels */
+  overflow-y: auto;
+  background: #fff;
+}
+.actions-panel-content button {
+  width: 100%;
+  box-sizing: border-box;
+}
+/* --- END NEW STYLES --- */
+
 @media (max-width: 900px) {
   .main-layout {
     flex-direction: column;
@@ -517,17 +533,20 @@ pre {
     min-width: 350px;
   }
 
+  /* --- MODIFIED RULE --- */
   .tab-panel {
     flex-grow: 0;
     flex-shrink: 1;
-    flex-basis: 25%;
-    min-width: 260px;
+    flex-basis: 20%; /* Was 25% */
+    min-width: 220px; /* Was 260px */
   }
 
+  /* --- MODIFIED RULE --- */
   .players-panel,
-  .moves-panel {
-    flex-basis: 12.5%;
-    min-width: 130px;
+  .moves-panel,
+  .actions-panel {
+    flex-basis: 10%; /* Was 12.5% */
+    min-width: 120px; /* Was 130px */
   }
 
   .tab-panel > h3 {
@@ -594,8 +613,10 @@ pre {
   display: block;
 }
 
+/* --- MODIFIED RULE --- */
 .mobile-info-overlay .moves-list,
 .mobile-info-overlay .chat-box-container,
-.mobile-info-overlay .player-lists-container {
+.mobile-info-overlay .player-lists-container,
+.mobile-info-overlay .actions-panel-content {
   height: 100%;
 }
