@@ -21,6 +21,33 @@ const stockfishPath = path.join(
   "src",
   "stockfish-nnue-16.js"
 );
+
+// ---------------- CORRECTED LOGIC HERE ----------------
+const reasonMessages: Record<string, (winner: string | null) => string> = {
+  [EndReason.Checkmate]: (winner) =>
+    `☑️ Checkmate!\n${
+      winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
+    } wins!`,
+  [EndReason.Stalemate]: () => `🤝 Game drawn by stalemate.`,
+  [EndReason.Threefold]: () => `🤝 Game drawn by threefold repetition.`,
+  [EndReason.Insufficient]: () => `🤝 Game drawn by insufficient material.`,
+  [EndReason.DrawRule]: () => `🤝 Game drawn by rule (e.g. fifty-move).`,
+  [EndReason.Resignation]: (winner) =>
+    `🏳️ Resignation!\n${
+      winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
+    } wins!`,
+  [EndReason.DrawAgreement]: () => `🤝 Draw agreed.`,
+  [EndReason.Timeout]: (winner) =>
+    `⏱️ Time!\n${
+      winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
+    } wins!`,
+  [EndReason.Abandonment]: (winner) =>
+    `🚫 Forfeit!\n${
+      winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
+    } wins as the opposing team is empty.`,
+};
+// ---------------- END CORRECTION ----------------
+
 type Side = "white" | "black" | "spectator";
 type PlayerSide = "white" | "black";
 type Session = {
@@ -100,6 +127,20 @@ function endGame(reason: string, winner: string | null = null) {
   gameState.status = GameStatus.Over;
   gameState.endReason = reason;
   gameState.endWinner = winner;
+
+  // --- ADD THIS LOGIC ---
+  // Generate the message using the object we just added
+  // ---------------- CORRECTED LOGIC HERE ----------------
+  const message = reasonMessages[reason]
+    ? reasonMessages[reason](winner)
+    : `🎉 Game over! ${
+        winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
+      } wins!`; // Fallback
+  // ---------------- END CORRECTION ----------------
+
+  // Send it as a system chat message
+  sendSystemMessage(message);
+  // --- END ADDED LOGIC ---
 
   broadcastPlayers();
 

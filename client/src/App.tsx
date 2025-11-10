@@ -24,30 +24,37 @@ import {
   ChatMessage,
   GameStatus,
 } from "../../server/shared_types";
-
 const STORAGE_KEYS = {
   pid: "tc:pid",
   name: "tc:name",
   side: "tc:side",
 } as const;
 
+// ---------------- CORRECTED LOGIC HERE ----------------
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
-    `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
+    `☑️ Checkmate!\n${
+      winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
+    } wins!`,
   [EndReason.Stalemate]: () => `🤝 Game drawn by stalemate.`,
   [EndReason.Threefold]: () => `🤝 Game drawn by threefold repetition.`,
   [EndReason.Insufficient]: () => `🤝 Game drawn by insufficient material.`,
   [EndReason.DrawRule]: () => `🤝 Game drawn by rule (e.g. fifty-move).`,
   [EndReason.Resignation]: (winner) =>
-    `🏳️ Resignation!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
+    `🏳️ Resignation!\n${
+      winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
+    } wins!`,
   [EndReason.DrawAgreement]: () => `🤝 Draw agreed.`,
   [EndReason.Timeout]: (winner) =>
-    `⏱️ Time!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
+    `⏱️ Time!\n${
+      winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
+    } wins!`,
   [EndReason.Abandonment]: (winner) =>
     `🚫 Forfeit!\n${
-      winner?.[0].toUpperCase() + winner?.slice(1)
+      winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
     } wins as the opposing team is empty.`,
 };
+// ---------------- END CORRECTION ----------------
 
 const pieceToFigurineWhite: Record<string, string> = {
   K: "♔",
@@ -57,7 +64,6 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: "♘",
   P: "♙",
 };
-
 const pieceToFigurineBlack: Record<string, string> = {
   K: "♚",
   Q: "♛",
@@ -66,7 +72,6 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
-
 interface NameChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -435,6 +440,25 @@ export default function App() {
         setEndReason(reason);
         setPgn(newPgn);
         setDrawOffer(null);
+
+        // --- ADD THIS LOGIC ---
+        // Use the 'reason' and 'winner' vars directly from the event
+        // ---------------- CORRECTED LOGIC HERE ----------------
+        const gameOverMessage = reasonMessages[reason]
+          ? reasonMessages[reason](winner)
+          : `🎉 Game over! ${
+              winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
+            } wins!`;
+        // ---------------- END CORRECTION ----------------
+
+        if (isMobile) {
+          // 'toast' is already imported
+          toast(gameOverMessage, {
+            duration: 5000, // Make it last a bit longer
+            icon: "♟️",
+          });
+        }
+        // --- END ADDED LOGIC ---
       }
     );
     socket.on("chat_message", (msg: ChatMessage) => {
@@ -452,7 +476,7 @@ export default function App() {
     return () => {
       socket.disconnect();
     };
-  }, [socket, chess]);
+  }, [socket, chess, isMobile]); // Added isMobile to dependency array
   useEffect(() => {
     if (isNameModalOpen && nameInputRef.current) {
       nameInputRef.current.focus();
@@ -977,7 +1001,7 @@ export default function App() {
           {/* <h1>TeamChess</h1> - REMOVED */}
 
           {/* <div className="game-id-bar">
-             <span> {playerCount} Players </span>
+            <span> {playerCount} Players </span>
           </div> - REMOVED */}
 
           <div className="action-panel **action-panel-desktop-left**">
@@ -1101,20 +1125,7 @@ export default function App() {
                 current?.side === (orientation === "white" ? "white" : "black")
               }
             />
-            {gameStatus === GameStatus.Over && (
-              <div className="game-over-info">
-                {" "}
-                <p>
-                  {" "}
-                  {endReason && reasonMessages[endReason]
-                    ? reasonMessages[endReason](winner)
-                    : `🎉 Game over! ${
-                        winner?.[0].toUpperCase() + winner?.slice(1)
-                      } wins!`}{" "}
-                </p>{" "}
-                {/* PGN display removed, "Copy PGN" button moved to action panel */}
-              </div>
-            )}
+            {/* GAME OVER INFO BLOCK HAS BEEN REMOVED FROM HERE */}
           </div>
 
           <div className="info-column">
