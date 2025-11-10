@@ -24,13 +24,13 @@ import {
   ChatMessage,
   GameStatus,
 } from "../../server/shared_types";
-import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 
 const STORAGE_KEYS = {
   pid: "tc:pid",
   name: "tc:name",
   side: "tc:side",
 } as const;
+
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
@@ -48,6 +48,7 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
+
 const pieceToFigurineWhite: Record<string, string> = {
   K: "♔",
   Q: "♕",
@@ -56,6 +57,7 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: "♘",
   P: "♙",
 };
+
 const pieceToFigurineBlack: Record<string, string> = {
   K: "♚",
   Q: "♛",
@@ -64,6 +66,7 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
+
 interface NameChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -93,6 +96,7 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
   setPendingIntent,
 }) => {
   if (!isOpen) return null;
+
   return (
     <div className="name-modal-overlay" onClick={onClose}>
       <div className="name-modal-dialog" onClick={(e) => e.stopPropagation()}>
@@ -140,6 +144,7 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
     </div>
   );
 };
+
 export default function App() {
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -208,12 +213,8 @@ export default function App() {
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [isPgnVisible, setIsPgnVisible] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
-  const chatInputRef = useRef<HTMLTextAreaElement>(null);
-  const emojiPickerRef = useRef<HTMLDivElement>(null);
-  const emojiButtonRef = useRef<HTMLButtonElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
   const [chatInput, setChatInput] = useState("");
-  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
-
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
@@ -234,6 +235,7 @@ export default function App() {
     });
     return square;
   }, [position, chess]);
+
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = {
       P: 8,
@@ -307,6 +309,7 @@ export default function App() {
       players.blackPlayers.length,
     [players]
   );
+
   useEffect(() => {
     const s = io({
       auth: {
@@ -332,18 +335,22 @@ export default function App() {
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
   }, []);
+
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener("resize", checkIsMobile);
     return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
+
   useEffect(() => {
     if (movesRef.current)
       movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
+
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some((p) => p.id === myId)
@@ -356,6 +363,7 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId, side]);
+
   useEffect(() => {
     if (!socket) return;
 
@@ -484,40 +492,17 @@ export default function App() {
       "draw_offer_update",
       ({ side }: { side: "white" | "black" | null }) => setDrawOffer(side)
     );
+
     return () => {
       socket.disconnect();
     };
   }, [socket, chess]);
+
   useEffect(() => {
     if (isNameModalOpen && nameInputRef.current) {
       nameInputRef.current.focus();
     }
   }, [isNameModalOpen]);
-
-  useEffect(() => {
-    if (!isEmojiPickerOpen) return; // Only run if picker is open
-
-    const handleClickOutside = (event: MouseEvent) => {
-      // Check if the click is outside the picker
-      const isOutsidePicker =
-        emojiPickerRef.current &&
-        !emojiPickerRef.current.contains(event.target as Node);
-
-      // Check if the click is outside the toggle button
-      const isOutsideButton =
-        emojiButtonRef.current &&
-        !emojiButtonRef.current.contains(event.target as Node);
-
-      if (isOutsidePicker && isOutsideButton) {
-        setIsEmojiPickerOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isEmojiPickerOpen]); // Re-run when the picker's state changes
 
   const joinSide = (s: "white" | "black" | "spectator") =>
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
@@ -525,6 +510,7 @@ export default function App() {
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
+
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -535,22 +521,27 @@ export default function App() {
     joinSide(chosen);
   };
   const joinSpectator = () => joinSide("spectator");
+
   const resignGame = () => {
     if (window.confirm("Are you sure you want to resign for your team?"))
       socket?.emit("resign");
   };
+
   const offerDraw = () => {
     if (window.confirm("Are you sure you want to offer a draw for your team?"))
       socket?.emit("offer_draw");
   };
+
   const acceptDraw = () => {
     if (window.confirm("Accept the draw offer for your team?"))
       socket?.emit("accept_draw");
   };
+
   const rejectDraw = () => {
     if (window.confirm("Reject the draw offer for your team?"))
       socket?.emit("reject_draw");
   };
+
   const startGame = () => socket?.emit("start_game");
   const resetGame = () => {
     if (window.confirm("Are you sure you want to reset the game?")) {
@@ -579,6 +570,7 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
+
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== "p") return false;
@@ -587,6 +579,7 @@ export default function App() {
   }
   const hasPlayed = (playerId: string) =>
     current?.proposals.some((p) => p.id === playerId);
+
   const copyPgn = () => {
     if (!pgn) return;
     const textArea = document.createElement("textarea");
@@ -606,6 +599,7 @@ export default function App() {
       document.body.removeChild(textArea);
     }
   };
+
   const openNameModal = () => {
     setNameInput(name);
     const myPlayer =
@@ -647,12 +641,7 @@ export default function App() {
       closeNameModal();
     }
   };
-  const onEmojiClick = (emojiObject: EmojiClickData) => {
-    setChatInput((prevInput) => prevInput + emojiObject.emoji);
-    setIsEmojiPickerOpen(false);
-    // Optional: close picker on selection
-    chatInputRef.current?.focus();
-  };
+
   const DisconnectedIcon = () => (
     <svg
       viewBox="0 0 24 24"
@@ -677,6 +666,7 @@ export default function App() {
       </g>{" "}
     </svg>
   );
+
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
@@ -766,6 +756,7 @@ export default function App() {
       return true;
     },
   };
+
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -793,6 +784,7 @@ export default function App() {
       </div>
     </div>
   );
+
   const TabContent = (
     <div className="info-tabs-content">
       <div
@@ -986,67 +978,47 @@ export default function App() {
               })}{" "}
           </div>
           <div className="chat-form">
-            {isEmojiPickerOpen && (
-              <div className="emoji-picker-container" ref={emojiPickerRef}>
-                <EmojiPicker
-                  onEmojiClick={onEmojiClick}
-                  autoFocusSearch={true}
-                  height={350}
-                  width="100%"
-                  previewConfig={{ showPreview: false }}
-                />
-              </div>
-            )}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                // Get message from state
-                const message = chatInput;
-                if (message.trim()) {
+                const message = chatInput.trim();
+                if (message) {
                   socket?.emit("chat_message", message);
-                  setChatInput(""); // Reset state
+                  setChatInput("");
                 }
               }}
             >
-              <textarea
+              <input
                 ref={chatInputRef}
+                type="text"
                 name="chatInput"
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
                 spellCheck="false"
                 placeholder="Type a message..."
-                value={chatInput} // Use state value
-                onChange={(e) => setChatInput(e.target.value)} // Update state
-                rows={1} // Start as a single line
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
-                  // Check for "Enter" key without the "Shift" key
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  // This component no longer uses Shift+Enter
+                  // Enter (with or without Shift) will send
+                  if (e.key === "Enter") {
                     e.preventDefault();
-                    // Prevent a new line from being added
                     const message = chatInput.trim();
                     if (message) {
                       socket?.emit("chat_message", message);
                       setChatInput("");
                     }
                   }
-                  // Pressing "Shift+Enter" will now create a new line
                 }}
               />
-              <button
-                type="button"
-                ref={emojiButtonRef}
-                className="emoji-toggle-btn"
-                onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
-              >
-                ♟️
-              </button>
             </form>
           </div>
         </div>
       </div>
     </div>
   );
+
   const myPlayer =
     players.whitePlayers.find((p) => p.id === myId) ||
     players.blackPlayers.find((p) => p.id === myId) ||

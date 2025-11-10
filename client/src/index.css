@@ -396,54 +396,21 @@ pre {
   border-top: 1px solid #ccc;
   padding: 10px;
   background: #fff;
-  position: relative; /* This is needed for positioning the picker */
+  position: relative;
+  /* This is needed for positioning the picker */
 }
 .chat-form form {
   display: flex; /* Make input and button sit side-by-side */
   gap: 5px;
 }
-.chat-form textarea {
-  /* Changed from input to textarea */
+.chat-form input {
   width: 100%;
-  padding: 8px;
+  padding: 8px 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
-  flex-grow: 1; /* Allow input to take up available space */
-
-  /* --- Add these new lines --- */
-  resize: none; /* Prevents the user from resizing the textarea */
-  font-family: sans-serif; /* Ensures it uses the same font as the app */
-  font-size: 0.9em; /* Matches the original input font size */
-  line-height: 1.3; /* Makes wrapped text easier to read */
-}
-
-/* New styles for the emoji button and picker */
-.emoji-toggle-btn {
-  flex-shrink: 0;
-  padding: 0 10px;
-  font-size: 1.5rem;
-  background: none;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.emoji-toggle-btn:hover {
-  background-color: #f4f4f4;
-}
-
-.emoji-picker-container {
-  position: absolute;
-  bottom: 100%; /* Position picker above the chat input area */
-  right: 0;
-  z-index: 1010; /* Ensure it's on top of other content */
-  margin-bottom: 5px;
-  /* The picker component has its own shadow and border */
-}
-
-/* Fix picker height in mobile overlay */
-.mobile-info-overlay .emoji-picker-container {
-  height: 350px;
-  overflow: hidden;
+  flex-grow: 1;
+  font-family: sans-serif;
+  font-size: 0.9em;
 }
 
 .moves-list {
@@ -655,43 +622,4 @@ pre {
 .mobile-info-overlay .chat-box-container,
 .mobile-info-overlay .player-lists-container {
   height: 100%;
-}
-
-/* --- CSS for Emoji Picker Search (Icon disappears on type) --- */
-
-/* 1. By default, the search icon is visible */
-.emoji-picker-container .epr-icn-search {
-  display: block !important;
-}
-
-/* 2. By default, the search input has large padding for the icon */
-.emoji-picker-container input[placeholder="Search"] {
-  /* Use the library's default padding: 0 30px */
-  padding: 0 30px !important;
-  /* Optional: Add a smooth transition */
-  transition: padding 0.15s ease-out;
-}
-
-/* 3. When typing (placeholder is hidden), HIDE the icon */
-.emoji-picker-container
-  .epr-search-container:has(input[placeholder="Search"]:not(:placeholder-shown))
-  .epr-icn-search {
-  display: none !important;
-}
-
-/* 4. When typing, reduce the input's left padding */
-.emoji-picker-container input[placeholder="Search"]:not(:placeholder-shown) {
-  padding: 0 10px !important;
-}
-
-/* 5. Keep the rule to hide the placeholder text */
-.emoji-picker-container input[type="text"]::placeholder,
-.emoji-picker-container input[type="search"]::placeholder {
-  color: transparent !important;
-  opacity: 0 !important;
-}
-
-.emoji-picker-container .EmojiPickerReact {
-  --epr-emoji-size: 24px;
-  --epr-emoji-gap: 6px;
 }
