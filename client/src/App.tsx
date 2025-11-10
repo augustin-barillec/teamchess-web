@@ -24,11 +24,13 @@ import {
   ChatMessage,
   GameStatus,
 } from "../../server/shared_types";
+
 const STORAGE_KEYS = {
   pid: "tc:pid",
   name: "tc:name",
   side: "tc:side",
 } as const;
+
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
@@ -46,6 +48,7 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
+
 const pieceToFigurineWhite: Record<string, string> = {
   K: "♔",
   Q: "♕",
@@ -54,6 +57,7 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: "♘",
   P: "♙",
 };
+
 const pieceToFigurineBlack: Record<string, string> = {
   K: "♚",
   Q: "♛",
@@ -62,6 +66,7 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
+
 interface NameChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -172,7 +177,6 @@ export default function App() {
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
-  const [isPgnVisible, setIsPgnVisible] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const [chatInput, setChatInput] = useState("");
@@ -431,7 +435,6 @@ export default function App() {
         setEndReason(reason);
         setPgn(newPgn);
         setDrawOffer(null);
-        setIsPgnVisible(false);
       }
     );
     socket.on("chat_message", (msg: ChatMessage) => {
@@ -936,7 +939,6 @@ export default function App() {
       </div>
     </div>
   );
-
   return (
     <>
       <Toaster position="top-center" />
@@ -951,6 +953,7 @@ export default function App() {
         gameStatus={gameStatus}
         side={side}
       />
+
       <div
         className="mobile-info-overlay"
         style={{ display: isMobileInfoVisible ? "flex" : "none" }}
@@ -974,7 +977,7 @@ export default function App() {
           {/* <h1>TeamChess</h1> - REMOVED */}
 
           {/* <div className="game-id-bar">
-            <span> {playerCount} Players </span>
+             <span> {playerCount} Players </span>
           </div> - REMOVED */}
 
           <div className="action-panel **action-panel-desktop-left**">
@@ -1053,6 +1056,9 @@ export default function App() {
                 )}{" "}
               </>
             )}
+            {gameStatus === GameStatus.Over && pgn && (
+              <button onClick={copyPgn}>Copy PGN</button>
+            )}
           </div>
         </div>
 
@@ -1106,20 +1112,7 @@ export default function App() {
                         winner?.[0].toUpperCase() + winner?.slice(1)
                       } wins!`}{" "}
                 </p>{" "}
-                {pgn && (
-                  <div>
-                    {" "}
-                    <div className="pgn-header">
-                      {" "}
-                      <strong>PGN</strong>{" "}
-                      <button onClick={() => setIsPgnVisible(!isPgnVisible)}>
-                        {isPgnVisible ? "Hide" : "Show"}
-                      </button>{" "}
-                      <button onClick={copyPgn}>Copy</button>{" "}
-                    </div>{" "}
-                    {isPgnVisible && <pre>{pgn}</pre>}{" "}
-                  </div>
-                )}{" "}
+                {/* PGN display removed, "Copy PGN" button moved to action panel */}
               </div>
             )}
           </div>
