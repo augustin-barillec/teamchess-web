@@ -27,7 +27,6 @@ type Session = {
   pid: string;
   name: string;
   side: Side;
-  intent?: "resign" | "draw";
   reconnectTimer?: NodeJS.Timeout;
 };
 interface GameState {
@@ -49,7 +48,6 @@ interface GameState {
 
 const sessions = new Map<string, Session>();
 let gameState: GameState;
-
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -78,7 +76,6 @@ function broadcastPlayers() {
       id: sess.pid,
       name: sess.name,
       connected: onlinePids.has(sess.pid),
-      intent: sess.intent,
     };
     if (sess.side === "white") whitePlayers.push(p);
     else if (sess.side === "black") blackPlayers.push(p);
@@ -103,10 +100,6 @@ function endGame(reason: string, winner: string | null = null) {
   gameState.status = GameStatus.Over;
   gameState.endReason = reason;
   gameState.endWinner = winner;
-
-  for (const sess of sessions.values()) {
-    sess.intent = undefined;
-  }
 
   broadcastPlayers();
 
@@ -385,17 +378,6 @@ io.on("connection", (socket: Socket) => {
       }
     }
   });
-  socket.on("set_intent", (intent: "resign" | "draw" | null) => {
-    const sess = sessions.get(pid);
-    if (sess) {
-      if (intent === null) {
-        delete sess.intent;
-      } else {
-        sess.intent = intent;
-      }
-      broadcastPlayers();
-    }
-  });
   socket.on("join_side", ({ side }, cb) => {
     const currentSess = sessions.get(pid);
     if (!currentSess) return;
@@ -403,10 +385,6 @@ io.on("connection", (socket: Socket) => {
     const prevSide = currentSess.side;
     currentSess.side = side;
     socket.data.side = side;
-
-    if (side === "spectator") {
-      currentSess.intent = undefined;
-    }
 
     if (gameState.status !== GameStatus.Lobby) {
       if (prevSide === "white") gameState.whiteIds.delete(pid);
@@ -455,10 +433,6 @@ io.on("connection", (socket: Socket) => {
     if (gameState.timerInterval) clearInterval(gameState.timerInterval);
     const engine = loadEngine(stockfishPath);
     engine.send("uci");
-
-    for (const sess of sessions.values()) {
-      sess.intent = undefined;
-    }
 
     gameState = {
       ...gameState,

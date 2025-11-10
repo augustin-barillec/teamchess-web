@@ -24,13 +24,11 @@ import {
   ChatMessage,
   GameStatus,
 } from "../../server/shared_types";
-
 const STORAGE_KEYS = {
   pid: "tc:pid",
   name: "tc:name",
   side: "tc:side",
 } as const;
-
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${winner?.[0].toUpperCase() + winner?.slice(1)} wins!`,
@@ -48,7 +46,6 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner?.[0].toUpperCase() + winner?.slice(1)
     } wins as the opposing team is empty.`,
 };
-
 const pieceToFigurineWhite: Record<string, string> = {
   K: "♔",
   Q: "♕",
@@ -57,7 +54,6 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: "♘",
   P: "♙",
 };
-
 const pieceToFigurineBlack: Record<string, string> = {
   K: "♚",
   Q: "♛",
@@ -66,7 +62,6 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
-
 interface NameChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -77,9 +72,6 @@ interface NameChangeModalProps {
   inputRef: RefObject<HTMLInputElement>;
   gameStatus: GameStatus;
   side: "white" | "black" | "spectator";
-  currentIntent: "resign" | "draw" | undefined;
-  pendingIntent: "resign" | "draw" | null | undefined;
-  setPendingIntent: (intent: "resign" | "draw" | null) => void;
 }
 
 const NameChangeModal: React.FC<NameChangeModalProps> = ({
@@ -92,11 +84,8 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
   inputRef,
   gameStatus,
   side,
-  pendingIntent,
-  setPendingIntent,
 }) => {
   if (!isOpen) return null;
-
   return (
     <div className="name-modal-overlay" onClick={onClose}>
       <div className="name-modal-dialog" onClick={(e) => e.stopPropagation()}>
@@ -110,31 +99,6 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
           placeholder="Set your name"
           aria-label="Set your name (Enter to save)"
         />
-
-        {gameStatus === GameStatus.AwaitingProposals &&
-          (side === "white" || side === "black") && (
-            <div className="name-modal-intents">
-              <p>Set your status:</p>
-              <button
-                className={pendingIntent === "resign" ? "selected" : ""}
-                onClick={() => setPendingIntent("resign")}
-              >
-                🏳️ Resign
-              </button>
-              <button
-                className={pendingIntent === "draw" ? "selected" : ""}
-                onClick={() => setPendingIntent("draw")}
-              >
-                🤝 Offer Draw
-              </button>
-              <button
-                className={!pendingIntent ? "selected" : ""}
-                onClick={() => setPendingIntent(null)}
-              >
-                Clear Status
-              </button>
-            </div>
-          )}
 
         <div className="name-modal-buttons">
           <button onClick={onClose}>Cancel</button>
@@ -157,9 +121,6 @@ export default function App() {
   const [nameInput, setNameInput] = useState(
     sessionStorage.getItem(STORAGE_KEYS.name) || "Player"
   );
-  const [pendingIntent, setPendingIntent] = useState<
-    "resign" | "draw" | null | undefined
-  >();
   const [side, setSide] = useState<"spectator" | "white" | "black">(
     (sessionStorage.getItem(STORAGE_KEYS.side) as
       | "spectator"
@@ -235,7 +196,6 @@ export default function App() {
     });
     return square;
   }, [position, chess]);
-
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = {
       P: 8,
@@ -309,7 +269,6 @@ export default function App() {
       players.blackPlayers.length,
     [players]
   );
-
   useEffect(() => {
     const s = io({
       auth: {
@@ -335,22 +294,18 @@ export default function App() {
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
   }, []);
-
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener("resize", checkIsMobile);
     return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
-
   useEffect(() => {
     if (movesRef.current)
       movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
-
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
-
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some((p) => p.id === myId)
@@ -363,7 +318,6 @@ export default function App() {
       sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId, side]);
-
   useEffect(() => {
     if (!socket) return;
 
@@ -492,25 +446,21 @@ export default function App() {
       "draw_offer_update",
       ({ side }: { side: "white" | "black" | null }) => setDrawOffer(side)
     );
-
     return () => {
       socket.disconnect();
     };
   }, [socket, chess]);
-
   useEffect(() => {
     if (isNameModalOpen && nameInputRef.current) {
       nameInputRef.current.focus();
     }
   }, [isNameModalOpen]);
-
   const joinSide = (s: "white" | "black" | "spectator") =>
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
-
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -521,7 +471,6 @@ export default function App() {
     joinSide(chosen);
   };
   const joinSpectator = () => joinSide("spectator");
-
   const resignGame = () => {
     if (window.confirm("Are you sure you want to resign for your team?"))
       socket?.emit("resign");
@@ -570,7 +519,6 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
-
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== "p") return false;
@@ -579,7 +527,6 @@ export default function App() {
   }
   const hasPlayed = (playerId: string) =>
     current?.proposals.some((p) => p.id === playerId);
-
   const copyPgn = () => {
     if (!pgn) return;
     const textArea = document.createElement("textarea");
@@ -599,37 +546,18 @@ export default function App() {
       document.body.removeChild(textArea);
     }
   };
-
   const openNameModal = () => {
     setNameInput(name);
-    const myPlayer =
-      players.whitePlayers.find((p) => p.id === myId) ||
-      players.blackPlayers.find((p) => p.id === myId) ||
-      players.spectators.find((p) => p.id === myId);
-    setPendingIntent(myPlayer?.intent);
     setIsNameModalOpen(true);
   };
   const closeNameModal = () => {
     setIsNameModalOpen(false);
     setNameInput(name);
-    setPendingIntent(undefined);
   };
   const submitSave = () => {
     const newName = nameInput.trim();
     if (newName && newName !== name) {
       socket?.emit("set_name", newName);
-    }
-
-    const myPlayer =
-      players.whitePlayers.find((p) => p.id === myId) ||
-      players.blackPlayers.find((p) => p.id === myId) ||
-      players.spectators.find((p) => p.id === myId);
-    const currentIntent = myPlayer?.intent;
-
-    const pIntent = pendingIntent || undefined;
-
-    if (pIntent !== currentIntent) {
-      socket?.emit("set_intent", pendingIntent || null);
     }
 
     setIsNameModalOpen(false);
@@ -641,7 +569,6 @@ export default function App() {
       closeNameModal();
     }
   };
-
   const DisconnectedIcon = () => (
     <svg
       viewBox="0 0 24 24"
@@ -666,7 +593,6 @@ export default function App() {
       </g>{" "}
     </svg>
   );
-
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
@@ -756,7 +682,6 @@ export default function App() {
       return true;
     },
   };
-
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -784,7 +709,6 @@ export default function App() {
       </div>
     </div>
   );
-
   const TabContent = (
     <div className="info-tabs-content">
       <div
@@ -818,8 +742,6 @@ export default function App() {
                       <span>{p.name}</span>
                     )}{" "}
                     {disconnected && <DisconnectedIcon />}{" "}
-                    {p.intent === "resign" && <span>🏳️</span>}
-                    {p.intent === "draw" && <span>🤝</span>}
                   </li>
                 );
               })}{" "}
@@ -850,8 +772,6 @@ export default function App() {
                     )}{" "}
                     {disconnected && <DisconnectedIcon />}{" "}
                     {hasPlayed(p.id) && <span>✔️</span>}{" "}
-                    {p.intent === "resign" && <span>🏳️</span>}
-                    {p.intent === "draw" && <span>🤝</span>}
                   </li>
                 );
               })}{" "}
@@ -882,8 +802,6 @@ export default function App() {
                     )}{" "}
                     {disconnected && <DisconnectedIcon />}{" "}
                     {hasPlayed(p.id) && <span>✔️</span>}{" "}
-                    {p.intent === "resign" && <span>🏳️</span>}
-                    {p.intent === "draw" && <span>🤝</span>}
                   </li>
                 );
               })}{" "}
@@ -1019,12 +937,6 @@ export default function App() {
     </div>
   );
 
-  const myPlayer =
-    players.whitePlayers.find((p) => p.id === myId) ||
-    players.blackPlayers.find((p) => p.id === myId) ||
-    players.spectators.find((p) => p.id === myId);
-  const myIntent = myPlayer?.intent;
-
   return (
     <>
       <Toaster position="top-center" />
@@ -1038,9 +950,6 @@ export default function App() {
         inputRef={nameInputRef}
         gameStatus={gameStatus}
         side={side}
-        currentIntent={myIntent}
-        pendingIntent={pendingIntent}
-        setPendingIntent={setPendingIntent}
       />
       <div
         className="mobile-info-overlay"

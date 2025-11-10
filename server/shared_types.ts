@@ -2,7 +2,6 @@ export interface Player {
   id: string;
   name: string;
   connected: boolean;
-  intent?: "resign" | "draw";
 }
 
 export type Players = {

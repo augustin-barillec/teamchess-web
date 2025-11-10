@@ -261,31 +261,6 @@ pre {
   width: 100%;
 }
 
-.name-modal-intents {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid #eee;
-}
-.name-modal-intents p {
-  margin: 0;
-  font-weight: bold;
-  font-size: 0.9em;
-  color: #555;
-}
-.name-modal-intents button {
-  text-align: left;
-  background: #f9f9f9;
-}
-.name-modal-intents button:hover {
-  background: #f0f0f0;
-}
-.name-modal-intents button.selected {
-  background-color: #d8e6c3;
-  border-color: #adc490;
-  font-weight: bold;
-}
 .name-modal-buttons {
   display: flex;
   gap: 0.5rem;
@@ -400,7 +375,8 @@ pre {
   /* This is needed for positioning the picker */
 }
 .chat-form form {
-  display: flex; /* Make input and button sit side-by-side */
+  display: flex;
+  /* Make input and button sit side-by-side */
   gap: 5px;
 }
 .chat-form input {
