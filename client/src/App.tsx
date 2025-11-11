@@ -24,13 +24,11 @@ import {
   ChatMessage,
   GameStatus,
 } from "../../server/shared_types";
-
 const STORAGE_KEYS = {
   pid: "tc:pid",
   name: "tc:name",
   side: "tc:side",
 } as const;
-
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${
@@ -54,7 +52,6 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
     } wins as the opposing team is empty.`,
 };
-
 const pieceToFigurineWhite: Record<string, string> = {
   K: "♔",
   Q: "♕",
@@ -254,11 +251,9 @@ export default function App() {
   } | null>(null);
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(600);
-
   const [activeTab, setActiveTab] = useState<
-    "chat" | "moves" | "players" | "actions"
+    "chat" | "moves" | "players" | "controls"
   >("players");
-
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const movesRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef(activeTab);
@@ -828,11 +823,12 @@ export default function App() {
     <div className="info-tabs-content">
       <div
         className={
-          "tab-panel actions-panel " + (activeTab === "actions" ? "active" : "")
+          "tab-panel controls-panel " +
+          (activeTab === "controls" ? "active" : "")
         }
       >
-        <h3>Actions</h3>
-        <div className="actions-panel-content">
+        <h3>Controls</h3>
+        <div className="controls-panel-content">
           <ActionsPanel
             gameStatus={gameStatus}
             side={side}
@@ -1153,13 +1149,13 @@ export default function App() {
           <div className="info-column">
             <nav className="info-tabs-nav">
               <button
-                className={activeTab === "actions" ? "active" : ""}
+                className={activeTab === "controls" ? "active" : ""}
                 onClick={() => {
-                  setActiveTab("actions");
+                  setActiveTab("controls");
                   setIsMobileInfoVisible(true);
                 }}
               >
-                Actions
+                Controls
               </button>
               <button
                 className={activeTab === "players" ? "active" : ""}

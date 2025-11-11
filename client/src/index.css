@@ -417,7 +417,7 @@ pre {
   gap: 0.5rem;
 }
 
-.actions-panel-content {
+.controls-panel-content {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -427,7 +427,7 @@ pre {
   overflow-x: hidden;
   background: #fff;
 }
-.actions-panel-content button {
+.controls-panel-content button {
   width: 100%;
   box-sizing: border-box;
 }
@@ -538,7 +538,7 @@ pre {
 
   .players-panel,
   .moves-panel,
-  .actions-panel {
+  .controls-panel {
     flex-basis: 10%;
     min-width: 120px;
   }
@@ -610,6 +610,6 @@ pre {
 .mobile-info-overlay .moves-list,
 .mobile-info-overlay .chat-box-container,
 .mobile-info-overlay .player-lists-container,
-.mobile-info-overlay .actions-panel-content {
+.mobile-info-overlay .controls-panel-content {
   height: 100%;
 }
