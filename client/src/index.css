@@ -424,6 +424,7 @@ pre {
   padding: 10px;
   height: 600px;
   overflow-y: auto;
+  overflow-x: hidden;
   background: #fff;
 }
 .actions-panel-content button {
