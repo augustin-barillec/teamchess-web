@@ -750,7 +750,7 @@ export default function App() {
     boardWidth: boardWidth,
     draggingPieceStyle: isMobile
       ? {
-          transform: "scale(2)",
+          transform: "scale(4)",
           transformOrigin: "center center",
           zIndex: 9999,
         }
