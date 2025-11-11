@@ -24,11 +24,13 @@ import {
   ChatMessage,
   GameStatus,
 } from "../../server/shared_types";
+
 const STORAGE_KEYS = {
   pid: "tc:pid",
   name: "tc:name",
   side: "tc:side",
 } as const;
+
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${
@@ -52,6 +54,7 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
     } wins as the opposing team is empty.`,
 };
+
 const pieceToFigurineWhite: Record<string, string> = {
   K: "♔",
   Q: "♕",
@@ -68,6 +71,7 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
+
 interface NameChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -283,6 +287,7 @@ export default function App() {
     });
     return square;
   }, [position, chess]);
+
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = {
       P: 8,
@@ -554,12 +559,15 @@ export default function App() {
       nameInputRef.current.focus();
     }
   }, [isNameModalOpen]);
-  const joinSide = (s: "white" | "black" | "spectator") =>
+
+  const joinSide = (s: "white" | "black" | "spectator") => {
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
       else setSide(s);
       sessionStorage.setItem(STORAGE_KEYS.side, s);
     });
+    setIsMobileInfoVisible(false);
+  };
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -568,26 +576,37 @@ export default function App() {
     else if (blackCount < whiteCount) chosen = "black";
     else chosen = Math.random() < 0.5 ? "white" : "black";
     joinSide(chosen);
+    setIsMobileInfoVisible(false);
   };
   const joinSpectator = () => joinSide("spectator");
   const resignGame = () => {
-    if (window.confirm("Are you sure you want to resign for your team?"))
+    if (window.confirm("Are you sure you want to resign for your team?")) {
       socket?.emit("resign");
+      setIsMobileInfoVisible(false);
+    }
   };
 
   const offerDraw = () => {
-    if (window.confirm("Are you sure you want to offer a draw for your team?"))
+    if (
+      window.confirm("Are you sure you want to offer a draw for your team?")
+    ) {
       socket?.emit("offer_draw");
+      setIsMobileInfoVisible(false);
+    }
   };
 
   const acceptDraw = () => {
-    if (window.confirm("Accept the draw offer for your team?"))
+    if (window.confirm("Accept the draw offer for your team?")) {
       socket?.emit("accept_draw");
+      setIsMobileInfoVisible(false);
+    }
   };
 
   const rejectDraw = () => {
-    if (window.confirm("Reject the draw offer for your team?"))
+    if (window.confirm("Reject the draw offer for your team?")) {
       socket?.emit("reject_draw");
+      setIsMobileInfoVisible(false);
+    }
   };
 
   const resetGame = () => {
@@ -598,6 +617,7 @@ export default function App() {
           if (res.error) return toast.error(res.error);
         }
       );
+      setIsMobileInfoVisible(false);
     }
   };
   const submitMove = (lan: string) => {
@@ -643,6 +663,7 @@ export default function App() {
     } finally {
       document.body.removeChild(textArea);
     }
+    setIsMobileInfoVisible(false);
   };
   const openNameModal = () => {
     setNameInput(name);
@@ -1190,6 +1211,7 @@ export default function App() {
                 {hasUnreadMessages && <span className="unread-dot"></span>}{" "}
               </button>
             </nav>
+
             {TabContent}
           </div>
         </div>
