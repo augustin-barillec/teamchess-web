@@ -771,6 +771,13 @@ export default function App() {
         : {}),
     },
     boardWidth: boardWidth,
+    draggingPieceStyle: isMobile
+      ? {
+          transform: "scale(1.6)",
+          transformOrigin: "center center",
+          zIndex: 9999,
+        }
+      : undefined,
     onPieceDrag: ({ square }: PieceHandlerArgs) => {
       const moves = chess.moves({ square: square, verbose: true });
       const highlights: Record<string, CSSProperties> = {};
