@@ -21,7 +21,6 @@ const stockfishPath = path.join(
   "src",
   "stockfish-nnue-16.js"
 );
-// ---------------- CORRECTED LOGIC HERE ----------------
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${
@@ -45,7 +44,6 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
     } wins as the opposing team is empty.`,
 };
-// ---------------- END CORRECTION ----------------
 
 type Side = "white" | "black" | "spectator";
 type PlayerSide = "white" | "black";
@@ -127,19 +125,13 @@ function endGame(reason: string, winner: string | null = null) {
   gameState.endReason = reason;
   gameState.endWinner = winner;
 
-  // --- ADD THIS LOGIC ---
-  // Generate the message using the object we just added
-  // ---------------- CORRECTED LOGIC HERE ----------------
   const message = reasonMessages[reason]
     ? reasonMessages[reason](winner)
     : `🎉 Game over! ${
         winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
-      } wins!`; // Fallback
-  // ---------------- END CORRECTION ----------------
+      } wins!`;
 
-  // Send it as a system chat message
   sendSystemMessage(message);
-  // --- END ADDED LOGIC ---
 
   broadcastPlayers();
 
@@ -371,12 +363,10 @@ io.on("connection", (socket: Socket) => {
   socket.emit("session", { id: pid, name: sess.name });
   socket.emit("game_status_update", { status: gameState.status });
 
-  // --- MODIFICATION 1: Always send clock on connect ---
   socket.emit("clock_update", {
     whiteTime: gameState.whiteTime,
     blackTime: gameState.blackTime,
   });
-  // ----------------------------------------------------
 
   if (gameState.status !== GameStatus.Lobby) {
     const currentProposals = Array.from(gameState.proposals.entries()).map(
@@ -395,7 +385,6 @@ io.on("connection", (socket: Socket) => {
       proposals: currentProposals,
     });
     socket.emit("position_update", { fen: gameState.chess.fen() });
-    // This clock update is now redundant, but harmless
     socket.emit("clock_update", {
       whiteTime: gameState.whiteTime,
       blackTime: gameState.blackTime,
@@ -473,25 +462,20 @@ io.on("connection", (socket: Socket) => {
     };
     io.emit("game_reset");
 
-    // --- MODIFICATION 2: Broadcast new clock times on reset ---
     io.emit("clock_update", {
       whiteTime: gameState.whiteTime,
       blackTime: gameState.blackTime,
     });
-    // ----------------------------------------------------------
 
     sendSystemMessage(`${socket.data.name} has reset the game.`);
     cb?.({ success: true });
   });
   socket.on("play_move", (lan: string, cb) => {
-    // --- NEW LOGIC TO START GAME ---
     if (gameState.status === GameStatus.Lobby) {
-      // 1. Check if the player is White
       if (socket.data.side !== "white") {
         return cb?.({ error: "Only the White team can start the game." });
       }
 
-      // 2. Check if Black team has players (logic from old "start_game" handler)
       const whites = new Set<string>();
       const blacks = new Set<string>();
       for (const s of sessions.values()) {
@@ -501,10 +485,9 @@ io.on("connection", (socket: Socket) => {
       if (blacks.size === 0) {
         return cb?.({
           error: "Both teams must have at least one player to start.",
-        }); //
+        });
       }
 
-      // 3. Execute the "start_game" logic
       gameState.status = GameStatus.AwaitingProposals;
       gameState.whiteIds = whites;
       gameState.blackIds = blacks;
@@ -519,14 +502,10 @@ io.on("connection", (socket: Socket) => {
       sendSystemMessage(
         `${socket.data.name} has started the game by playing the first move.`
       );
-      // 4. IMPORTANT: The game is now in 'AwaitingProposals' status,
-      //    so we let the function continue to process the move.
     } else if (gameState.status !== GameStatus.AwaitingProposals) {
-      // --- This was the original check, now as an 'else if' ---
       return cb?.({ error: "Not accepting proposals right now." });
     }
 
-    // --- ORIGINAL LOGIC CONTINUES BELOW ---
     const active =
       gameState.side === "white" ? gameState.whiteIds : gameState.blackIds;
     if (!active.has(pid)) return cb?.({ error: "Not your turn." });

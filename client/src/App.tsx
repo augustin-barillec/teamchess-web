@@ -31,7 +31,6 @@ const STORAGE_KEYS = {
   side: "tc:side",
 } as const;
 
-// ---------------- CORRECTED LOGIC HERE ----------------
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${
@@ -55,7 +54,6 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
     } wins as the opposing team is empty.`,
 };
-// ---------------- END CORRECTION ----------------
 
 const pieceToFigurineWhite: Record<string, string> = {
   K: "♔",
@@ -120,7 +118,6 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
   );
 };
 
-// --- NEW COMPONENT ADDED HERE ---
 interface ActionsPanelProps {
   gameStatus: GameStatus;
   side: "white" | "black" | "spectator";
@@ -152,7 +149,6 @@ const ActionsPanel: React.FC<ActionsPanelProps> = ({
   rejectDraw,
   copyPgn,
 }) => {
-  // This JSX is from the old .header-bar
   return (
     <>
       {gameStatus !== GameStatus.Lobby && (
@@ -204,7 +200,6 @@ const ActionsPanel: React.FC<ActionsPanelProps> = ({
     </>
   );
 };
-// --- END NEW COMPONENT ---
 
 export default function App() {
   const [amDisconnected, setAmDisconnected] = useState(false);
@@ -260,11 +255,9 @@ export default function App() {
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(600);
 
-  // --- MODIFIED STATE ---
   const [activeTab, setActiveTab] = useState<
     "chat" | "moves" | "players" | "actions"
   >("players");
-  // --- END MODIFICATION ---
 
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const movesRef = useRef<HTMLDivElement>(null);
@@ -531,24 +524,18 @@ export default function App() {
         setPgn(newPgn);
         setDrawOffer(null);
 
-        // --- ADD THIS LOGIC ---
-        // Use the 'reason' and 'winner' vars directly from the event
-        // ---------------- CORRECTED LOGIC HERE ----------------
         const gameOverMessage = reasonMessages[reason]
           ? reasonMessages[reason](winner)
           : `🎉 Game over! ${
               winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
             } wins!`;
-        // ---------------- END CORRECTION ----------------
 
         if (isMobile) {
-          // 'toast' is already imported
           toast(gameOverMessage, {
-            duration: 5000, // Make it last a
+            duration: 5000,
             icon: "♟️",
           });
         }
-        // --- END ADDED LOGIC ---
       }
     );
     socket.on("chat_message", (msg: ChatMessage) => {
@@ -567,7 +554,6 @@ export default function App() {
       socket.disconnect();
     };
   }, [socket, chess, isMobile]);
-  // Added isMobile to dependency array
   useEffect(() => {
     if (isNameModalOpen && nameInputRef.current) {
       nameInputRef.current.focus();
@@ -776,23 +762,18 @@ export default function App() {
       const from = sourceSquare;
       const to = targetSquare;
 
-      // --- BUG FIX: Allow moves from Lobby (for white) or AwaitingProposals (for current side) ---
       if (gameStatus === GameStatus.Lobby) {
         if (side !== "white") {
           toast.error("Only White can make the first move to start the game.");
-          return false; // Not white, can't start
+          return false;
         }
-        // If side IS white, we fall through to the move logic
       } else if (gameStatus === GameStatus.AwaitingProposals) {
         if (!current || side !== current.side) {
-          return false; // Not your turn
+          return false;
         }
-        // If it IS your turn, we fall through to the move logic
       } else {
-        // Game is not in a state to accept moves (e.g., Finalizing, Over)
         return false;
       }
-      // --- END BUG FIX ---
 
       const isPromotion = needsPromotion(from, to);
       try {
@@ -845,7 +826,6 @@ export default function App() {
   );
   const TabContent = (
     <div className="info-tabs-content">
-      {/* --- NEW ACTIONS PANEL ADDED HERE --- */}
       <div
         className={
           "tab-panel actions-panel " + (activeTab === "actions" ? "active" : "")
@@ -870,8 +850,6 @@ export default function App() {
           />
         </div>
       </div>
-      {/* --- END NEW PANEL --- */}
-
       <div
         className={
           "tab-panel players-panel " + (activeTab === "players" ? "active" : "")
@@ -1079,8 +1057,6 @@ export default function App() {
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
-                  // This component no longer uses Shift+Enter
-                  // Enter (with or without Shift) will send
                   if (e.key === "Enter") {
                     e.preventDefault();
                     const message = chatInput.trim();
@@ -1131,15 +1107,7 @@ export default function App() {
       )}
 
       <div className="app-container">
-        <div className="header-bar">
-          {/* <h1>TeamChess</h1> - REMOVED */}
-
-          {/* <div className="game-id-bar">
-            <span> {playerCount} Players </span>
-          </div> - REMOVED */}
-
-          {/* --- ACTION PANEL DIV REMOVED FROM HERE --- */}
-        </div>
+        <div className="header-bar"></div>
 
         <div className="main-layout">
           <div className="game-column">
@@ -1180,12 +1148,10 @@ export default function App() {
                 current?.side === (orientation === "white" ? "white" : "black")
               }
             />
-            {/* GAME OVER INFO BLOCK HAS BEEN REMOVED FROM HERE */}
           </div>
 
           <div className="info-column">
             <nav className="info-tabs-nav">
-              {/* --- NEW "ACTIONS" TAB BUTTON --- */}
               <button
                 className={activeTab === "actions" ? "active" : ""}
                 onClick={() => {
@@ -1195,7 +1161,6 @@ export default function App() {
               >
                 Actions
               </button>
-              {/* --- END NEW BUTTON --- */}
               <button
                 className={activeTab === "players" ? "active" : ""}
                 onClick={() => {

@@ -221,13 +221,12 @@ pre {
   margin: 0;
   font: inherit;
   font-weight: bold;
-  color: inherit; /* No color change */
+  color: inherit;
   cursor: pointer;
   text-decoration: none;
-  /* No underline */
 }
 .clickable-name:hover {
-  background-color: rgba(0, 0, 0, 0.05); /* Subtle background hover */
+  background-color: rgba(0, 0, 0, 0.05);
   border-radius: 4px;
 }
 
@@ -372,11 +371,9 @@ pre {
   padding: 10px;
   background: #fff;
   position: relative;
-  /* This is needed for positioning the picker */
 }
 .chat-form form {
   display: flex;
-  /* Make input and button sit side-by-side */
   gap: 5px;
 }
 .chat-form input {
@@ -420,13 +417,12 @@ pre {
   gap: 0.5rem;
 }
 
-/* --- NEW STYLES ADDED HERE --- */
 .actions-panel-content {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   padding: 10px;
-  height: 600px; /* Match other panels */
+  height: 600px;
   overflow-y: auto;
   background: #fff;
 }
@@ -434,7 +430,6 @@ pre {
   width: 100%;
   box-sizing: border-box;
 }
-/* --- END NEW STYLES --- */
 
 @media (max-width: 900px) {
   .main-layout {
@@ -533,20 +528,18 @@ pre {
     min-width: 350px;
   }
 
-  /* --- MODIFIED RULE --- */
   .tab-panel {
     flex-grow: 0;
     flex-shrink: 1;
-    flex-basis: 20%; /* Was 25% */
-    min-width: 220px; /* Was 260px */
+    flex-basis: 20%;
+    min-width: 220px;
   }
 
-  /* --- MODIFIED RULE --- */
   .players-panel,
   .moves-panel,
   .actions-panel {
-    flex-basis: 10%; /* Was 12.5% */
-    min-width: 120px; /* Was 130px */
+    flex-basis: 10%;
+    min-width: 120px;
   }
 
   .tab-panel > h3 {
@@ -613,7 +606,6 @@ pre {
   display: block;
 }
 
-/* --- MODIFIED RULE --- */
 .mobile-info-overlay .moves-list,
 .mobile-info-overlay .chat-box-container,
 .mobile-info-overlay .player-lists-container,
