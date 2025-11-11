@@ -750,15 +750,10 @@ export default function App() {
     boardWidth: boardWidth,
     draggingPieceStyle: isMobile
       ? {
-          // This transform "lifts" the piece 50px up (out from under the finger)
-          // and scales it for better visibility.
           transform: "translateY(-50px) scale(2)",
 
-          // Keep the zIndex high to render over all other UI
           zIndex: 9999,
 
-          //
-          // Add opacity and shadow for a 'lifted' visual effect
           opacity: 0.9,
           boxShadow: "0px 10px 15px rgba(0, 0, 0, 0.3)",
         }
