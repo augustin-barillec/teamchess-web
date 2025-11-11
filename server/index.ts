@@ -569,7 +569,9 @@ io.on("connection", (socket: Socket) => {
     if (gameState.drawOffer) return;
     gameState.drawOffer = socket.data.side;
     io.emit("draw_offer_update", { side: socket.data.side });
-    sendSystemMessage(`${socket.data.name} offers a draw.`);
+    sendSystemMessage(
+      `${socket.data.name} offers a draw on behalf of the ${socket.data.side} team.`
+    );
   });
   socket.on("accept_draw", () => {
     if (

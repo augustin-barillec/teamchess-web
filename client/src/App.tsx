@@ -548,7 +548,16 @@ export default function App() {
     });
     socket.on(
       "draw_offer_update",
-      ({ side }: { side: "white" | "black" | null }) => setDrawOffer(side)
+      ({ side }: { side: "white" | "black" | null }) => {
+        setDrawOffer(side);
+        if (side && isMobile) {
+          const teamName = side.charAt(0).toUpperCase() + side.slice(1);
+          toast(`Draw offer from the ${teamName} team.`, {
+            icon: "🤝",
+            duration: 4000,
+          });
+        }
+      }
     );
     return () => {
       socket.disconnect();
