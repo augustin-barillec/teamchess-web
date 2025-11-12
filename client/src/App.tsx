@@ -120,7 +120,7 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
   );
 };
 
-interface ActionsPanelProps {
+interface ControlsPanelProps {
   gameStatus: GameStatus;
   side: "white" | "black" | "spectator";
   drawOffer: "white" | "black" | null;
@@ -136,7 +136,7 @@ interface ActionsPanelProps {
   copyPgn: () => void;
 }
 
-const ActionsPanel: React.FC<ActionsPanelProps> = ({
+const ControlsPanel: React.FC<ControlsPanelProps> = ({
   gameStatus,
   side,
   drawOffer,
@@ -846,7 +846,7 @@ export default function App() {
       >
         <h3>Controls</h3>
         <div className="controls-panel-content">
-          <ActionsPanel
+          <ControlsPanel
             gameStatus={gameStatus}
             side={side}
             drawOffer={drawOffer}
