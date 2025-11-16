@@ -204,16 +204,16 @@ export default function App() {
   const [amDisconnected, setAmDisconnected] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [myId, setMyId] = useState<string>(
-    sessionStorage.getItem(STORAGE_KEYS.pid) || ""
+    localStorage.getItem(STORAGE_KEYS.pid) || ""
   );
   const [name, setName] = useState(
-    sessionStorage.getItem(STORAGE_KEYS.name) || "Player"
+    localStorage.getItem(STORAGE_KEYS.name) || "Player"
   );
   const [nameInput, setNameInput] = useState(
-    sessionStorage.getItem(STORAGE_KEYS.name) || "Player"
+    localStorage.getItem(STORAGE_KEYS.name) || "Player"
   );
   const [side, setSide] = useState<"spectator" | "white" | "black">(
-    (sessionStorage.getItem(STORAGE_KEYS.side) as
+    (localStorage.getItem(STORAGE_KEYS.side) as
       | "spectator"
       | "white"
       | "black") || "spectator"
@@ -395,8 +395,8 @@ export default function App() {
   useEffect(() => {
     const s = io({
       auth: {
-        pid: sessionStorage.getItem(STORAGE_KEYS.pid) || undefined,
-        name: sessionStorage.getItem(STORAGE_KEYS.name) || "Player",
+        pid: localStorage.getItem(STORAGE_KEYS.pid) || undefined,
+        name: localStorage.getItem(STORAGE_KEYS.name) || "Player",
       },
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -438,7 +438,7 @@ export default function App() {
         : "spectator";
     if (serverSide !== side) {
       setSide(serverSide);
-      sessionStorage.setItem(STORAGE_KEYS.side, serverSide);
+      localStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId, side]);
   useEffect(() => {
@@ -462,8 +462,8 @@ export default function App() {
         setMyId(id);
         setName(serverName);
         setNameInput(serverName);
-        sessionStorage.setItem(STORAGE_KEYS.pid, id);
-        sessionStorage.setItem(STORAGE_KEYS.name, serverName);
+        localStorage.setItem(STORAGE_KEYS.pid, id);
+        localStorage.setItem(STORAGE_KEYS.name, serverName);
       }
     );
 
@@ -603,7 +603,7 @@ export default function App() {
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
       else setSide(s);
-      sessionStorage.setItem(STORAGE_KEYS.side, s);
+      localStorage.setItem(STORAGE_KEYS.side, s);
     });
     setIsMobileInfoVisible(false);
   };
