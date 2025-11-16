@@ -31,7 +31,6 @@ const STORAGE_KEYS = {
   name: "tc:name",
   side: "tc:side",
 } as const;
-
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${
@@ -55,7 +54,6 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
     } wins as the opposing team is empty.`,
 };
-
 const pieceToFigurineWhite: Record<string, string> = {
   K: "♔",
   Q: "♕",
@@ -72,7 +70,6 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
-
 interface NameChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -288,7 +285,6 @@ export default function App() {
     });
     return square;
   }, [position, chess]);
-
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = {
       P: 8,
@@ -348,9 +344,43 @@ export default function App() {
     const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
     const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
     const balance = blackLostValue - whiteLostValue;
+
+    // Helper function to group pieces
+    const groupPiecesToStrings = (
+      pieces: { type: string; figurine: string }[]
+    ) => {
+      const groupedStrings: string[] = [];
+      if (pieces.length === 0) return groupedStrings;
+
+      // The pieces array is already sorted by value (P, N, B, R, Q)
+      let currentFigurine = pieces[0].figurine;
+      let currentCount = 0;
+
+      for (const piece of pieces) {
+        if (piece.figurine === currentFigurine) {
+          currentCount++;
+        } else {
+          // Push previous group
+          groupedStrings.push(
+            `${currentFigurine}${currentCount > 1 ? `x${currentCount}` : ""}`
+          );
+          // Start new group
+          currentFigurine = piece.figurine;
+          currentCount = 1;
+        }
+      }
+
+      // Push the very last group
+      groupedStrings.push(
+        `${currentFigurine}${currentCount > 1 ? `x${currentCount}` : ""}`
+      );
+
+      return groupedStrings;
+    };
+
     return {
-      lostWhitePieces: lostW.map((p) => p.figurine),
-      lostBlackPieces: lostB.map((p) => p.figurine),
+      lostWhitePieces: groupPiecesToStrings(lostW),
+      lostBlackPieces: groupPiecesToStrings(lostB),
       materialBalance: balance,
     };
   }, [position, chess]);
@@ -569,7 +599,6 @@ export default function App() {
       nameInputRef.current.focus();
     }
   }, [isNameModalOpen]);
-
   const joinSide = (s: "white" | "black" | "spectator") => {
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
