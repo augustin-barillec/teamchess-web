@@ -510,7 +510,7 @@ io.on("connection", (socket: Socket) => {
       gameState.side === "white" ? gameState.whiteIds : gameState.blackIds;
     if (!active.has(pid)) return cb?.({ error: "Not your turn." });
     if (gameState.proposals.has(pid)) return cb?.({ error: "Already moved." });
-    if (gameState.drawOffer) {
+    if (gameState.drawOffer && socket.data.side !== gameState.drawOffer) {
       gameState.drawOffer = undefined;
       io.emit("draw_offer_update", { side: null });
       sendSystemMessage(
