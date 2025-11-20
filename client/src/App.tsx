@@ -917,6 +917,7 @@ export default function App() {
                           onClick={openNameModal}
                         >
                           {p.name}
+                          {p.name === "Player" ? " ✏️" : ""}
                         </button>
                       </strong>
                     ) : (
@@ -946,6 +947,7 @@ export default function App() {
                           onClick={openNameModal}
                         >
                           {p.name}
+                          {p.name === "Player" ? " ✏️" : ""}
                         </button>
                       </strong>
                     ) : (
@@ -976,6 +978,7 @@ export default function App() {
                           onClick={openNameModal}
                         >
                           {p.name}
+                          {p.name === "Player" ? " ✏️" : ""}
                         </button>
                       </strong>
                     ) : (
