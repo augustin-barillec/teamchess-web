@@ -31,6 +31,7 @@ const STORAGE_KEYS = {
   name: "tc:name",
   side: "tc:side",
 } as const;
+
 const reasonMessages: Record<string, (winner: string | null) => string> = {
   [EndReason.Checkmate]: (winner) =>
     `☑️ Checkmate!\n${
@@ -54,6 +55,7 @@ const reasonMessages: Record<string, (winner: string | null) => string> = {
       winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
     } wins as the opposing team is empty.`,
 };
+
 const pieceToFigurineWhite: Record<string, string> = {
   K: "♔",
   Q: "♕",
@@ -62,6 +64,7 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: "♘",
   P: "♙",
 };
+
 const pieceToFigurineBlack: Record<string, string> = {
   K: "♚",
   Q: "♛",
@@ -70,6 +73,7 @@ const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
+
 interface NameChangeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -94,6 +98,7 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
   side,
 }) => {
   if (!isOpen) return null;
+
   return (
     <div className="name-modal-overlay" onClick={onClose}>
       <div className="name-modal-dialog" onClick={(e) => e.stopPropagation()}>
@@ -268,6 +273,7 @@ export default function App() {
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
+
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: "k", color: chess.turn() };
@@ -285,6 +291,7 @@ export default function App() {
     });
     return square;
   }, [position, chess]);
+
   const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
     const initial: Record<string, number> = {
       P: 8,
@@ -323,6 +330,7 @@ export default function App() {
     const lostW: { type: string; figurine: string }[] = [];
     const lostB: { type: string; figurine: string }[] = [];
     const order = ["P", "N", "B", "R", "Q", "K"];
+
     const values: Record<string, number> = {
       P: 1,
       N: 3,
@@ -341,8 +349,10 @@ export default function App() {
     });
     lostW.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     lostB.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+
     const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
     const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
+
     const balance = blackLostValue - whiteLostValue;
 
     // Helper function to group pieces
@@ -374,7 +384,6 @@ export default function App() {
       groupedStrings.push(
         `${currentFigurine}${currentCount > 1 ? `x${currentCount}` : ""}`
       );
-
       return groupedStrings;
     };
 
@@ -392,6 +401,7 @@ export default function App() {
       players.blackPlayers.length,
     [players]
   );
+
   useEffect(() => {
     const s = io({
       auth: {
@@ -417,18 +427,22 @@ export default function App() {
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
   }, []);
+
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener("resize", checkIsMobile);
     return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
+
   useEffect(() => {
     if (movesRef.current)
       movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
+
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some((p) => p.id === myId)
@@ -441,6 +455,7 @@ export default function App() {
       localStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId, side]);
+
   useEffect(() => {
     if (!socket) return;
 
@@ -496,13 +511,16 @@ export default function App() {
       setLastMoveSquares(null);
       setDrawOffer(null);
     });
+
     socket.on("clock_update", ({ whiteTime, blackTime }) =>
       setClocks({ whiteTime, blackTime })
     );
+
     socket.on("position_update", ({ fen }) => {
       chess.load(fen);
       setPosition(fen);
     });
+
     socket.on("move_submitted", (m: Proposal) =>
       setTurns((ts) =>
         ts.map((t) =>
@@ -512,6 +530,7 @@ export default function App() {
         )
       )
     );
+
     socket.on("move_selected", (sel: Selection) => {
       setTurns((ts) =>
         ts.map((t) =>
@@ -526,9 +545,11 @@ export default function App() {
       setLastMoveSquares({ from, to });
       setPosition(sel.fen);
     });
+
     socket.on("turn_change", ({ moveNumber, side }: GameInfo) =>
       setTurns((ts) => [...ts, { moveNumber, side, proposals: [] }])
     );
+
     socket.on("proposal_removed", ({ moveNumber, side, id }) =>
       setTurns((ts) =>
         ts.map((t) =>
@@ -538,6 +559,7 @@ export default function App() {
         )
       )
     );
+
     socket.on(
       "game_over",
       ({
@@ -569,14 +591,17 @@ export default function App() {
         }
       }
     );
+
     socket.on("chat_message", (msg: ChatMessage) => {
       setChatMessages((msgs) => [...msgs, msg]);
       if (!msg.system && activeTabRef.current !== "chat")
         setHasUnreadMessages(true);
     });
+
     socket.on("game_status_update", ({ status }: { status: GameStatus }) => {
       setGameStatus(status);
     });
+
     socket.on(
       "draw_offer_update",
       ({ side }: { side: "white" | "black" | null }) => {
@@ -590,15 +615,18 @@ export default function App() {
         }
       }
     );
+
     return () => {
       socket.disconnect();
     };
   }, [socket, chess, isMobile]);
+
   useEffect(() => {
     if (isNameModalOpen && nameInputRef.current) {
       nameInputRef.current.focus();
     }
   }, [isNameModalOpen]);
+
   const joinSide = (s: "white" | "black" | "spectator") => {
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
@@ -618,6 +646,7 @@ export default function App() {
     setIsMobileInfoVisible(false);
   };
   const joinSpectator = () => joinSide("spectator");
+
   const resignGame = () => {
     if (window.confirm("Are you sure you want to resign for your team?")) {
       socket?.emit("resign");
@@ -676,6 +705,7 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
+
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from);
     if (!piece || piece.type !== "p") return false;
@@ -684,6 +714,7 @@ export default function App() {
   }
   const hasPlayed = (playerId: string) =>
     current?.proposals.some((p) => p.id === playerId);
+
   const copyPgn = () => {
     if (!pgn) return;
     const textArea = document.createElement("textarea");
@@ -704,14 +735,17 @@ export default function App() {
     }
     setIsMobileInfoVisible(false);
   };
+
   const openNameModal = () => {
     setNameInput(name);
     setIsNameModalOpen(true);
   };
+
   const closeNameModal = () => {
     setIsNameModalOpen(false);
     setNameInput(name);
   };
+
   const submitSave = () => {
     const newName = nameInput.trim();
     if (newName && newName !== name) {
@@ -720,6 +754,7 @@ export default function App() {
 
     setIsNameModalOpen(false);
   };
+
   const handleNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       submitSave();
@@ -727,6 +762,7 @@ export default function App() {
       closeNameModal();
     }
   };
+
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
@@ -838,6 +874,7 @@ export default function App() {
       return true;
     },
   };
+
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -865,33 +902,9 @@ export default function App() {
       </div>
     </div>
   );
+
   const TabContent = (
     <div className="info-tabs-content">
-      <div
-        className={
-          "tab-panel controls-panel " +
-          (activeTab === "controls" ? "active" : "")
-        }
-      >
-        <h3>Controls</h3>
-        <div className="controls-panel-content">
-          <ControlsPanel
-            gameStatus={gameStatus}
-            side={side}
-            drawOffer={drawOffer}
-            pgn={pgn}
-            resetGame={resetGame}
-            autoAssign={autoAssign}
-            joinSide={joinSide}
-            joinSpectator={joinSpectator}
-            resignGame={resignGame}
-            offerDraw={offerDraw}
-            acceptDraw={acceptDraw}
-            rejectDraw={rejectDraw}
-            copyPgn={copyPgn}
-          />
-        </div>
-      </div>
       <div
         className={
           "tab-panel players-panel " + (activeTab === "players" ? "active" : "")
@@ -1116,8 +1129,34 @@ export default function App() {
           </div>
         </div>
       </div>
+      <div
+        className={
+          "tab-panel controls-panel " +
+          (activeTab === "controls" ? "active" : "")
+        }
+      >
+        <h3>Controls</h3>
+        <div className="controls-panel-content">
+          <ControlsPanel
+            gameStatus={gameStatus}
+            side={side}
+            drawOffer={drawOffer}
+            pgn={pgn}
+            resetGame={resetGame}
+            autoAssign={autoAssign}
+            joinSide={joinSide}
+            joinSpectator={joinSpectator}
+            resignGame={resignGame}
+            offerDraw={offerDraw}
+            acceptDraw={acceptDraw}
+            rejectDraw={rejectDraw}
+            copyPgn={copyPgn}
+          />
+        </div>
+      </div>
     </div>
   );
+
   return (
     <>
       <Toaster position="top-center" />
@@ -1198,15 +1237,6 @@ export default function App() {
           <div className="info-column">
             <nav className="info-tabs-nav">
               <button
-                className={activeTab === "controls" ? "active" : ""}
-                onClick={() => {
-                  setActiveTab("controls");
-                  setIsMobileInfoVisible(true);
-                }}
-              >
-                Controls
-              </button>
-              <button
                 className={activeTab === "players" ? "active" : ""}
                 onClick={() => {
                   setActiveTab("players");
@@ -1237,6 +1267,15 @@ export default function App() {
                 {" "}
                 Chat{" "}
                 {hasUnreadMessages && <span className="unread-dot"></span>}{" "}
+              </button>
+              <button
+                className={activeTab === "controls" ? "active" : ""}
+                onClick={() => {
+                  setActiveTab("controls");
+                  setIsMobileInfoVisible(true);
+                }}
+              >
+                Controls
               </button>
             </nav>
 
