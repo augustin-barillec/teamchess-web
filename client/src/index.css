@@ -55,7 +55,7 @@ pre {
 .app-container {
   padding: 20px;
   max-width: 1600px;
-  margin: 0;
+  margin: 0 auto;
 }
 
 .offline-banner {
@@ -101,6 +101,7 @@ pre {
   gap: 1.5rem;
   width: 100%;
   position: relative;
+  justify-content: center;
 }
 
 .game-column {
