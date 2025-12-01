@@ -500,6 +500,10 @@ pre {
 }
 
 @media (min-width: 900.01px) {
+  body {
+    zoom: 1.1;
+  }
+
   .info-column {
     display: contents;
   }
