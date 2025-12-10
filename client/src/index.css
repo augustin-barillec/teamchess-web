@@ -521,30 +521,25 @@ pre {
     overflow: hidden;
     position: sticky;
     top: 20px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 20%;
+    min-width: 220px;
   }
 
   .game-column {
     flex-grow: 0;
     flex-shrink: 1;
     flex-basis: 50%;
-
     max-width: 70vh;
-
     min-width: 350px;
-  }
-
-  .tab-panel {
-    flex-grow: 0;
-    flex-shrink: 1;
-    flex-basis: 20%;
-    min-width: 220px;
   }
 
   .players-panel,
   .moves-panel,
   .controls-panel {
-    flex-basis: 10%;
-    min-width: 120px;
+    flex-basis: 15%;
+    min-width: 180px;
   }
 
   .tab-panel > h3 {
