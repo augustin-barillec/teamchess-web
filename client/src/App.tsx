@@ -1056,7 +1056,11 @@ export default function App() {
           </p>
         )}
       </div>
-      <div className={"tab-panel " + (activeTab === "chat" ? "active" : "")}>
+      <div
+        className={
+          "tab-panel chat-panel " + (activeTab === "chat" ? "active" : "")
+        }
+      >
         <h3>Chat</h3>
         <div className="chat-box-container">
           <div className="chat-messages">
