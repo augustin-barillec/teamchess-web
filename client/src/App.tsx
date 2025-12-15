@@ -352,7 +352,6 @@ export default function App() {
 
     const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
     const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
-
     const balance = blackLostValue - whiteLostValue;
 
     // Helper function to group pieces
@@ -483,6 +482,7 @@ export default function App() {
     );
 
     socket.on("players", (p: Players) => setPlayers(p));
+
     socket.on(
       "game_started",
       ({
@@ -499,6 +499,7 @@ export default function App() {
         setDrawOffer(null);
       }
     );
+
     socket.on("game_reset", () => {
       setGameStatus(GameStatus.Lobby);
       setWinner(null);
@@ -531,11 +532,16 @@ export default function App() {
       )
     );
 
+    // UPDATED: Overwrite local proposals with official candidates
     socket.on("move_selected", (sel: Selection) => {
       setTurns((ts) =>
         ts.map((t) =>
           t.moveNumber === sel.moveNumber && t.side === sel.side
-            ? { ...t, selection: sel }
+            ? {
+                ...t,
+                selection: sel,
+                proposals: sel.candidates, // <--- FORCE SYNC
+              }
             : t
         )
       );
@@ -550,15 +556,7 @@ export default function App() {
       setTurns((ts) => [...ts, { moveNumber, side, proposals: [] }])
     );
 
-    socket.on("proposal_removed", ({ moveNumber, side, id }) =>
-      setTurns((ts) =>
-        ts.map((t) =>
-          t.moveNumber === moveNumber && t.side === side
-            ? { ...t, proposals: t.proposals.filter((p) => p.id !== id) }
-            : t
-        )
-      )
-    );
+    // DELETED: socket.on("proposal_removed", ...)
 
     socket.on(
       "game_over",
@@ -635,6 +633,7 @@ export default function App() {
     });
     setIsMobileInfoVisible(false);
   };
+
   const autoAssign = () => {
     const whiteCount = players.whitePlayers.length;
     const blackCount = players.blackPlayers.length;
@@ -645,6 +644,7 @@ export default function App() {
     joinSide(chosen);
     setIsMobileInfoVisible(false);
   };
+
   const joinSpectator = () => joinSide("spectator");
 
   const resignGame = () => {
@@ -688,6 +688,7 @@ export default function App() {
       setIsMobileInfoVisible(false);
     }
   };
+
   const submitMove = (lan: string) => {
     if (!socket) return;
     socket.emit("play_move", lan, (res: { error?: string }) => {
@@ -712,6 +713,7 @@ export default function App() {
     const rank = to[1];
     return piece.color === "w" ? rank === "8" : rank === "1";
   }
+
   const hasPlayed = (playerId: string) =>
     current?.proposals.some((p) => p.id === playerId);
 
@@ -1029,7 +1031,6 @@ export default function App() {
                     {" "}
                     {t.proposals.map((p) => {
                       const isSel = t.selection!.lan === p.lan;
-
                       return (
                         <li key={p.id}>
                           {" "}

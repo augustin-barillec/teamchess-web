@@ -9,16 +9,19 @@ export type Players = {
   whitePlayers: Player[];
   blackPlayers: Player[];
 };
+
 export type ChatMessage = {
   sender: string;
   senderId: string;
   message: string;
   system?: boolean;
 };
+
 export type GameInfo = {
   moveNumber: number;
   side: "white" | "black";
 };
+
 export type Proposal = {
   id: string;
   name: string;
@@ -28,7 +31,11 @@ export type Proposal = {
   san?: string;
 };
 
-export type Selection = Proposal & { fen: string };
+export type Selection = Proposal & {
+  fen: string;
+  candidates: Proposal[];
+};
+
 export enum GameStatus {
   Lobby = "Lobby",
   AwaitingProposals = "AwaitingProposals",
