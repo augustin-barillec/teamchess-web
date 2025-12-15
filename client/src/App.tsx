@@ -9,7 +9,7 @@ import {
 import type { ChangeEvent, RefObject } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { io, Socket } from "socket.io-client";
-import { Chess } from "chess.js";
+import { Chess, Square, Move } from "chess.js";
 import {
   Chessboard,
   PieceDropHandlerArgs,
@@ -81,7 +81,7 @@ interface NameChangeModalProps {
   value: string;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
-  inputRef: RefObject<HTMLInputElement>;
+  inputRef: RefObject<HTMLInputElement | null>;
   gameStatus: GameStatus;
   side: "white" | "black" | "spectator";
 }
@@ -98,7 +98,6 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
   side,
 }) => {
   if (!isOpen) return null;
-
   return (
     <div className="name-modal-overlay" onClick={onClose}>
       <div className="name-modal-dialog" onClick={(e) => e.stopPropagation()}>
@@ -273,7 +272,6 @@ export default function App() {
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
-
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: "k", color: chess.turn() };
@@ -349,7 +347,6 @@ export default function App() {
     });
     lostW.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     lostB.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
-
     const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
     const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
     const balance = blackLostValue - whiteLostValue;
@@ -400,7 +397,6 @@ export default function App() {
       players.blackPlayers.length,
     [players]
   );
-
   useEffect(() => {
     const s = io({
       auth: {
@@ -426,22 +422,18 @@ export default function App() {
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
   }, []);
-
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener("resize", checkIsMobile);
     return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
-
   useEffect(() => {
     if (movesRef.current)
       movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
-
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
-
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some((p) => p.id === myId)
@@ -454,7 +446,6 @@ export default function App() {
       localStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId, side]);
-
   useEffect(() => {
     if (!socket) return;
 
@@ -512,16 +503,13 @@ export default function App() {
       setLastMoveSquares(null);
       setDrawOffer(null);
     });
-
     socket.on("clock_update", ({ whiteTime, blackTime }) =>
       setClocks({ whiteTime, blackTime })
     );
-
     socket.on("position_update", ({ fen }) => {
       chess.load(fen);
       setPosition(fen);
     });
-
     socket.on("move_submitted", (m: Proposal) =>
       setTurns((ts) =>
         ts.map((t) =>
@@ -531,7 +519,6 @@ export default function App() {
         )
       )
     );
-
     // UPDATED: Overwrite local proposals with official candidates
     socket.on("move_selected", (sel: Selection) => {
       setTurns((ts) =>
@@ -555,7 +542,6 @@ export default function App() {
     socket.on("turn_change", ({ moveNumber, side }: GameInfo) =>
       setTurns((ts) => [...ts, { moveNumber, side, proposals: [] }])
     );
-
     // DELETED: socket.on("proposal_removed", ...)
 
     socket.on(
@@ -589,21 +575,19 @@ export default function App() {
         }
       }
     );
-
     socket.on("chat_message", (msg: ChatMessage) => {
       setChatMessages((msgs) => [...msgs, msg]);
       if (!msg.system && activeTabRef.current !== "chat")
         setHasUnreadMessages(true);
     });
-
     socket.on("game_status_update", ({ status }: { status: GameStatus }) => {
       setGameStatus(status);
     });
-
     socket.on(
       "draw_offer_update",
       ({ side }: { side: "white" | "black" | null }) => {
-        setDrawOffer(side);
+        // FIX: Cast side to allowed union type
+        setDrawOffer(side as "white" | "black" | null);
         if (side && isMobile) {
           const teamName = side.charAt(0).toUpperCase() + side.slice(1);
           toast(`Draw offer from the ${teamName} team.`, {
@@ -613,18 +597,15 @@ export default function App() {
         }
       }
     );
-
     return () => {
       socket.disconnect();
     };
   }, [socket, chess, isMobile]);
-
   useEffect(() => {
     if (isNameModalOpen && nameInputRef.current) {
       nameInputRef.current.focus();
     }
   }, [isNameModalOpen]);
-
   const joinSide = (s: "white" | "black" | "spectator") => {
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
@@ -646,7 +627,6 @@ export default function App() {
   };
 
   const joinSpectator = () => joinSide("spectator");
-
   const resignGame = () => {
     if (window.confirm("Are you sure you want to resign for your team?")) {
       socket?.emit("resign");
@@ -706,9 +686,8 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
-
   function needsPromotion(from: string, to: string) {
-    const piece = chess.get(from);
+    const piece = chess.get(from as Square);
     if (!piece || piece.type !== "p") return false;
     const rank = to[1];
     return piece.color === "w" ? rank === "8" : rank === "1";
@@ -716,7 +695,6 @@ export default function App() {
 
   const hasPlayed = (playerId: string) =>
     current?.proposals.some((p) => p.id === playerId);
-
   const copyPgn = () => {
     if (!pgn) return;
     const textArea = document.createElement("textarea");
@@ -737,17 +715,14 @@ export default function App() {
     }
     setIsMobileInfoVisible(false);
   };
-
   const openNameModal = () => {
     setNameInput(name);
     setIsNameModalOpen(true);
   };
-
   const closeNameModal = () => {
     setIsNameModalOpen(false);
     setNameInput(name);
   };
-
   const submitSave = () => {
     const newName = nameInput.trim();
     if (newName && newName !== name) {
@@ -756,7 +731,6 @@ export default function App() {
 
     setIsNameModalOpen(false);
   };
-
   const handleNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       submitSave();
@@ -764,7 +738,6 @@ export default function App() {
       closeNameModal();
     }
   };
-
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
@@ -826,7 +799,10 @@ export default function App() {
         }
       : undefined,
     onPieceDrag: ({ square }: PieceHandlerArgs) => {
-      const moves = chess.moves({ square: square, verbose: true });
+      const moves = chess.moves({
+        square: square as Square,
+        verbose: true,
+      }) as Move[];
       const highlights: Record<string, CSSProperties> = {};
       moves.forEach((m) => {
         highlights[m.to] = { backgroundColor: "rgba(0,255,0,0.2)" };
@@ -840,6 +816,8 @@ export default function App() {
       setLegalSquareStyles({});
       const from = sourceSquare;
       const to = targetSquare;
+
+      if (!from || !to) return false;
 
       if (gameStatus === GameStatus.Lobby) {
         if (side !== "white") {
@@ -876,7 +854,6 @@ export default function App() {
       return true;
     },
   };
-
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -904,7 +881,6 @@ export default function App() {
       </div>
     </div>
   );
-
   const TabContent = (
     <div className="info-tabs-content">
       <div
@@ -1161,7 +1137,6 @@ export default function App() {
       </div>
     </div>
   );
-
   return (
     <>
       <Toaster position="top-center" />
