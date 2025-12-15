@@ -693,8 +693,8 @@ export default function App() {
     return piece.color === "w" ? rank === "8" : rank === "1";
   }
 
-  const hasPlayed = (playerId: string) =>
-    current?.proposals.some((p) => p.id === playerId);
+  const hasPlayed = (playerId: string, teamSide: "white" | "black") =>
+    current?.proposals.some((p) => p.id === playerId && p.side === teamSide);
   const copyPgn = () => {
     if (!pgn) return;
     const textArea = document.createElement("textarea");
@@ -945,7 +945,7 @@ export default function App() {
                       <span>{p.name}</span>
                     )}{" "}
                     {disconnected && <DisconnectedIcon />}{" "}
-                    {hasPlayed(p.id) && <span>✔️</span>}{" "}
+                    {hasPlayed(p.id, "white") && <span>✔️</span>}{" "}
                   </li>
                 );
               })}{" "}
@@ -976,7 +976,7 @@ export default function App() {
                       <span>{p.name}</span>
                     )}{" "}
                     {disconnected && <DisconnectedIcon />}{" "}
-                    {hasPlayed(p.id) && <span>✔️</span>}{" "}
+                    {hasPlayed(p.id, "black") && <span>✔️</span>}{" "}
                   </li>
                 );
               })}{" "}

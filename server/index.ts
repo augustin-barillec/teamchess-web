@@ -469,8 +469,6 @@ io.on("connection", (socket: Socket) => {
       if (side === "white") gameState.whiteIds.add(pid);
       else if (side === "black") gameState.blackIds.add(pid);
 
-      if (side === "spectator") gameState.proposals.delete(pid);
-
       endIfOneSided();
     }
     broadcastPlayers();
