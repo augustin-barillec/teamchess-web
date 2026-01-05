@@ -267,8 +267,15 @@ function tryFinalizeTurn() {
           }
           const fen = gameState.chess.fen();
 
-          if (gameState.side === "white") gameState.whiteTime += 3;
-          else gameState.blackTime += 3;
+          const currentTime =
+            gameState.side === "white"
+              ? gameState.whiteTime
+              : gameState.blackTime;
+
+          const increment = currentTime <= 60 ? 10 : 3;
+
+          if (gameState.side === "white") gameState.whiteTime += increment;
+          else gameState.blackTime += increment;
 
           io.emit("clock_update", {
             whiteTime: gameState.whiteTime,

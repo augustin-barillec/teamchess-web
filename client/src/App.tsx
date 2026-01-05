@@ -864,23 +864,31 @@ export default function App() {
     lostPieces: string[];
     materialAdv: number;
     isActive: boolean;
-  }) => (
-    <div className="game-player-info">
-      <div className={"clock-box " + (isActive ? "active" : "")}>
-        {String(Math.floor(clockTime / 60)).padStart(2, "0")}:
-        {String(clockTime % 60).padStart(2, "0")}
-      </div>
-      <div className="material-display">
-        <span>{lostPieces.join(" ")}</span>
-        <span
-          className="material-adv-label"
-          style={{ visibility: materialAdv === 0 ? "hidden" : "visible" }}
+  }) => {
+    const isLowTime = clockTime > 0 && clockTime <= 60;
+
+    return (
+      <div className="game-player-info">
+        <div
+          className={`clock-box ${isActive ? "active" : ""} ${
+            isLowTime ? "low-time" : ""
+          }`}
         >
-          {materialAdv > 0 ? `+${materialAdv}` : ""}
-        </span>
+          {String(Math.floor(clockTime / 60)).padStart(2, "0")}:
+          {String(clockTime % 60).padStart(2, "0")}
+        </div>
+        <div className="material-display">
+          <span>{lostPieces.join(" ")}</span>
+          <span
+            className="material-adv-label"
+            style={{ visibility: materialAdv === 0 ? "hidden" : "visible" }}
+          >
+            {materialAdv > 0 ? `+${materialAdv}` : ""}
+          </span>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
   const TabContent = (
     <div className="info-tabs-content">
       <div

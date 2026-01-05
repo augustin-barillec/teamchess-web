@@ -147,6 +147,13 @@ pre {
   background: #3a5f0b;
   font-weight: bold;
 }
+.clock-box.low-time {
+  background-color: #5c2b2b;
+  color: #fff;
+}
+.clock-box.active.low-time {
+  background-color: #d32f2f;
+}
 .material-display {
   font-size: 2rem;
   display: flex;
