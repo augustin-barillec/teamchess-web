@@ -63,7 +63,6 @@ interface GameState {
   blackIds: Set<string>;
   moveNumber: number;
   side: PlayerSide;
-  // UPDATED: Store name with the proposal
   proposals: Map<string, { lan: string; san: string; name: string }>;
   whiteTime: number;
   blackTime: number;
@@ -199,7 +198,6 @@ async function chooseBestMove(
 function tryFinalizeTurn() {
   if (gameState.status !== GameStatus.AwaitingProposals) return;
 
-  // 1. Identify who is currently online (Socket connected)
   const onlinePids = new Set<string>();
   for (const socket of io.sockets.sockets.values()) {
     if (socket.data.pid) {
@@ -210,18 +208,14 @@ function tryFinalizeTurn() {
   const sideSet =
     gameState.side === "white" ? gameState.whiteIds : gameState.blackIds;
 
-  // 2. Identify the "Active Team" (Players on this side who are currently online)
   const activeConnected = new Set(
     [...sideSet].filter((pid) => onlinePids.has(pid))
   );
 
-  // 3. Count how many ONLINE players have voted
   const onlineProposalsCount = [...gameState.proposals.keys()].filter((pid) =>
     activeConnected.has(pid)
   ).length;
 
-  // 4. Trigger Condition: Have all currently ONLINE players voted?
-  // (We check activeConnected.size > 0 to ensure we don't trigger if the team is empty)
   if (
     activeConnected.size > 0 &&
     onlineProposalsCount === activeConnected.size
@@ -234,11 +228,9 @@ function tryFinalizeTurn() {
       gameState.timerInterval = undefined;
     }
 
-    // 5. ACTION: Use ALL proposals for Stockfish, including offline players.
     const allEntries = [...gameState.proposals.entries()];
     const candidatesStr = allEntries.map(([, { lan }]) => lan);
 
-    // Prepare the Official List to send to clients
     const candidatesObjs: Proposal[] = allEntries.map(([id, val]) => ({
       id,
       name: val.name,
@@ -272,7 +264,7 @@ function tryFinalizeTurn() {
               ? gameState.whiteTime
               : gameState.blackTime;
 
-          const increment = currentTime <= 60 ? 10 : 3;
+          const increment = currentTime <= 60 ? 10 : 0;
 
           if (gameState.side === "white") gameState.whiteTime += increment;
           else gameState.blackTime += increment;
@@ -282,7 +274,6 @@ function tryFinalizeTurn() {
             blackTime: gameState.blackTime,
           });
 
-          // 6. CREDIT: Find the winner using the saved name
           const winnerEntry = allEntries.find(([, val]) => val.lan === selLan);
           const winnerId = winnerEntry ? winnerEntry[0] : "unknown";
           const winnerName = winnerEntry ? winnerEntry[1].name : "TeamChess";
@@ -295,7 +286,7 @@ function tryFinalizeTurn() {
             lan: selLan,
             san: move.san,
             fen,
-            candidates: candidatesObjs, // <--- Send the Official List
+            candidates: candidatesObjs,
           });
 
           if (gameState.chess.isGameOver()) {
@@ -362,8 +353,6 @@ function leave(this: Socket) {
   if (!sess) return;
 
   const finalize = () => {
-    // UPDATED: Only remove player from "Active" lists.
-    // Do NOT delete their proposal.
     if (sess.side === "white") gameState.whiteIds.delete(pid);
     if (sess.side === "black") gameState.blackIds.delete(pid);
 
@@ -417,7 +406,7 @@ io.on("connection", (socket: Socket) => {
     const currentProposals = Array.from(gameState.proposals.entries()).map(
       ([pid, proposal]) => ({
         id: pid,
-        name: proposal.name, // Use the name from the proposal
+        name: proposal.name,
         moveNumber: gameState.moveNumber,
         side: gameState.side,
         lan: proposal.lan,
@@ -575,7 +564,6 @@ io.on("connection", (socket: Socket) => {
     }
     if (!move) return cb?.({ error: "Illegal move." });
 
-    // UPDATED: Store the name here!
     gameState.proposals.set(pid, {
       lan,
       san: move.san,
