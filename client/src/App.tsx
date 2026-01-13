@@ -98,6 +98,7 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
   side,
 }) => {
   if (!isOpen) return null;
+
   return (
     <div className="name-modal-overlay" onClick={onClose}>
       <div className="name-modal-dialog" onClick={(e) => e.stopPropagation()}>
@@ -272,6 +273,7 @@ export default function App() {
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
+
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: "k", color: chess.turn() };
@@ -290,105 +292,112 @@ export default function App() {
     return square;
   }, [position, chess]);
 
-  const { lostWhitePieces, lostBlackPieces, materialBalance } = useMemo(() => {
-    const initial: Record<string, number> = {
-      P: 8,
-      N: 2,
-      B: 2,
-      R: 2,
-      Q: 1,
-      K: 1,
-    };
-    const currWhite: Record<string, number> = {
-      P: 0,
-      N: 0,
-      B: 0,
-      R: 0,
-      Q: 0,
-      K: 0,
-    };
-    const currBlack: Record<string, number> = {
-      P: 0,
-      N: 0,
-      B: 0,
-      R: 0,
-      Q: 0,
-      K: 0,
-    };
-    chess
-      .board()
-      .flat()
-      .forEach((piece) => {
-        if (piece) {
-          const type = piece.type.toUpperCase();
-          if (piece.color === "w") currWhite[type]++;
-          else currBlack[type]++;
+  // MATERIAL CALCULATION (Lichess Style / Imbalance)
+  const { whiteMaterialDiff, blackMaterialDiff, materialBalance } =
+    useMemo(() => {
+      const values: Record<string, number> = {
+        p: 1,
+        n: 3,
+        b: 3,
+        r: 5,
+        q: 9,
+        k: 0,
+      };
+      // Standard display order: Queen first, then R, B, N, P
+      const order = ["q", "r", "b", "n", "p"];
+
+      const wCounts: Record<string, number> = {
+        p: 0,
+        n: 0,
+        b: 0,
+        r: 0,
+        q: 0,
+        k: 0,
+      };
+      const bCounts: Record<string, number> = {
+        p: 0,
+        n: 0,
+        b: 0,
+        r: 0,
+        q: 0,
+        k: 0,
+      };
+
+      // Count pieces currently on the board
+      chess
+        .board()
+        .flat()
+        .forEach((piece) => {
+          if (piece) {
+            if (piece.color === "w") wCounts[piece.type]++;
+            else bCounts[piece.type]++;
+          }
+        });
+
+      // Calculate Scores
+      let wScore = 0;
+      let bScore = 0;
+      Object.keys(values).forEach((type) => {
+        wScore += wCounts[type] * values[type];
+        bScore += bCounts[type] * values[type];
+      });
+      const balance = wScore - bScore;
+
+      // Calculate Material Differences (Icons)
+      const whiteDiff: { type: string; figurine: string }[] = [];
+      const blackDiff: { type: string; figurine: string }[] = [];
+
+      order.forEach((type) => {
+        const diff = wCounts[type] - bCounts[type];
+        const absDiff = Math.abs(diff);
+        const figurineW = pieceToFigurineWhite[type.toUpperCase()];
+        const figurineB = pieceToFigurineBlack[type.toUpperCase()];
+
+        if (diff !== 0) {
+          // If White has more, add to White's list. If Black has more, add to Black's list.
+          const targetList = diff > 0 ? whiteDiff : blackDiff;
+          const figurine = diff > 0 ? figurineW : figurineB;
+
+          for (let i = 0; i < absDiff; i++) {
+            targetList.push({ type, figurine });
+          }
         }
       });
-    const lostW: { type: string; figurine: string }[] = [];
-    const lostB: { type: string; figurine: string }[] = [];
-    const order = ["P", "N", "B", "R", "Q", "K"];
 
-    const values: Record<string, number> = {
-      P: 1,
-      N: 3,
-      B: 3,
-      R: 5,
-      Q: 9,
-      K: 0,
-    };
-    Object.entries(initial).forEach(([type, count]) => {
-      const wCount = currWhite[type] || 0;
-      const bCount = currBlack[type] || 0;
-      for (let i = 0; i < count - wCount; i++)
-        lostW.push({ type, figurine: pieceToFigurineWhite[type] });
-      for (let i = 0; i < count - bCount; i++)
-        lostB.push({ type, figurine: pieceToFigurineBlack[type] });
-    });
-    lostW.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
-    lostB.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
-    const whiteLostValue = lostW.reduce((sum, p) => sum + values[p.type], 0);
-    const blackLostValue = lostB.reduce((sum, p) => sum + values[p.type], 0);
-    const balance = blackLostValue - whiteLostValue;
+      // Helper function to group pieces (e.g., "P", "P" -> "Px2")
+      const groupPiecesToStrings = (
+        pieces: { type: string; figurine: string }[]
+      ) => {
+        const groupedStrings: string[] = [];
+        if (pieces.length === 0) return groupedStrings;
 
-    // Helper function to group pieces
-    const groupPiecesToStrings = (
-      pieces: { type: string; figurine: string }[]
-    ) => {
-      const groupedStrings: string[] = [];
-      if (pieces.length === 0) return groupedStrings;
+        let currentFigurine = pieces[0].figurine;
+        let currentCount = 0;
 
-      // The pieces array is already sorted by value (P, N, B, R, Q)
-      let currentFigurine = pieces[0].figurine;
-      let currentCount = 0;
-
-      for (const piece of pieces) {
-        if (piece.figurine === currentFigurine) {
-          currentCount++;
-        } else {
-          // Push previous group
-          groupedStrings.push(
-            `${currentFigurine}${currentCount > 1 ? `x${currentCount}` : ""}`
-          );
-          // Start new group
-          currentFigurine = piece.figurine;
-          currentCount = 1;
+        for (const piece of pieces) {
+          if (piece.figurine === currentFigurine) {
+            currentCount++;
+          } else {
+            groupedStrings.push(
+              `${currentFigurine}${currentCount > 1 ? `x${currentCount}` : ""}`
+            );
+            currentFigurine = piece.figurine;
+            currentCount = 1;
+          }
         }
-      }
+        // Push the last group
+        groupedStrings.push(
+          `${currentFigurine}${currentCount > 1 ? `x${currentCount}` : ""}`
+        );
+        return groupedStrings;
+      };
 
-      // Push the very last group
-      groupedStrings.push(
-        `${currentFigurine}${currentCount > 1 ? `x${currentCount}` : ""}`
-      );
-      return groupedStrings;
-    };
-
-    return {
-      lostWhitePieces: groupPiecesToStrings(lostW),
-      lostBlackPieces: groupPiecesToStrings(lostB),
-      materialBalance: balance,
-    };
-  }, [position, chess]);
+      return {
+        whiteMaterialDiff: groupPiecesToStrings(whiteDiff),
+        blackMaterialDiff: groupPiecesToStrings(blackDiff),
+        materialBalance: balance,
+      };
+    }, [position, chess]);
 
   const playerCount = useMemo(
     () =>
@@ -397,6 +406,7 @@ export default function App() {
       players.blackPlayers.length,
     [players]
   );
+
   useEffect(() => {
     const s = io({
       auth: {
@@ -422,18 +432,22 @@ export default function App() {
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
   }, []);
+
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener("resize", checkIsMobile);
     return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
+
   useEffect(() => {
     if (movesRef.current)
       movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
+
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some((p) => p.id === myId)
@@ -446,6 +460,7 @@ export default function App() {
       localStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId, side]);
+
   useEffect(() => {
     if (!socket) return;
 
@@ -503,13 +518,16 @@ export default function App() {
       setLastMoveSquares(null);
       setDrawOffer(null);
     });
+
     socket.on("clock_update", ({ whiteTime, blackTime }) =>
       setClocks({ whiteTime, blackTime })
     );
+
     socket.on("position_update", ({ fen }) => {
       chess.load(fen);
       setPosition(fen);
     });
+
     socket.on("move_submitted", (m: Proposal) =>
       setTurns((ts) =>
         ts.map((t) =>
@@ -519,7 +537,7 @@ export default function App() {
         )
       )
     );
-    // UPDATED: Overwrite local proposals with official candidates
+
     socket.on("move_selected", (sel: Selection) => {
       setTurns((ts) =>
         ts.map((t) =>
@@ -527,7 +545,7 @@ export default function App() {
             ? {
                 ...t,
                 selection: sel,
-                proposals: sel.candidates, // <--- FORCE SYNC
+                proposals: sel.candidates,
               }
             : t
         )
@@ -542,7 +560,6 @@ export default function App() {
     socket.on("turn_change", ({ moveNumber, side }: GameInfo) =>
       setTurns((ts) => [...ts, { moveNumber, side, proposals: [] }])
     );
-    // DELETED: socket.on("proposal_removed", ...)
 
     socket.on(
       "game_over",
@@ -575,18 +592,20 @@ export default function App() {
         }
       }
     );
+
     socket.on("chat_message", (msg: ChatMessage) => {
       setChatMessages((msgs) => [...msgs, msg]);
       if (!msg.system && activeTabRef.current !== "chat")
         setHasUnreadMessages(true);
     });
+
     socket.on("game_status_update", ({ status }: { status: GameStatus }) => {
       setGameStatus(status);
     });
+
     socket.on(
       "draw_offer_update",
       ({ side }: { side: "white" | "black" | null }) => {
-        // FIX: Cast side to allowed union type
         setDrawOffer(side as "white" | "black" | null);
         if (side && isMobile) {
           const teamName = side.charAt(0).toUpperCase() + side.slice(1);
@@ -597,15 +616,18 @@ export default function App() {
         }
       }
     );
+
     return () => {
       socket.disconnect();
     };
   }, [socket, chess, isMobile]);
+
   useEffect(() => {
     if (isNameModalOpen && nameInputRef.current) {
       nameInputRef.current.focus();
     }
   }, [isNameModalOpen]);
+
   const joinSide = (s: "white" | "black" | "spectator") => {
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
@@ -627,6 +649,7 @@ export default function App() {
   };
 
   const joinSpectator = () => joinSide("spectator");
+
   const resignGame = () => {
     if (window.confirm("Are you sure you want to resign for your team?")) {
       socket?.emit("resign");
@@ -686,6 +709,7 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
+
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from as Square);
     if (!piece || piece.type !== "p") return false;
@@ -695,6 +719,7 @@ export default function App() {
 
   const hasPlayed = (playerId: string, teamSide: "white" | "black") =>
     current?.proposals.some((p) => p.id === playerId && p.side === teamSide);
+
   const copyPgn = () => {
     if (!pgn) return;
     const textArea = document.createElement("textarea");
@@ -715,14 +740,17 @@ export default function App() {
     }
     setIsMobileInfoVisible(false);
   };
+
   const openNameModal = () => {
     setNameInput(name);
     setIsNameModalOpen(true);
   };
+
   const closeNameModal = () => {
     setIsNameModalOpen(false);
     setNameInput(name);
   };
+
   const submitSave = () => {
     const newName = nameInput.trim();
     if (newName && newName !== name) {
@@ -731,6 +759,7 @@ export default function App() {
 
     setIsNameModalOpen(false);
   };
+
   const handleNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       submitSave();
@@ -738,6 +767,7 @@ export default function App() {
       closeNameModal();
     }
   };
+
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
@@ -818,7 +848,6 @@ export default function App() {
       const to = targetSquare;
 
       if (!from || !to) return false;
-
       if (gameStatus === GameStatus.Lobby) {
         if (side !== "white") {
           toast.error("Only White can make the first move to start the game.");
@@ -854,6 +883,7 @@ export default function App() {
       return true;
     },
   };
+
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -866,7 +896,6 @@ export default function App() {
     isActive: boolean;
   }) => {
     const isLowTime = clockTime > 0 && clockTime <= 60;
-
     return (
       <div className="game-player-info">
         <div
@@ -881,7 +910,7 @@ export default function App() {
           <span>{lostPieces.join(" ")}</span>
           <span
             className="material-adv-label"
-            style={{ visibility: materialAdv === 0 ? "hidden" : "visible" }}
+            style={{ visibility: materialAdv > 0 ? "visible" : "hidden" }}
           >
             {materialAdv > 0 ? `+${materialAdv}` : ""}
           </span>
@@ -1183,13 +1212,18 @@ export default function App() {
 
         <div className="main-layout">
           <div className="game-column">
+            {/* TOP PLAYER INFO (Opponent) */}
             <PlayerInfoBox
               clockTime={
                 orientation === "white" ? clocks.blackTime : clocks.whiteTime
               }
+              // Pass the ADVANTAGE belonging to this side.
+              // If orientation is white, top is Black. Show Black's advantage.
               lostPieces={
-                orientation === "white" ? lostBlackPieces : lostWhitePieces
+                orientation === "white" ? blackMaterialDiff : whiteMaterialDiff
               }
+              // Score for Top Player. If Black is +5, and orientation is white (Top is Black), pass +5.
+              // materialBalance is (White - Black). So -materialBalance is (Black - White).
               materialAdv={
                 orientation === "white" ? -materialBalance : materialBalance
               }
@@ -1204,13 +1238,16 @@ export default function App() {
               <Chessboard options={boardOptions} />
               <PromotionDialog />{" "}
             </div>
+            {/* BOTTOM PLAYER INFO (Self) */}
             <PlayerInfoBox
               clockTime={
                 orientation === "white" ? clocks.whiteTime : clocks.blackTime
               }
+              // If orientation is white, bottom is White. Show White's advantage.
               lostPieces={
-                orientation === "white" ? lostWhitePieces : lostBlackPieces
+                orientation === "white" ? whiteMaterialDiff : blackMaterialDiff
               }
+              // Score for Bottom Player. If White is +5, pass +5.
               materialAdv={
                 orientation === "white" ? materialBalance : -materialBalance
               }
