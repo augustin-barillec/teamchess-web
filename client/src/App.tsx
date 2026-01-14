@@ -25,6 +25,7 @@ import {
   GameStatus,
 } from "../../server/shared_types";
 import { DisconnectedIcon } from "./DisconnectedIcon";
+import { sounds } from "./soundEngine";
 
 const STORAGE_KEYS = {
   pid: "tc:pid",
@@ -127,6 +128,8 @@ interface ControlsPanelProps {
   side: "white" | "black" | "spectator";
   drawOffer: "white" | "black" | null;
   pgn: string;
+  isMuted: boolean;
+  toggleMute: () => void;
   resetGame: () => void;
   autoAssign: () => void;
   joinSide: (side: "white" | "black" | "spectator") => void;
@@ -143,6 +146,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   side,
   drawOffer,
   pgn,
+  isMuted,
+  toggleMute,
   resetGame,
   autoAssign,
   joinSide,
@@ -155,6 +160,10 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
 }) => {
   return (
     <>
+      <button onClick={toggleMute}>
+        {isMuted ? "Unmute Sound" : "Mute Sound"}
+      </button>
+
       {gameStatus !== GameStatus.Lobby && (
         <button onClick={resetGame}>Reset Game</button>
       )}
@@ -274,6 +283,14 @@ export default function App() {
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
 
+  const [isMuted, setIsMuted] = useState(sounds.getMuted());
+
+  const toggleMute = () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    sounds.setMuted(next);
+  };
+
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
     const kingPiece = { type: "k", color: chess.turn() };
@@ -292,7 +309,6 @@ export default function App() {
     return square;
   }, [position, chess]);
 
-  // MATERIAL CALCULATION (Lichess Style / Imbalance)
   const { whiteMaterialDiff, blackMaterialDiff, materialBalance } =
     useMemo(() => {
       const values: Record<string, number> = {
@@ -303,7 +319,6 @@ export default function App() {
         q: 9,
         k: 0,
       };
-      // Standard display order: Queen first, then R, B, N, P
       const order = ["q", "r", "b", "n", "p"];
 
       const wCounts: Record<string, number> = {
@@ -323,7 +338,6 @@ export default function App() {
         k: 0,
       };
 
-      // Count pieces currently on the board
       chess
         .board()
         .flat()
@@ -334,7 +348,6 @@ export default function App() {
           }
         });
 
-      // Calculate Scores
       let wScore = 0;
       let bScore = 0;
       Object.keys(values).forEach((type) => {
@@ -343,7 +356,6 @@ export default function App() {
       });
       const balance = wScore - bScore;
 
-      // Calculate Material Differences (Icons)
       const whiteDiff: { type: string; figurine: string }[] = [];
       const blackDiff: { type: string; figurine: string }[] = [];
 
@@ -354,7 +366,6 @@ export default function App() {
         const figurineB = pieceToFigurineBlack[type.toUpperCase()];
 
         if (diff !== 0) {
-          // If White has more, add to White's list. If Black has more, add to Black's list.
           const targetList = diff > 0 ? whiteDiff : blackDiff;
           const figurine = diff > 0 ? figurineW : figurineB;
 
@@ -364,7 +375,6 @@ export default function App() {
         }
       });
 
-      // Helper function to group pieces (e.g., "P", "P" -> "Px2")
       const groupPiecesToStrings = (
         pieces: { type: string; figurine: string }[]
       ) => {
@@ -385,7 +395,6 @@ export default function App() {
             currentCount = 1;
           }
         }
-        // Push the last group
         groupedStrings.push(
           `${currentFigurine}${currentCount > 1 ? `x${currentCount}` : ""}`
         );
@@ -503,6 +512,8 @@ export default function App() {
         setTurns([{ moveNumber, side, proposals: proposals || [] }]);
         setLastMoveSquares(null);
         setDrawOffer(null);
+
+        sounds.play("start");
       }
     );
 
@@ -519,9 +530,16 @@ export default function App() {
       setDrawOffer(null);
     });
 
-    socket.on("clock_update", ({ whiteTime, blackTime }) =>
-      setClocks({ whiteTime, blackTime })
-    );
+    socket.on("clock_update", ({ whiteTime, blackTime }) => {
+      setClocks({ whiteTime, blackTime });
+
+      if (
+        (whiteTime <= 60 && whiteTime > 0) ||
+        (blackTime <= 60 && blackTime > 0)
+      ) {
+        sounds.play("lowtime");
+      }
+    });
 
     socket.on("position_update", ({ fen }) => {
       chess.load(fen);
@@ -555,6 +573,15 @@ export default function App() {
       const to = sel.lan.slice(2, 4);
       setLastMoveSquares({ from, to });
       setPosition(sel.fen);
+
+      const san = sel.san || "";
+      if (san.includes("#") || san.includes("+")) {
+        sounds.play("check");
+      } else if (san.includes("x")) {
+        sounds.play("capture");
+      } else {
+        sounds.play("move");
+      }
     });
 
     socket.on("turn_change", ({ moveNumber, side }: GameInfo) =>
@@ -577,6 +604,8 @@ export default function App() {
         setEndReason(reason);
         setPgn(newPgn);
         setDrawOffer(null);
+
+        sounds.play("end");
 
         const gameOverMessage = reasonMessages[reason]
           ? reasonMessages[reason](winner)
@@ -1160,6 +1189,8 @@ export default function App() {
             side={side}
             drawOffer={drawOffer}
             pgn={pgn}
+            isMuted={isMuted} // <--- Pass prop
+            toggleMute={toggleMute} // <--- Pass prop
             resetGame={resetGame}
             autoAssign={autoAssign}
             joinSide={joinSide}
@@ -1222,8 +1253,10 @@ export default function App() {
               lostPieces={
                 orientation === "white" ? blackMaterialDiff : whiteMaterialDiff
               }
-              // Score for Top Player. If Black is +5, and orientation is white (Top is Black), pass +5.
-              // materialBalance is (White - Black). So -materialBalance is (Black - White).
+              // Score for Top Player.
+              // If Black is +5, and orientation is white (Top is Black), pass +5.
+              // materialBalance is (White - Black).
+              // So -materialBalance is (Black - White).
               materialAdv={
                 orientation === "white" ? -materialBalance : materialBalance
               }
@@ -1243,11 +1276,13 @@ export default function App() {
               clockTime={
                 orientation === "white" ? clocks.whiteTime : clocks.blackTime
               }
-              // If orientation is white, bottom is White. Show White's advantage.
+              // If orientation is white, bottom is White.
+              // Show White's advantage.
               lostPieces={
                 orientation === "white" ? whiteMaterialDiff : blackMaterialDiff
               }
-              // Score for Bottom Player. If White is +5, pass +5.
+              // Score for Bottom Player.
+              // If White is +5, pass +5.
               materialAdv={
                 orientation === "white" ? materialBalance : -materialBalance
               }
