@@ -1,5 +1,3 @@
-// client/src/soundEngine.ts
-
 type SoundType = "move" | "capture" | "check" | "lowtime" | "start" | "end";
 
 class SoundEngine {
@@ -7,12 +5,10 @@ class SoundEngine {
   private isMuted: boolean = false;
 
   constructor() {
-    // Load mute preference from local storage
     const saved = localStorage.getItem("tc_muted");
     this.isMuted = saved === "true";
   }
 
-  // Lazy-load AudioContext (browsers block it until user interaction)
   private getContext(): AudioContext {
     if (!this.ctx) {
       const AudioContextClass =
@@ -39,32 +35,24 @@ class SoundEngine {
 
     const ctx = this.getContext();
     const t = ctx.currentTime;
-    const dest = ctx.destination;
 
-    // --- "SOFT" GLASS THEME LOGIC ---
-
+    // --- "SOFT" GLASS THEME ---
     if (type === "move") {
-      // Deeper, round sine wave
       this.tone(t, 300, "sine", 0.1, 0.3);
     } else if (type === "capture") {
-      // Slightly higher pitch for contrast
       this.tone(t, 500, "sine", 0.1, 0.3);
     } else if (type === "check") {
-      // Triangle wave for a bit of "alert" edge
       this.tone(t, 400, "triangle", 0.2, 0.2);
     } else if (type === "lowtime") {
-      // Wood block tick sound
       this.tone(t, 800, "sine", 0.05, 0.1);
     } else if (type === "start") {
-      // Gentle ascending chord [300, 400, 500]
+      // Gentle ascending chord
       this.chord(t, [300, 400, 500], "sine", 0.8);
     } else if (type === "end") {
-      // Descending chord [500, 400, 300]
+      // Descending chord
       this.chord(t, [500, 400, 300], "sine", 1.2);
     }
   }
-
-  // --- SYNTHESIZER HELPERS ---
 
   private tone(
     t: number,
@@ -80,7 +68,6 @@ class SoundEngine {
     osc.type = type;
     osc.frequency.setValueAtTime(freq, t);
 
-    // Envelope: Zero -> Attack -> Decay
     gain.gain.setValueAtTime(0, t);
     gain.gain.linearRampToValueAtTime(vol, t + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
@@ -93,11 +80,9 @@ class SoundEngine {
 
   private chord(t: number, freqs: number[], type: OscillatorType, dur: number) {
     freqs.forEach((f, i) => {
-      // Stagger notes slightly (50ms) for a strumming effect
       this.tone(t + i * 0.05, f, type, dur, 0.1);
     });
   }
 }
 
-// Export a singleton instance
 export const sounds = new SoundEngine();

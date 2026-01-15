@@ -161,7 +161,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   return (
     <>
       <button onClick={toggleMute}>
-        {isMuted ? "Unmute Sound" : "Mute Sound"}
+        {isMuted ? "Unmute Sounds" : "Mute Sounds"}
       </button>
 
       {gameStatus !== GameStatus.Lobby && (
@@ -284,12 +284,13 @@ export default function App() {
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
 
   const [isMuted, setIsMuted] = useState(sounds.getMuted());
-
   const toggleMute = () => {
     const next = !isMuted;
     setIsMuted(next);
     sounds.setMuted(next);
   };
+
+  const prevClocks = useRef({ whiteTime: 600, blackTime: 600 });
 
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
@@ -368,7 +369,6 @@ export default function App() {
         if (diff !== 0) {
           const targetList = diff > 0 ? whiteDiff : blackDiff;
           const figurine = diff > 0 ? figurineW : figurineB;
-
           for (let i = 0; i < absDiff; i++) {
             targetList.push({ type, figurine });
           }
@@ -513,6 +513,8 @@ export default function App() {
         setLastMoveSquares(null);
         setDrawOffer(null);
 
+        prevClocks.current = { whiteTime: 600, blackTime: 600 };
+
         sounds.play("start");
       }
     );
@@ -528,17 +530,22 @@ export default function App() {
       setClocks({ whiteTime: 0, blackTime: 0 });
       setLastMoveSquares(null);
       setDrawOffer(null);
+      prevClocks.current = { whiteTime: 600, blackTime: 600 };
     });
 
     socket.on("clock_update", ({ whiteTime, blackTime }) => {
-      setClocks({ whiteTime, blackTime });
+      const prev = prevClocks.current;
 
-      if (
-        (whiteTime <= 60 && whiteTime > 0) ||
-        (blackTime <= 60 && blackTime > 0)
-      ) {
+      if (prev.whiteTime > 60 && whiteTime <= 60 && whiteTime > 0) {
         sounds.play("lowtime");
       }
+
+      if (prev.blackTime > 60 && blackTime <= 60 && blackTime > 0) {
+        sounds.play("lowtime");
+      }
+
+      prevClocks.current = { whiteTime, blackTime };
+      setClocks({ whiteTime, blackTime });
     });
 
     socket.on("position_update", ({ fen }) => {
@@ -574,13 +581,17 @@ export default function App() {
       setLastMoveSquares({ from, to });
       setPosition(sel.fen);
 
-      const san = sel.san || "";
-      if (san.includes("#") || san.includes("+")) {
-        sounds.play("check");
-      } else if (san.includes("x")) {
-        sounds.play("capture");
-      } else {
-        sounds.play("move");
+      const isFirstMove = sel.moveNumber === 1 && sel.side === "white";
+
+      if (!isFirstMove) {
+        const san = sel.san || "";
+        if (san.includes("#") || san.includes("+")) {
+          sounds.play("check");
+        } else if (san.includes("x")) {
+          sounds.play("capture");
+        } else {
+          sounds.play("move");
+        }
       }
     });
 
@@ -1189,8 +1200,8 @@ export default function App() {
             side={side}
             drawOffer={drawOffer}
             pgn={pgn}
-            isMuted={isMuted} // <--- Pass prop
-            toggleMute={toggleMute} // <--- Pass prop
+            isMuted={isMuted}
+            toggleMute={toggleMute}
             resetGame={resetGame}
             autoAssign={autoAssign}
             joinSide={joinSide}
@@ -1243,20 +1254,13 @@ export default function App() {
 
         <div className="main-layout">
           <div className="game-column">
-            {/* TOP PLAYER INFO (Opponent) */}
             <PlayerInfoBox
               clockTime={
                 orientation === "white" ? clocks.blackTime : clocks.whiteTime
               }
-              // Pass the ADVANTAGE belonging to this side.
-              // If orientation is white, top is Black. Show Black's advantage.
               lostPieces={
                 orientation === "white" ? blackMaterialDiff : whiteMaterialDiff
               }
-              // Score for Top Player.
-              // If Black is +5, and orientation is white (Top is Black), pass +5.
-              // materialBalance is (White - Black).
-              // So -materialBalance is (Black - White).
               materialAdv={
                 orientation === "white" ? -materialBalance : materialBalance
               }
@@ -1271,18 +1275,13 @@ export default function App() {
               <Chessboard options={boardOptions} />
               <PromotionDialog />{" "}
             </div>
-            {/* BOTTOM PLAYER INFO (Self) */}
             <PlayerInfoBox
               clockTime={
                 orientation === "white" ? clocks.whiteTime : clocks.blackTime
               }
-              // If orientation is white, bottom is White.
-              // Show White's advantage.
               lostPieces={
                 orientation === "white" ? whiteMaterialDiff : blackMaterialDiff
               }
-              // Score for Bottom Player.
-              // If White is +5, pass +5.
               materialAdv={
                 orientation === "white" ? materialBalance : -materialBalance
               }
