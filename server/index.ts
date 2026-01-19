@@ -436,6 +436,7 @@ io.on("connection", (socket: Socket) => {
   }
 
   broadcastPlayers();
+  tryFinalizeTurn();
 
   socket.on("set_name", (name: string) => {
     const newName = name.trim().slice(0, 30);
