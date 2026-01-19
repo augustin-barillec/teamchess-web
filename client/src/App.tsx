@@ -493,6 +493,7 @@ export default function App() {
         setNameInput(serverName);
         localStorage.setItem(STORAGE_KEYS.pid, id);
         localStorage.setItem(STORAGE_KEYS.name, serverName);
+        socket.auth = { pid: id, name: serverName };
       }
     );
 
