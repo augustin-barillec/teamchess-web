@@ -324,6 +324,11 @@ function tryFinalizeTurn() {
             e
           );
           gameState.status = GameStatus.AwaitingProposals;
+          gameState.proposals.clear();
+          io.emit("game_status_update", { status: gameState.status });
+          sendSystemMessage(
+            "⚠️ System Error: The move could not be processed. The turn has been reset. Please submit your moves again."
+          );
         }
       }
     );
