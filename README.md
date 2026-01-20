@@ -31,11 +31,17 @@ TeamChess is a collaborative chess game. Everyone who connects to the server joi
 
 2.  **Build and run the container:**
 
+    First, build the image without using the cache to ensure you have the latest changes:
+
+    ```sh
+    docker compose build --no-cache
+    ```
+
+    Then, start the container:
+
     ```sh
     docker compose up --build
     ```
-
-    This command will build the `Dockerfile` , start the container, and stream the server logs to your terminal.
 
 3.  **Access the game:**
     Open `http://localhost` in your browser .
@@ -148,7 +154,15 @@ gcloud compute instances create teamchess-server \
 
 1.  **Clone your project:**
 
-2.  **Build and run the container in "detached" mode:**
+2.  **Build and run the container:**
+
+    First build without cache:
+
+    ```sh
+    docker compose build --no-cache
+    ```
+
+    Then run in "detached" mode:
 
     ```sh
     docker compose up --build -d
@@ -209,6 +223,7 @@ Here is the simple workflow for when you've made code changes locally and want t
 4.  **Rebuild and restart** the container with your new code:
 
     ```sh
+    docker compose build --no-cache
     docker compose up --build -d
     ```
 
