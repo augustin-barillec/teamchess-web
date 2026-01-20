@@ -610,7 +610,7 @@ export default function App() {
         pgn: newPgn,
       }: {
         reason: string;
-        winner: string | null;
+        winner: "white" | "black" | null;
         pgn: string;
       }) => {
         setGameStatus(GameStatus.Over);

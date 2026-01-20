@@ -11,6 +11,7 @@
     "build": "npm run build:client && npm run build:server",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p client/tsconfig.json",
     "prepare": "husky"
   },
   "dependencies": {
