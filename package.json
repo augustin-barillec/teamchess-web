@@ -9,6 +9,8 @@
     "build:client": "vite build client",
     "build:server": "tsc -p tsconfig.json",
     "build": "npm run build:client && npm run build:server",
+    "lint": "eslint .",
+    "format": "prettier --write .",
     "prepare": "husky"
   },
   "dependencies": {
@@ -24,19 +26,29 @@
     "stockfish": "^16.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/express": "^5.0.3",
     "@types/node": "^24.1.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.7.0",
+    "eslint": "^9.39.2",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "globals": "^17.0.0",
     "husky": "^9.0.11",
     "lint-staged": "^15.2.7",
     "prettier": "^3.3.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
+    "typescript-eslint": "^8.53.1",
     "vite": "^7.1.4"
   },
   "lint-staged": {
-    "*.{js,cjs,ts,tsx,css,md,json}": "prettier --write"
+    "*.{js,cjs,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{css,md,json}": "prettier --write"
   }
 }
