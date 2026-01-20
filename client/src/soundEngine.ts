@@ -12,7 +12,9 @@ class SoundEngine {
   private getContext(): AudioContext {
     if (!this.ctx) {
       const AudioContextClass =
-        window.AudioContext || (window as any).webkitAudioContext;
+        window.AudioContext ||
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).webkitAudioContext;
       this.ctx = new AudioContextClass();
     }
     if (this.ctx.state === "suspended") {
@@ -62,6 +64,7 @@ class SoundEngine {
     vol: number
   ) {
     if (!this.ctx) return;
+
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 

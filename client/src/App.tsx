@@ -95,8 +95,8 @@ const NameChangeModal: React.FC<NameChangeModalProps> = ({
   onChange,
   onKeyDown,
   inputRef,
-  gameStatus,
-  side,
+  gameStatus: _gameStatus,
+  side: _side,
 }) => {
   if (!isOpen) return null;
 
@@ -167,6 +167,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
       {gameStatus !== GameStatus.Lobby && (
         <button onClick={resetGame}>Reset Game</button>
       )}
+
       {gameStatus !== GameStatus.Over && (
         <>
           {side === "spectator" && (
@@ -238,8 +239,8 @@ export default function App() {
     blackPlayers: [],
   });
   const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Lobby);
-  const [winner, setWinner] = useState<"white" | "black" | null>(null);
-  const [endReason, setEndReason] = useState<string | null>(null);
+  const [_winner, setWinner] = useState<"white" | "black" | null>(null);
+  const [_endReason, setEndReason] = useState<string | null>(null);
   const [pgn, setPgn] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [turns, setTurns] = useState<
@@ -308,6 +309,7 @@ export default function App() {
       });
     });
     return square;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [position, chess]);
 
   const { whiteMaterialDiff, blackMaterialDiff, materialBalance } =
@@ -383,7 +385,6 @@ export default function App() {
 
         let currentFigurine = pieces[0].figurine;
         let currentCount = 0;
-
         for (const piece of pieces) {
           if (piece.figurine === currentFigurine) {
             currentCount++;
@@ -406,9 +407,10 @@ export default function App() {
         blackMaterialDiff: groupPiecesToStrings(blackDiff),
         materialBalance: balance,
       };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [position, chess]);
 
-  const playerCount = useMemo(
+  const _playerCount = useMemo(
     () =>
       players.spectators.length +
       players.whitePlayers.length +
@@ -774,7 +776,7 @@ export default function App() {
       textArea.select();
       document.execCommand("copy");
       toast.success("PGN copied!");
-    } catch (err) {
+    } catch (_err) {
       toast.error("Could not copy PGN.");
     } finally {
       document.body.removeChild(textArea);
@@ -911,7 +913,7 @@ export default function App() {
         });
         if (!move) return false;
         chess.undo();
-      } catch (e) {
+      } catch (_e) {
         toast.error("Illegal move!");
         return false;
       }

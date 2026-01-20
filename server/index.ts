@@ -13,9 +13,9 @@ const engineLoaderPath = path.resolve(__dirname, "./load_engine.cjs");
 const { default: loadEngine } = await import(engineLoaderPath);
 
 type Engine = ReturnType<typeof loadEngine>;
+
 const DISCONNECT_GRACE_MS = 20000;
 const STOCKFISH_SEARCH_DEPTH = 15;
-
 const stockfishPath = path.join(
   process.cwd(),
   "node_modules",
@@ -77,9 +77,9 @@ interface GameState {
 
 const sessions = new Map<string, Session>();
 let gameState: GameState;
+
 const app = express();
 const server = http.createServer(app);
-
 const io = new Server(server, {
   cors: { origin: "*" },
   pingInterval: 5000,
@@ -144,6 +144,7 @@ function endGame(reason: string, winner: string | null = null) {
   broadcastPlayers();
 
   gameState.drawOffer = undefined;
+
   const pgn = getCleanPgn(gameState.chess);
   io.emit("game_over", { reason, winner, pgn });
   io.emit("draw_offer_update", { side: null });
@@ -247,6 +248,8 @@ function tryFinalizeTurn() {
         try {
           const from = selLan.slice(0, 2);
           const to = selLan.slice(2, 4);
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const params: any = { from, to };
           if (selLan.length === 5) params.promotion = selLan[4];
 
@@ -344,6 +347,7 @@ function endIfOneSided() {
 
   const whiteAlive = gameState.whiteIds.size > 0;
   const blackAlive = gameState.blackIds.size > 0;
+
   if (whiteAlive && blackAlive) return;
 
   const winner = whiteAlive ? "white" : blackAlive ? "black" : null;
@@ -351,9 +355,11 @@ function endIfOneSided() {
 }
 
 function leave(this: Socket) {
+  // eslint-disable-next-line @typescript-eslint/no-this-alias
   const socket = this;
   const pid = socket.data.pid as string | undefined;
   if (!pid) return;
+
   const sess = sessions.get(pid);
   if (!sess) return;
 
@@ -473,6 +479,7 @@ io.on("connection", (socket: Socket) => {
 
       endIfOneSided();
     }
+
     broadcastPlayers();
     tryFinalizeTurn();
     cb?.({ success: true });
@@ -500,8 +507,8 @@ io.on("connection", (socket: Socket) => {
       endWinner: undefined,
       drawOffer: undefined,
     };
-    io.emit("game_reset");
 
+    io.emit("game_reset");
     io.emit("clock_update", {
       whiteTime: gameState.whiteTime,
       blackTime: gameState.blackTime,
@@ -523,6 +530,7 @@ io.on("connection", (socket: Socket) => {
         if (s.side === "white") whites.add(s.pid);
         else if (s.side === "black") blacks.add(s.pid);
       }
+
       if (blacks.size === 0) {
         return cb?.({
           error: "Both teams must have at least one player to start.",
@@ -565,9 +573,10 @@ io.on("connection", (socket: Socket) => {
     try {
       const tempChess = new Chess(gameState.chess.fen());
       move = tempChess.move(lan);
-    } catch (e) {
+    } catch (_e) {
       return cb?.({ error: "Illegal move format." });
     }
+
     if (!move) return cb?.({ error: "Illegal move." });
 
     gameState.proposals.set(pid, {
@@ -617,6 +626,7 @@ io.on("connection", (socket: Socket) => {
       socket.data.side === "spectator"
     )
       return;
+
     if (gameState.drawOffer) return;
     gameState.drawOffer = socket.data.side;
     io.emit("draw_offer_update", { side: socket.data.side });
@@ -631,8 +641,10 @@ io.on("connection", (socket: Socket) => {
       socket.data.side === "spectator"
     )
       return;
+
     if (!gameState.drawOffer || gameState.drawOffer === socket.data.side)
       return;
+
     sendSystemMessage(`${socket.data.name} accepts the draw offer.`);
     endGame(EndReason.DrawAgreement, null);
   });
@@ -643,8 +655,10 @@ io.on("connection", (socket: Socket) => {
       socket.data.side === "spectator"
     )
       return;
+
     if (!gameState.drawOffer || gameState.drawOffer === socket.data.side)
       return;
+
     gameState.drawOffer = undefined;
     io.emit("draw_offer_update", { side: null });
     sendSystemMessage(`${socket.data.name} rejects the draw offer.`);
