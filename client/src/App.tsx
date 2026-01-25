@@ -164,6 +164,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   onStartPoll,
   onVotePoll,
 }) => {
+  // LINT FIX: Use lazy initializer for pure rendering
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -177,41 +178,41 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   return (
     <>
       {gameStatus !== GameStatus.Lobby && (
-        <button onClick={resetGame}>Reset Game</button>
+        <button onClick={resetGame}>🔄 Reset Game</button>
       )}
 
       {gameStatus !== GameStatus.Over && (
         <>
           {side === "spectator" && (
             <>
-              <button onClick={autoAssign}>Auto Assign</button>
-              <button onClick={() => joinSide("white")}>Join White</button>
-              <button onClick={() => joinSide("black")}>Join Black</button>
+              <button onClick={autoAssign}>🎲 Auto Assign</button>
+              <button onClick={() => joinSide("white")}>♔ Join White</button>
+              <button onClick={() => joinSide("black")}>♚ Join Black</button>
             </>
           )}
           {(side === "white" || side === "black") && (
             <>
-              <button onClick={joinSpectator}>Join Spectators</button>
+              <button onClick={joinSpectator}>👁️ Join Spectators</button>
               {gameStatus === GameStatus.Lobby && (
                 <button
                   onClick={() => joinSide(side === "white" ? "black" : "white")}
                 >
-                  Switch to {side === "white" ? "Black" : "White"}
+                  🔁 Switch to {side === "white" ? "Black" : "White"}
                 </button>
               )}
               {gameStatus === GameStatus.AwaitingProposals && (
                 <>
                   {drawOffer && drawOffer !== side ? (
                     <>
-                      <button onClick={acceptDraw}>Accept Draw</button>
-                      <button onClick={rejectDraw}>Reject Draw</button>
+                      <button onClick={acceptDraw}>🤝 Accept Draw</button>
+                      <button onClick={rejectDraw}>👎 Reject Draw</button>
                     </>
                   ) : drawOffer === side ? (
                     <span style={{ fontStyle: "italic" }}>Draw offered...</span>
                   ) : (
                     <>
-                      <button onClick={resignGame}>Resign</button>
-                      <button onClick={offerDraw}>Offer Draw</button>
+                      <button onClick={resignGame}>🏳️ Resign</button>
+                      <button onClick={offerDraw}>🤝 Offer Draw</button>
                     </>
                   )}
                 </>
@@ -221,17 +222,14 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
         </>
       )}
       {gameStatus === GameStatus.Over && pgn && (
-        <button onClick={copyPgn}>Copy PGN</button>
+        <button onClick={copyPgn}>📋 Copy PGN</button>
       )}
 
-      <div
-        className="poll-container"
-        style={{
-          marginTop: "1rem",
-          borderTop: "1px solid #ddd",
-          paddingTop: "1rem",
-        }}
-      >
+      <button onClick={toggleMute}>
+        {isMuted ? "🔊 Unmute Sounds" : "🔇 Mute Sounds"}
+      </button>
+
+      <div className="poll-container">
         {pollState.isActive ? (
           <div
             style={{
@@ -317,10 +315,6 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
           <button onClick={onStartPoll}>📊 Start Poll</button>
         )}
       </div>
-
-      <button onClick={toggleMute}>
-        {isMuted ? "Unmute Sounds" : "Mute Sounds"}
-      </button>
     </>
   );
 };
@@ -1442,6 +1436,10 @@ export default function App() {
                 }}
               >
                 Controls
+                {/* NOTIFICATION DOT LOGIC */}
+                {isMobile && pollState.isActive && activeTab !== "controls" && (
+                  <span className="unread-dot"></span>
+                )}
               </button>
             </nav>
 
