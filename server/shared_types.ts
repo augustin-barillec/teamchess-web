@@ -36,6 +36,14 @@ export type Selection = Proposal & {
   candidates: Proposal[];
 };
 
+export interface PollState {
+  isActive: boolean;
+  question: string;
+  yesVotes: string[];
+  noVotes: string[];
+  endTime: number;
+}
+
 export enum GameStatus {
   Lobby = "Lobby",
   AwaitingProposals = "AwaitingProposals",

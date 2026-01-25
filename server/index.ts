@@ -11,11 +11,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const engineLoaderPath = path.resolve(__dirname, "./load_engine.cjs");
 const { default: loadEngine } = await import(engineLoaderPath);
-
 type Engine = ReturnType<typeof loadEngine>;
 
 const DISCONNECT_GRACE_MS = 20000;
 const STOCKFISH_SEARCH_DEPTH = 15;
+const POLL_DURATION_MS = 20000;
+
 const stockfishPath = path.join(
   process.cwd(),
   "node_modules",
@@ -73,6 +74,13 @@ interface GameState {
   endReason?: string;
   endWinner?: string | null;
   drawOffer?: "white" | "black";
+  poll?: {
+    question: string;
+    yesVoters: Set<string>;
+    noVoters: Set<string>;
+    timer: NodeJS.Timeout;
+    endTime: number;
+  };
 }
 
 const sessions = new Map<string, Session>();
@@ -231,7 +239,6 @@ function tryFinalizeTurn() {
 
     const allEntries = [...gameState.proposals.entries()];
     const candidatesStr = allEntries.map(([, { lan }]) => lan);
-
     const candidatesObjs: Proposal[] = allEntries.map(([id, val]) => ({
       id,
       name: val.name,
@@ -368,7 +375,6 @@ function leave(this: Socket) {
     if (sess.side === "black") gameState.blackIds.delete(pid);
 
     sessions.delete(pid);
-
     endIfOneSided();
     tryFinalizeTurn();
     broadcastPlayers();
@@ -381,6 +387,36 @@ function leave(this: Socket) {
 
   broadcastPlayers();
   tryFinalizeTurn();
+}
+
+function getPollClientData() {
+  if (!gameState.poll) {
+    return {
+      isActive: false,
+      question: "",
+      yesVotes: [],
+      noVotes: [],
+      endTime: 0,
+    };
+  }
+
+  const yesNames = Array.from(gameState.poll.yesVoters)
+    .map((pid) => sessions.get(pid))
+    .filter((s) => !!s)
+    .map((s) => s!.name);
+
+  const noNames = Array.from(gameState.poll.noVoters)
+    .map((pid) => sessions.get(pid))
+    .filter((s) => !!s)
+    .map((s) => s!.name);
+
+  return {
+    isActive: true,
+    question: gameState.poll.question,
+    yesVotes: yesNames,
+    noVotes: noNames,
+    endTime: gameState.poll.endTime,
+  };
 }
 
 io.on("connection", (socket: Socket) => {
@@ -434,6 +470,7 @@ io.on("connection", (socket: Socket) => {
       whiteTime: gameState.whiteTime,
       blackTime: gameState.blackTime,
     });
+
     if (gameState.drawOffer) {
       socket.emit("draw_offer_update", { side: gameState.drawOffer });
     }
@@ -444,6 +481,11 @@ io.on("connection", (socket: Socket) => {
         pgn: getCleanPgn(gameState.chess),
       });
     }
+  }
+
+  // Send current poll status
+  if (gameState.poll) {
+    socket.emit("poll_update", getPollClientData());
   }
 
   broadcastPlayers();
@@ -506,6 +548,7 @@ io.on("connection", (socket: Socket) => {
       endReason: undefined,
       endWinner: undefined,
       drawOffer: undefined,
+      poll: undefined,
     };
 
     io.emit("game_reset");
@@ -513,6 +556,7 @@ io.on("connection", (socket: Socket) => {
       whiteTime: gameState.whiteTime,
       blackTime: gameState.blackTime,
     });
+    io.emit("poll_update", getPollClientData());
 
     sendSystemMessage(`${socket.data.name} has reset the game.`);
     cb?.({ success: true });
@@ -607,6 +651,56 @@ io.on("connection", (socket: Socket) => {
     });
   });
 
+  socket.on("start_poll", (question: string) => {
+    const cleanQuestion = question?.trim().slice(0, 100);
+    if (!cleanQuestion || gameState.poll) return;
+
+    const endTime = Date.now() + POLL_DURATION_MS;
+
+    gameState.poll = {
+      question: cleanQuestion,
+      yesVoters: new Set(),
+      noVoters: new Set(),
+      endTime: endTime,
+      timer: setTimeout(() => {
+        if (gameState.poll) {
+          const { question, yesVoters, noVoters } = gameState.poll;
+          const yesNames = Array.from(yesVoters)
+            .map((id) => sessions.get(id)?.name || "Unknown")
+            .join(", ");
+          const noNames = Array.from(noVoters)
+            .map((id) => sessions.get(id)?.name || "Unknown")
+            .join(", ");
+
+          const resultMsg = `📊 Poll Result: "${question}"\nYes (${yesVoters.size}): ${yesNames}\nNo (${noVoters.size}): ${noNames}`;
+
+          sendSystemMessage(resultMsg);
+
+          gameState.poll = undefined;
+          io.emit("poll_update", getPollClientData());
+        }
+      }, POLL_DURATION_MS),
+    };
+
+    sendSystemMessage(`${socket.data.name} started a poll: "${cleanQuestion}"`);
+
+    io.emit("poll_update", getPollClientData());
+  });
+
+  socket.on("vote_poll", (vote: "yes" | "no") => {
+    if (!gameState.poll) return;
+
+    if (vote === "yes") {
+      gameState.poll.noVoters.delete(pid);
+      gameState.poll.yesVoters.add(pid);
+    } else {
+      gameState.poll.yesVoters.delete(pid);
+      gameState.poll.noVoters.add(pid);
+    }
+
+    io.emit("poll_update", getPollClientData());
+  });
+
   socket.on("resign", () => {
     if (
       gameState.status !== GameStatus.AwaitingProposals ||
@@ -684,6 +778,7 @@ function startServer() {
     engine,
     chess: new Chess(),
     status: GameStatus.Lobby,
+    poll: undefined,
   };
 
   const publicPath = path.join(__dirname, "..", "public");
