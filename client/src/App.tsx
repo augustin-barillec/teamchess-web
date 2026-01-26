@@ -137,7 +137,6 @@ interface ControlsPanelProps {
   autoAssign: () => void;
   joinSide: (side: "white" | "black" | "spectator") => void;
   joinSpectator: () => void;
-  rejectDraw: () => void;
   copyPgn: () => void;
   pollState: PollState;
   onStartPoll: () => void;
@@ -158,7 +157,6 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   autoAssign,
   joinSide,
   joinSpectator,
-  rejectDraw,
   copyPgn,
   pollState,
   onStartPoll,
@@ -273,15 +271,19 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
               )}
               {gameStatus === GameStatus.AwaitingProposals && (
                 <>
-                  {drawOffer && drawOffer !== side ? (
-                    <>
-                      <button onClick={() => onStartTeamVote("accept_draw")}>
-                        🤝 Accept Draw
-                      </button>
-                      <button onClick={rejectDraw}>👎 Reject Draw</button>
-                    </>
-                  ) : drawOffer === side ? (
-                    <span style={{ fontStyle: "italic" }}>Draw offered...</span>
+                  {drawOffer === side ? (
+                    <button
+                      disabled
+                      style={{ opacity: 0.6, cursor: "default" }}
+                    >
+                      ⏳ Draw Offered...
+                    </button>
+                  ) : drawOffer && drawOffer !== side ? (
+                    // Logic handled by automatic vote trigger
+                    // But we keep a placeholder just in case, or show nothing
+                    <span style={{ fontStyle: "italic", fontSize: "0.9em" }}>
+                      Voting on Draw...
+                    </span>
                   ) : (
                     <>
                       <button onClick={() => onStartTeamVote("resign")}>
@@ -897,14 +899,23 @@ export default function App() {
 
   const joinSpectator = () => joinSide("spectator");
 
-  const rejectDraw = () => {
-    if (window.confirm("Reject the draw offer for your team?")) {
-      socket?.emit("reject_draw");
-      setIsMobileInfoVisible(false);
-    }
-  };
-
   const startTeamVote = (type: VoteType) => {
+    // Confirmation for Solo Players
+    if (side === "white" || side === "black") {
+      const myTeamArray =
+        side === "white" ? players.whitePlayers : players.blackPlayers;
+      // If I am the only one connected in my team (N=1), the action is immediate.
+      // We should ask for confirmation.
+      if (myTeamArray.length === 1) {
+        let msg = "";
+        if (type === "resign") msg = "Are you sure you want to resign?";
+        else if (type === "offer_draw")
+          msg = "Are you sure you want to offer a draw?";
+
+        if (msg && !window.confirm(msg)) return;
+      }
+    }
+
     socket?.emit("start_team_vote", type);
     setIsMobileInfoVisible(false);
   };
@@ -1409,7 +1420,6 @@ export default function App() {
             autoAssign={autoAssign}
             joinSide={joinSide}
             joinSpectator={joinSpectator}
-            rejectDraw={rejectDraw}
             copyPgn={copyPgn}
             pollState={pollState}
             onStartPoll={startPoll}

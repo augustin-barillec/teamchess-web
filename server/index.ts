@@ -504,6 +504,109 @@ function getPollClientData() {
   };
 }
 
+// Internal function to start a vote (can be triggered by socket or system)
+function startTeamVoteLogic(
+  side: "white" | "black",
+  type: VoteType,
+  initiatorId: string,
+  initiatorName: string
+) {
+  // Validation
+  if (
+    type === "accept_draw" &&
+    (!gameState.drawOffer || gameState.drawOffer === side)
+  )
+    return;
+  if (type === "offer_draw" && gameState.drawOffer) return;
+
+  const currentVote =
+    side === "white" ? gameState.whiteVote : gameState.blackVote;
+  if (currentVote) return;
+
+  // Snapshot N (connected teammates)
+  const onlinePids = new Set<string>();
+  for (const s of io.sockets.sockets.values()) {
+    if (s.data.pid) onlinePids.add(s.data.pid);
+  }
+  const teamIds = side === "white" ? gameState.whiteIds : gameState.blackIds;
+  const connectedTeamIds = [...teamIds].filter((pid) => onlinePids.has(pid));
+  const N = connectedTeamIds.length;
+
+  // AUTO-EXECUTE if N<=1 AND it is a player-initiated action (Resign/Offer).
+  // If it is a System-triggered action (Vote to Accept Draw), we DO NOT auto-execute
+  // because we want the user to click "Yes" to confirm the acceptance.
+  const isSystemTriggered = initiatorId === "system";
+
+  if (N <= 1 && !isSystemTriggered) {
+    if (type === "resign") {
+      const winner = side === "white" ? "black" : "white";
+      sendSystemMessage(`${initiatorName} resigns.`);
+      endGame(EndReason.Resignation, winner);
+    } else if (type === "offer_draw") {
+      gameState.drawOffer = side;
+      io.emit("draw_offer_update", { side });
+      sendSystemMessage(`${initiatorName} offers a draw.`);
+
+      // Trigger vote for other side
+      const otherSide = side === "white" ? "black" : "white";
+      startTeamVoteLogic(otherSide, "accept_draw", "system", "System");
+    } else if (type === "accept_draw") {
+      sendSystemMessage(`${initiatorName} accepts the draw.`);
+      endGame(EndReason.DrawAgreement, null);
+    }
+    return;
+  }
+
+  // START VOTE
+  const endTime = Date.now() + TEAM_VOTE_DURATION_MS;
+
+  // If system triggered (accept_draw), start with 0 votes.
+  // If player triggered, start with 1 vote (themselves).
+  const initialYes = isSystemTriggered
+    ? new Set<string>()
+    : new Set([initiatorId]);
+
+  const voteState: InternalVoteState = {
+    type,
+    initiatorId,
+    yesVoters: initialYes,
+    required: N,
+    endTime,
+    timer: setTimeout(() => {
+      sendTeamMessage(
+        side,
+        `❌ Vote to ${type.replace("_", " ")} failed: Time expired.`
+      );
+      if (side === "white") gameState.whiteVote = undefined;
+      else gameState.blackVote = undefined;
+      broadcastTeamVote(side);
+
+      // If accept_draw fails by timeout, reject the offer
+      if (type === "accept_draw") {
+        gameState.drawOffer = undefined;
+        io.emit("draw_offer_update", { side: null });
+        sendSystemMessage("Draw offer rejected (timeout).");
+      }
+    }, TEAM_VOTE_DURATION_MS),
+  };
+
+  if (side === "white") gameState.whiteVote = voteState;
+  else gameState.blackVote = voteState;
+
+  if (isSystemTriggered) {
+    sendTeamMessage(side, `🗳️ Draw offered! Vote to Accept Draw. (0/${N})`);
+  } else {
+    sendTeamMessage(
+      side,
+      `🗳️ ${initiatorName} started a vote to ${type.replace(
+        "_",
+        " "
+      )}. (1/${N})`
+    );
+  }
+  broadcastTeamVote(side);
+}
+
 io.on("connection", (socket: Socket) => {
   const { pid: providedPid, name: providedName } =
     (socket.handshake.auth as { pid?: string; name?: string }) || {};
@@ -698,14 +801,6 @@ io.on("connection", (socket: Socket) => {
     if (!active.has(pid)) return cb?.({ error: "Not your turn." });
     if (gameState.proposals.has(pid)) return cb?.({ error: "Already moved." });
 
-    if (gameState.drawOffer && socket.data.side !== gameState.drawOffer) {
-      gameState.drawOffer = undefined;
-      io.emit("draw_offer_update", { side: null });
-      sendSystemMessage(
-        `${socket.data.name} proposed a move, automatically rejecting the draw offer.`
-      );
-    }
-
     let move;
     try {
       const tempChess = new Chess(gameState.chess.fen());
@@ -795,76 +890,15 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("start_team_vote", (type: VoteType) => {
-    const side = socket.data.side;
-    if (side !== "white" && side !== "black") return;
+    if (socket.data.side !== "white" && socket.data.side !== "black") return;
     if (gameState.status !== GameStatus.AwaitingProposals) return;
 
-    if (
-      type === "accept_draw" &&
-      (!gameState.drawOffer || gameState.drawOffer === side)
-    )
-      return;
-    if (type === "offer_draw" && gameState.drawOffer) return;
-
-    const currentVote =
-      side === "white" ? gameState.whiteVote : gameState.blackVote;
-    if (currentVote) return;
-
-    const onlinePids = new Set<string>();
-    for (const s of io.sockets.sockets.values()) {
-      if (s.data.pid) onlinePids.add(s.data.pid);
-    }
-
-    const teamIds = side === "white" ? gameState.whiteIds : gameState.blackIds;
-    const connectedTeamIds = [...teamIds].filter((pid) => onlinePids.has(pid));
-    const N = connectedTeamIds.length;
-
-    if (N <= 1) {
-      if (type === "resign") {
-        const winner = side === "white" ? "black" : "white";
-        sendSystemMessage(
-          `${socket.data.name} resigns on behalf of the ${side} team.`
-        );
-        endGame(EndReason.Resignation, winner);
-      } else if (type === "offer_draw") {
-        gameState.drawOffer = side;
-        io.emit("draw_offer_update", { side });
-        sendSystemMessage(
-          `${socket.data.name} offers a draw on behalf of the ${side} team.`
-        );
-      } else if (type === "accept_draw") {
-        sendSystemMessage(`${socket.data.name} accepts the draw offer.`);
-        endGame(EndReason.DrawAgreement, null);
-      }
-      return;
-    }
-
-    const endTime = Date.now() + TEAM_VOTE_DURATION_MS;
-    const voteState: InternalVoteState = {
+    startTeamVoteLogic(
+      socket.data.side,
       type,
-      initiatorId: pid,
-      yesVoters: new Set([pid]),
-      required: N,
-      endTime,
-      timer: setTimeout(() => {
-        sendTeamMessage(
-          side,
-          `❌ Vote to ${type.replace("_", " ")} failed: Time expired.`
-        );
-        if (side === "white") gameState.whiteVote = undefined;
-        else gameState.blackVote = undefined;
-        broadcastTeamVote(side);
-      }, TEAM_VOTE_DURATION_MS),
-    };
-
-    if (side === "white") gameState.whiteVote = voteState;
-    else gameState.blackVote = voteState;
-
-    sendTeamMessage(
-      side,
-      `🗳️ ${socket.data.name} started a vote to ${type.replace("_", " ")}. (1/${N})`
+      socket.data.pid,
+      socket.data.name
     );
-    broadcastTeamVote(side);
   });
 
   socket.on("vote_team", (vote: "yes" | "no") => {
@@ -881,6 +915,13 @@ io.on("connection", (socket: Socket) => {
         side,
         `❌ Vote to ${currentVote.type.replace("_", " ")} failed: ${socket.data.name} voted No.`
       );
+
+      // Explicitly reject draw if it was an accept_draw vote
+      if (currentVote.type === "accept_draw") {
+        gameState.drawOffer = undefined;
+        io.emit("draw_offer_update", { side: null });
+        sendSystemMessage(`${socket.data.name} rejected the draw offer.`);
+      }
     } else {
       if (!currentVote.yesVoters.has(pid)) {
         currentVote.yesVoters.add(pid);
@@ -900,6 +941,10 @@ io.on("connection", (socket: Socket) => {
             gameState.drawOffer = side;
             io.emit("draw_offer_update", { side });
             sendSystemMessage(`${side} team offers a draw.`);
+
+            // Trigger vote for other side
+            const otherSide = side === "white" ? "black" : "white";
+            startTeamVoteLogic(otherSide, "accept_draw", "system", "System");
           } else if (currentVote.type === "accept_draw") {
             sendSystemMessage(`${side} team accepts the draw.`);
             endGame(EndReason.DrawAgreement, null);
@@ -909,21 +954,6 @@ io.on("connection", (socket: Socket) => {
         }
       }
     }
-  });
-
-  socket.on("reject_draw", () => {
-    if (
-      gameState.status !== GameStatus.AwaitingProposals ||
-      socket.data.side === "spectator"
-    )
-      return;
-
-    if (!gameState.drawOffer || gameState.drawOffer === socket.data.side)
-      return;
-
-    gameState.drawOffer = undefined;
-    io.emit("draw_offer_update", { side: null });
-    sendSystemMessage(`${socket.data.name} rejects the draw offer.`);
   });
 
   socket.on("disconnect", () => leave.call(socket));
