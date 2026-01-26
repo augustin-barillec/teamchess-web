@@ -36,6 +36,17 @@ export type Selection = Proposal & {
   candidates: Proposal[];
 };
 
+export type VoteType = "resign" | "offer_draw" | "accept_draw";
+
+export interface TeamVoteState {
+  isActive: boolean;
+  type: VoteType | null;
+  initiatorName: string;
+  yesVotes: string[];
+  requiredVotes: number;
+  endTime: number;
+}
+
 export interface PollState {
   isActive: boolean;
   question: string;

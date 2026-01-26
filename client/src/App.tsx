@@ -24,6 +24,8 @@ import {
   ChatMessage,
   GameStatus,
   PollState,
+  TeamVoteState,
+  VoteType,
 } from "../../server/shared_types";
 import { DisconnectedIcon } from "./DisconnectedIcon";
 import { sounds } from "./soundEngine";
@@ -66,6 +68,7 @@ const pieceToFigurineWhite: Record<string, string> = {
   N: "♘",
   P: "♙",
 };
+
 const pieceToFigurineBlack: Record<string, string> = {
   K: "♚",
   Q: "♛",
@@ -134,14 +137,14 @@ interface ControlsPanelProps {
   autoAssign: () => void;
   joinSide: (side: "white" | "black" | "spectator") => void;
   joinSpectator: () => void;
-  resignGame: () => void;
-  offerDraw: () => void;
-  acceptDraw: () => void;
   rejectDraw: () => void;
   copyPgn: () => void;
   pollState: PollState;
   onStartPoll: () => void;
   onVotePoll: (vote: "yes" | "no") => void;
+  teamVote: TeamVoteState;
+  onStartTeamVote: (type: VoteType) => void;
+  onSendTeamVote: (vote: "yes" | "no") => void;
 }
 
 const ControlsPanel: React.FC<ControlsPanelProps> = ({
@@ -155,25 +158,91 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   autoAssign,
   joinSide,
   joinSpectator,
-  resignGame,
-  offerDraw,
-  acceptDraw,
   rejectDraw,
   copyPgn,
   pollState,
   onStartPoll,
   onVotePoll,
+  teamVote,
+  onStartTeamVote,
+  onSendTeamVote,
 }) => {
-  // LINT FIX: Use lazy initializer for pure rendering
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!pollState.isActive) return;
+    if (!pollState.isActive && !teamVote.isActive) return;
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [pollState.isActive]);
+  }, [pollState.isActive, teamVote.isActive]);
 
-  const timeLeft = Math.max(0, Math.ceil((pollState.endTime - now) / 1000));
+  const pollTimeLeft = Math.max(0, Math.ceil((pollState.endTime - now) / 1000));
+  const voteTimeLeft = Math.max(0, Math.ceil((teamVote.endTime - now) / 1000));
+
+  const renderVoteUI = () => {
+    if (!teamVote.isActive || !teamVote.type) return null;
+    const titleMap = {
+      resign: "Resign",
+      offer_draw: "Offer Draw",
+      accept_draw: "Accept Draw",
+    };
+
+    return (
+      <div className="poll-container" style={{ marginBottom: "10px" }}>
+        <div
+          style={{
+            background: "#ebf8ff",
+            padding: "10px",
+            borderRadius: "6px",
+            border: "1px solid #bee3f8",
+          }}
+        >
+          <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
+            🗳️ Vote: {titleMap[teamVote.type]}
+          </div>
+          <div
+            style={{
+              fontSize: "0.85em",
+              color: "#666",
+              marginBottom: "10px",
+              fontStyle: "italic",
+            }}
+          >
+            Time left: {voteTimeLeft}s • Required: {teamVote.requiredVotes}
+          </div>
+
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              onClick={() => onSendTeamVote("yes")}
+              style={{
+                flex: 1,
+                background: "#e6fffa",
+                borderColor: "#38b2ac",
+                color: "#234e52",
+                fontWeight: "bold",
+              }}
+            >
+              Yes ({teamVote.yesVotes.length})
+            </button>
+            <button
+              onClick={() => onSendTeamVote("no")}
+              style={{
+                flex: 1,
+                background: "#fff5f5",
+                borderColor: "#fc8181",
+                color: "#742a2a",
+                fontWeight: "bold",
+              }}
+            >
+              No
+            </button>
+          </div>
+          <div style={{ fontSize: "0.8em", marginTop: "8px", color: "#555" }}>
+            Voters: {teamVote.yesVotes.join(", ")}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -181,7 +250,9 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
         <button onClick={resetGame}>🔄 Reset Game</button>
       )}
 
-      {gameStatus !== GameStatus.Over && (
+      {renderVoteUI()}
+
+      {gameStatus !== GameStatus.Over && !teamVote.isActive && (
         <>
           {side === "spectator" && (
             <>
@@ -204,15 +275,21 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                 <>
                   {drawOffer && drawOffer !== side ? (
                     <>
-                      <button onClick={acceptDraw}>🤝 Accept Draw</button>
+                      <button onClick={() => onStartTeamVote("accept_draw")}>
+                        🤝 Accept Draw
+                      </button>
                       <button onClick={rejectDraw}>👎 Reject Draw</button>
                     </>
                   ) : drawOffer === side ? (
                     <span style={{ fontStyle: "italic" }}>Draw offered...</span>
                   ) : (
                     <>
-                      <button onClick={resignGame}>🏳️ Resign</button>
-                      <button onClick={offerDraw}>🤝 Offer Draw</button>
+                      <button onClick={() => onStartTeamVote("resign")}>
+                        🏳️ Resign
+                      </button>
+                      <button onClick={() => onStartTeamVote("offer_draw")}>
+                        🤝 Offer Draw
+                      </button>
                     </>
                   )}
                 </>
@@ -256,7 +333,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                 fontStyle: "italic",
               }}
             >
-              Time left: {timeLeft}s
+              Time left: {pollTimeLeft}s
             </div>
 
             <div style={{ display: "flex", gap: "10px" }}>
@@ -387,7 +464,6 @@ export default function App() {
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
-
   const [pollState, setPollState] = useState<PollState>({
     isActive: false,
     question: "",
@@ -395,7 +471,14 @@ export default function App() {
     noVotes: [],
     endTime: 0,
   });
-
+  const [teamVote, setTeamVote] = useState<TeamVoteState>({
+    isActive: false,
+    type: null,
+    initiatorName: "",
+    yesVotes: [],
+    requiredVotes: 0,
+    endTime: 0,
+  });
   const [isMuted, setIsMuted] = useState(sounds.getMuted());
   const toggleMute = () => {
     const next = !isMuted;
@@ -422,6 +505,7 @@ export default function App() {
     return square;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [position, chess]);
+
   const { whiteMaterialDiff, blackMaterialDiff, materialBalance } =
     useMemo(() => {
       const values: Record<string, number> = {
@@ -468,8 +552,10 @@ export default function App() {
         bScore += bCounts[type] * values[type];
       });
       const balance = wScore - bScore;
+
       const whiteDiff: { type: string; figurine: string }[] = [];
       const blackDiff: { type: string; figurine: string }[] = [];
+
       order.forEach((type) => {
         const diff = wCounts[type] - bCounts[type];
         const absDiff = Math.abs(diff);
@@ -479,11 +565,13 @@ export default function App() {
         if (diff !== 0) {
           const targetList = diff > 0 ? whiteDiff : blackDiff;
           const figurine = diff > 0 ? figurineW : figurineB;
+
           for (let i = 0; i < absDiff; i++) {
             targetList.push({ type, figurine });
           }
         }
       });
+
       const groupPiecesToStrings = (
         pieces: { type: string; figurine: string }[]
       ) => {
@@ -492,6 +580,7 @@ export default function App() {
 
         let currentFigurine = pieces[0].figurine;
         let currentCount = 0;
+
         for (const piece of pieces) {
           if (piece.figurine === currentFigurine) {
             currentCount++;
@@ -524,6 +613,7 @@ export default function App() {
       players.blackPlayers.length,
     [players]
   );
+
   useEffect(() => {
     const s = io({
       auth: {
@@ -549,18 +639,22 @@ export default function App() {
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     return () => observer.disconnect();
   }, []);
+
   useEffect(() => {
     const checkIsMobile = () => setIsMobile(window.innerWidth <= 900);
     window.addEventListener("resize", checkIsMobile);
     return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
+
   useEffect(() => {
     if (movesRef.current)
       movesRef.current.scrollTop = movesRef.current.scrollHeight;
   }, [turns, activeTab]);
+
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
+
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some((p) => p.id === myId)
@@ -573,6 +667,7 @@ export default function App() {
       localStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
   }, [players, myId, side]);
+
   useEffect(() => {
     if (!socket) return;
 
@@ -622,6 +717,7 @@ export default function App() {
         sounds.play("start");
       }
     );
+
     socket.on("game_reset", () => {
       setGameStatus(GameStatus.Lobby);
       setWinner(null);
@@ -635,6 +731,7 @@ export default function App() {
       setDrawOffer(null);
       prevClocks.current = { whiteTime: 600, blackTime: 600 };
     });
+
     socket.on("clock_update", ({ whiteTime, blackTime }) => {
       const prev = prevClocks.current;
 
@@ -654,6 +751,7 @@ export default function App() {
       chess.load(fen);
       setPosition(fen);
     });
+
     socket.on("move_submitted", (m: Proposal) =>
       setTurns((ts) =>
         ts.map((t) =>
@@ -663,6 +761,7 @@ export default function App() {
         )
       )
     );
+
     socket.on("move_selected", (sel: Selection) => {
       setTurns((ts) =>
         ts.map((t) =>
@@ -694,9 +793,11 @@ export default function App() {
         }
       }
     });
+
     socket.on("turn_change", ({ moveNumber, side }: GameInfo) =>
       setTurns((ts) => [...ts, { moveNumber, side, proposals: [] }])
     );
+
     socket.on(
       "game_over",
       ({
@@ -730,14 +831,17 @@ export default function App() {
         }
       }
     );
+
     socket.on("chat_message", (msg: ChatMessage) => {
       setChatMessages((msgs) => [...msgs, msg]);
       if (!msg.system && activeTabRef.current !== "chat")
         setHasUnreadMessages(true);
     });
+
     socket.on("game_status_update", ({ status }: { status: GameStatus }) => {
       setGameStatus(status);
     });
+
     socket.on(
       "draw_offer_update",
       ({ side }: { side: "white" | "black" | null }) => {
@@ -756,15 +860,21 @@ export default function App() {
       setPollState(state);
     });
 
+    socket.on("team_vote_update", (state: TeamVoteState) => {
+      setTeamVote(state);
+    });
+
     return () => {
       socket.disconnect();
     };
   }, [socket, chess, isMobile]);
+
   useEffect(() => {
     if (isNameModalOpen && nameInputRef.current) {
       nameInputRef.current.focus();
     }
   }, [isNameModalOpen]);
+
   const joinSide = (s: "white" | "black" | "spectator") => {
     socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
       if (res.error) toast.error(res.error);
@@ -786,34 +896,21 @@ export default function App() {
   };
 
   const joinSpectator = () => joinSide("spectator");
-  const resignGame = () => {
-    if (window.confirm("Are you sure you want to resign for your team?")) {
-      socket?.emit("resign");
-      setIsMobileInfoVisible(false);
-    }
-  };
-
-  const offerDraw = () => {
-    if (
-      window.confirm("Are you sure you want to offer a draw for your team?")
-    ) {
-      socket?.emit("offer_draw");
-      setIsMobileInfoVisible(false);
-    }
-  };
-
-  const acceptDraw = () => {
-    if (window.confirm("Accept the draw offer for your team?")) {
-      socket?.emit("accept_draw");
-      setIsMobileInfoVisible(false);
-    }
-  };
 
   const rejectDraw = () => {
     if (window.confirm("Reject the draw offer for your team?")) {
       socket?.emit("reject_draw");
       setIsMobileInfoVisible(false);
     }
+  };
+
+  const startTeamVote = (type: VoteType) => {
+    socket?.emit("start_team_vote", type);
+    setIsMobileInfoVisible(false);
+  };
+
+  const sendTeamVote = (vote: "yes" | "no") => {
+    socket?.emit("vote_team", vote);
   };
 
   const resetGame = () => {
@@ -845,6 +942,7 @@ export default function App() {
     submitMove(lan);
     setPromotionMove(null);
   };
+
   function needsPromotion(from: string, to: string) {
     const piece = chess.get(from as Square);
     if (!piece || piece.type !== "p") return false;
@@ -854,6 +952,7 @@ export default function App() {
 
   const hasPlayed = (playerId: string, teamSide: "white" | "black") =>
     current?.proposals.some((p) => p.id === playerId && p.side === teamSide);
+
   const copyPgn = () => {
     if (!pgn) return;
     const textArea = document.createElement("textarea");
@@ -874,14 +973,17 @@ export default function App() {
     }
     setIsMobileInfoVisible(false);
   };
+
   const openNameModal = () => {
     setNameInput(name);
     setIsNameModalOpen(true);
   };
+
   const closeNameModal = () => {
     setIsNameModalOpen(false);
     setNameInput(name);
   };
+
   const submitSave = () => {
     const newName = nameInput.trim();
     if (newName && newName !== name) {
@@ -890,6 +992,7 @@ export default function App() {
 
     setIsNameModalOpen(false);
   };
+
   const handleNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       submitSave();
@@ -897,6 +1000,7 @@ export default function App() {
       closeNameModal();
     }
   };
+
   const PromotionDialog = () => {
     if (!promotionMove) return null;
     const turnColor = chess.turn();
@@ -1012,6 +1116,7 @@ export default function App() {
       return true;
     },
   };
+
   const PlayerInfoBox = ({
     clockTime,
     lostPieces,
@@ -1304,19 +1409,20 @@ export default function App() {
             autoAssign={autoAssign}
             joinSide={joinSide}
             joinSpectator={joinSpectator}
-            resignGame={resignGame}
-            offerDraw={offerDraw}
-            acceptDraw={acceptDraw}
             rejectDraw={rejectDraw}
             copyPgn={copyPgn}
             pollState={pollState}
             onStartPoll={startPoll}
             onVotePoll={votePoll}
+            teamVote={teamVote}
+            onStartTeamVote={startTeamVote}
+            onSendTeamVote={sendTeamVote}
           />
         </div>
       </div>
     </div>
   );
+
   return (
     <>
       <Toaster position="top-center" />
@@ -1436,10 +1542,10 @@ export default function App() {
                 }}
               >
                 Controls
-                {/* NOTIFICATION DOT LOGIC */}
-                {isMobile && pollState.isActive && activeTab !== "controls" && (
-                  <span className="unread-dot"></span>
-                )}
+                {((isMobile && pollState.isActive) || teamVote.isActive) &&
+                  activeTab !== "controls" && (
+                    <span className="unread-dot"></span>
+                  )}
               </button>
             </nav>
 

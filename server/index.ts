@@ -5,17 +5,25 @@ import { nanoid } from "nanoid";
 import { Chess } from "chess.js";
 import path from "path";
 import { fileURLToPath } from "url";
-import { Player, EndReason, GameStatus, Proposal } from "./shared_types.js";
+import {
+  Player,
+  EndReason,
+  GameStatus,
+  Proposal,
+  VoteType,
+} from "./shared_types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const engineLoaderPath = path.resolve(__dirname, "./load_engine.cjs");
 const { default: loadEngine } = await import(engineLoaderPath);
+
 type Engine = ReturnType<typeof loadEngine>;
 
 const DISCONNECT_GRACE_MS = 20000;
 const STOCKFISH_SEARCH_DEPTH = 15;
 const POLL_DURATION_MS = 20000;
+const TEAM_VOTE_DURATION_MS = 20000;
 
 const stockfishPath = path.join(
   process.cwd(),
@@ -59,6 +67,15 @@ type Session = {
   reconnectTimer?: NodeJS.Timeout;
 };
 
+interface InternalVoteState {
+  type: VoteType;
+  initiatorId: string;
+  yesVoters: Set<string>;
+  required: number;
+  timer: NodeJS.Timeout;
+  endTime: number;
+}
+
 interface GameState {
   whiteIds: Set<string>;
   blackIds: Set<string>;
@@ -81,6 +98,8 @@ interface GameState {
     timer: NodeJS.Timeout;
     endTime: number;
   };
+  whiteVote?: InternalVoteState;
+  blackVote?: InternalVoteState;
 }
 
 const sessions = new Map<string, Session>();
@@ -117,6 +136,7 @@ function broadcastPlayers() {
       name: sess.name,
       connected: onlinePids.has(sess.pid),
     };
+
     if (sess.side === "white") whitePlayers.push(p);
     else if (sess.side === "black") blackPlayers.push(p);
     else spectators.push(p);
@@ -133,11 +153,73 @@ function sendSystemMessage(message: string) {
   });
 }
 
+function sendTeamMessage(side: "white" | "black", message: string) {
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.data.side === side) {
+      socket.emit("chat_message", {
+        sender: "Team System",
+        senderId: "system",
+        message,
+        system: true,
+      });
+    }
+  }
+}
+
+function getTeamVoteClientData(side: "white" | "black") {
+  const vote = side === "white" ? gameState.whiteVote : gameState.blackVote;
+  if (!vote) {
+    return {
+      isActive: false,
+      type: null,
+      initiatorName: "",
+      yesVotes: [],
+      requiredVotes: 0,
+      endTime: 0,
+    };
+  }
+
+  const yesNames = Array.from(vote.yesVoters).map(
+    (pid) => sessions.get(pid)?.name || "Unknown"
+  );
+
+  return {
+    isActive: true,
+    type: vote.type,
+    initiatorName: sessions.get(vote.initiatorId)?.name || "Unknown",
+    yesVotes: yesNames,
+    requiredVotes: vote.required,
+    endTime: vote.endTime,
+  };
+}
+
+function broadcastTeamVote(side: "white" | "black") {
+  const data = getTeamVoteClientData(side);
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.data.side === side) {
+      socket.emit("team_vote_update", data);
+    }
+  }
+}
+
+function clearTeamVote(side: "white" | "black") {
+  const vote = side === "white" ? gameState.whiteVote : gameState.blackVote;
+  if (vote) {
+    clearTimeout(vote.timer);
+    if (side === "white") gameState.whiteVote = undefined;
+    else gameState.blackVote = undefined;
+    broadcastTeamVote(side);
+  }
+}
+
 function endGame(reason: string, winner: string | null = null) {
   if (gameState.status === GameStatus.Over) return;
   if (gameState.timerInterval) clearInterval(gameState.timerInterval);
-  gameState.engine.quit();
 
+  clearTeamVote("white");
+  clearTeamVote("black");
+
+  gameState.engine.quit();
   gameState.status = GameStatus.Over;
   gameState.endReason = reason;
   gameState.endWinner = winner;
@@ -152,7 +234,6 @@ function endGame(reason: string, winner: string | null = null) {
   broadcastPlayers();
 
   gameState.drawOffer = undefined;
-
   const pgn = getCleanPgn(gameState.chess);
   io.emit("game_over", { reason, winner, pgn });
   io.emit("draw_offer_update", { side: null });
@@ -239,6 +320,7 @@ function tryFinalizeTurn() {
 
     const allEntries = [...gameState.proposals.entries()];
     const candidatesStr = allEntries.map(([, { lan }]) => lan);
+
     const candidatesObjs: Proposal[] = allEntries.map(([id, val]) => ({
       id,
       name: val.name,
@@ -320,6 +402,7 @@ function tryFinalizeTurn() {
             gameState.side = gameState.side === "white" ? "black" : "white";
             gameState.moveNumber++;
             gameState.status = GameStatus.AwaitingProposals;
+
             io.emit("turn_change", {
               moveNumber: gameState.moveNumber,
               side: gameState.side,
@@ -333,6 +416,7 @@ function tryFinalizeTurn() {
             `CRITICAL: Error on move. FEN: ${currentFen}, Move: ${selLan}`,
             e
           );
+
           gameState.status = GameStatus.AwaitingProposals;
           gameState.proposals.clear();
           io.emit("game_status_update", { status: gameState.status });
@@ -375,6 +459,7 @@ function leave(this: Socket) {
     if (sess.side === "black") gameState.blackIds.delete(pid);
 
     sessions.delete(pid);
+
     endIfOneSided();
     tryFinalizeTurn();
     broadcastPlayers();
@@ -460,6 +545,7 @@ io.on("connection", (socket: Socket) => {
         san: proposal.san,
       })
     );
+
     socket.emit("game_started", {
       moveNumber: gameState.moveNumber,
       side: gameState.side,
@@ -483,9 +569,12 @@ io.on("connection", (socket: Socket) => {
     }
   }
 
-  // Send current poll status
   if (gameState.poll) {
     socket.emit("poll_update", getPollClientData());
+  }
+
+  if (socket.data.side === "white" || socket.data.side === "black") {
+    socket.emit("team_vote_update", getTeamVoteClientData(socket.data.side));
   }
 
   broadcastPlayers();
@@ -549,6 +638,8 @@ io.on("connection", (socket: Socket) => {
       endWinner: undefined,
       drawOffer: undefined,
       poll: undefined,
+      whiteVote: undefined,
+      blackVote: undefined,
     };
 
     io.emit("game_reset");
@@ -557,6 +648,8 @@ io.on("connection", (socket: Socket) => {
       blackTime: gameState.blackTime,
     });
     io.emit("poll_update", getPollClientData());
+    broadcastTeamVote("white");
+    broadcastTeamVote("black");
 
     sendSystemMessage(`${socket.data.name} has reset the game.`);
     cb?.({ success: true });
@@ -701,46 +794,121 @@ io.on("connection", (socket: Socket) => {
     io.emit("poll_update", getPollClientData());
   });
 
-  socket.on("resign", () => {
+  socket.on("start_team_vote", (type: VoteType) => {
+    const side = socket.data.side;
+    if (side !== "white" && side !== "black") return;
+    if (gameState.status !== GameStatus.AwaitingProposals) return;
+
     if (
-      gameState.status !== GameStatus.AwaitingProposals ||
-      socket.data.side === "spectator"
+      type === "accept_draw" &&
+      (!gameState.drawOffer || gameState.drawOffer === side)
     )
       return;
-    const winner = socket.data.side === "white" ? "black" : "white";
-    sendSystemMessage(
-      `${socket.data.name} resigns on behalf of the ${socket.data.side} team.`
+    if (type === "offer_draw" && gameState.drawOffer) return;
+
+    const currentVote =
+      side === "white" ? gameState.whiteVote : gameState.blackVote;
+    if (currentVote) return;
+
+    const onlinePids = new Set<string>();
+    for (const s of io.sockets.sockets.values()) {
+      if (s.data.pid) onlinePids.add(s.data.pid);
+    }
+
+    const teamIds = side === "white" ? gameState.whiteIds : gameState.blackIds;
+    const connectedTeamIds = [...teamIds].filter((pid) => onlinePids.has(pid));
+    const N = connectedTeamIds.length;
+
+    if (N <= 1) {
+      if (type === "resign") {
+        const winner = side === "white" ? "black" : "white";
+        sendSystemMessage(
+          `${socket.data.name} resigns on behalf of the ${side} team.`
+        );
+        endGame(EndReason.Resignation, winner);
+      } else if (type === "offer_draw") {
+        gameState.drawOffer = side;
+        io.emit("draw_offer_update", { side });
+        sendSystemMessage(
+          `${socket.data.name} offers a draw on behalf of the ${side} team.`
+        );
+      } else if (type === "accept_draw") {
+        sendSystemMessage(`${socket.data.name} accepts the draw offer.`);
+        endGame(EndReason.DrawAgreement, null);
+      }
+      return;
+    }
+
+    const endTime = Date.now() + TEAM_VOTE_DURATION_MS;
+    const voteState: InternalVoteState = {
+      type,
+      initiatorId: pid,
+      yesVoters: new Set([pid]),
+      required: N,
+      endTime,
+      timer: setTimeout(() => {
+        sendTeamMessage(
+          side,
+          `❌ Vote to ${type.replace("_", " ")} failed: Time expired.`
+        );
+        if (side === "white") gameState.whiteVote = undefined;
+        else gameState.blackVote = undefined;
+        broadcastTeamVote(side);
+      }, TEAM_VOTE_DURATION_MS),
+    };
+
+    if (side === "white") gameState.whiteVote = voteState;
+    else gameState.blackVote = voteState;
+
+    sendTeamMessage(
+      side,
+      `🗳️ ${socket.data.name} started a vote to ${type.replace("_", " ")}. (1/${N})`
     );
-    endGame(EndReason.Resignation, winner);
+    broadcastTeamVote(side);
   });
 
-  socket.on("offer_draw", () => {
-    if (
-      gameState.status !== GameStatus.AwaitingProposals ||
-      socket.data.side === "spectator"
-    )
-      return;
+  socket.on("vote_team", (vote: "yes" | "no") => {
+    const side = socket.data.side;
+    if (side !== "white" && side !== "black") return;
 
-    if (gameState.drawOffer) return;
-    gameState.drawOffer = socket.data.side;
-    io.emit("draw_offer_update", { side: socket.data.side });
-    sendSystemMessage(
-      `${socket.data.name} offers a draw on behalf of the ${socket.data.side} team.`
-    );
-  });
+    const currentVote =
+      side === "white" ? gameState.whiteVote : gameState.blackVote;
+    if (!currentVote) return;
 
-  socket.on("accept_draw", () => {
-    if (
-      gameState.status !== GameStatus.AwaitingProposals ||
-      socket.data.side === "spectator"
-    )
-      return;
+    if (vote === "no") {
+      clearTeamVote(side);
+      sendTeamMessage(
+        side,
+        `❌ Vote to ${currentVote.type.replace("_", " ")} failed: ${socket.data.name} voted No.`
+      );
+    } else {
+      if (!currentVote.yesVoters.has(pid)) {
+        currentVote.yesVoters.add(pid);
 
-    if (!gameState.drawOffer || gameState.drawOffer === socket.data.side)
-      return;
+        if (currentVote.yesVoters.size >= currentVote.required) {
+          clearTeamVote(side);
+          sendTeamMessage(
+            side,
+            `✅ Vote passed! Executing ${currentVote.type.replace("_", " ")}.`
+          );
 
-    sendSystemMessage(`${socket.data.name} accepts the draw offer.`);
-    endGame(EndReason.DrawAgreement, null);
+          if (currentVote.type === "resign") {
+            const winner = side === "white" ? "black" : "white";
+            sendSystemMessage(`${side} team resigns.`);
+            endGame(EndReason.Resignation, winner);
+          } else if (currentVote.type === "offer_draw") {
+            gameState.drawOffer = side;
+            io.emit("draw_offer_update", { side });
+            sendSystemMessage(`${side} team offers a draw.`);
+          } else if (currentVote.type === "accept_draw") {
+            sendSystemMessage(`${side} team accepts the draw.`);
+            endGame(EndReason.DrawAgreement, null);
+          }
+        } else {
+          broadcastTeamVote(side);
+        }
+      }
+    }
   });
 
   socket.on("reject_draw", () => {
