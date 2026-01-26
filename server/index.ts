@@ -71,6 +71,7 @@ interface InternalVoteState {
   type: VoteType;
   initiatorId: string;
   yesVoters: Set<string>;
+  eligibleVoters: Set<string>; // NEW: Track who is allowed to vote
   required: number;
   timer: NodeJS.Timeout;
   endTime: number;
@@ -533,8 +534,6 @@ function startTeamVoteLogic(
   const N = connectedTeamIds.length;
 
   // AUTO-EXECUTE if N<=1 AND it is a player-initiated action (Resign/Offer).
-  // If it is a System-triggered action (Vote to Accept Draw), we DO NOT auto-execute
-  // because we want the user to click "Yes" to confirm the acceptance.
   const isSystemTriggered = initiatorId === "system";
 
   if (N <= 1 && !isSystemTriggered) {
@@ -570,6 +569,7 @@ function startTeamVoteLogic(
     type,
     initiatorId,
     yesVoters: initialYes,
+    eligibleVoters: new Set(connectedTeamIds), // Snapshot of voters
     required: N,
     endTime,
     timer: setTimeout(() => {
@@ -716,6 +716,21 @@ io.on("connection", (socket: Socket) => {
 
     broadcastPlayers();
     tryFinalizeTurn();
+
+    // UPDATE CLIENT VOTE UI
+    if (side === "white" || side === "black") {
+      socket.emit("team_vote_update", getTeamVoteClientData(side));
+    } else {
+      socket.emit("team_vote_update", {
+        isActive: false,
+        type: null,
+        initiatorName: "",
+        yesVotes: [],
+        requiredVotes: 0,
+        endTime: 0,
+      });
+    }
+
     cb?.({ success: true });
   });
 
@@ -908,6 +923,12 @@ io.on("connection", (socket: Socket) => {
     const currentVote =
       side === "white" ? gameState.whiteVote : gameState.blackVote;
     if (!currentVote) return;
+
+    // CHECK ELIGIBILITY
+    if (!currentVote.eligibleVoters.has(pid)) {
+      socket.emit("error", { message: "You cannot vote (joined late)." });
+      return;
+    }
 
     if (vote === "no") {
       clearTeamVote(side);

@@ -248,9 +248,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
         <button onClick={resetGame}>🔄 Reset Game</button>
       )}
 
-      {renderVoteUI()}
-
-      {gameStatus !== GameStatus.Over && !teamVote.isActive && (
+      {/* 1. Join/Switch Buttons (Always Visible) */}
+      {gameStatus !== GameStatus.Over && (
         <>
           {side === "spectator" && (
             <>
@@ -269,37 +268,51 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                   🔁 Switch to {side === "white" ? "Black" : "White"}
                 </button>
               )}
-              {gameStatus === GameStatus.AwaitingProposals && (
-                <>
-                  {drawOffer === side ? (
-                    <button
-                      disabled
-                      style={{ opacity: 0.6, cursor: "default" }}
-                    >
-                      ⏳ Draw Offered...
-                    </button>
-                  ) : drawOffer && drawOffer !== side ? (
-                    // Logic handled by automatic vote trigger
-                    // But we keep a placeholder just in case, or show nothing
-                    <span style={{ fontStyle: "italic", fontSize: "0.9em" }}>
-                      Voting on Draw...
-                    </span>
-                  ) : (
-                    <>
-                      <button onClick={() => onStartTeamVote("resign")}>
-                        🏳️ Resign
-                      </button>
-                      <button onClick={() => onStartTeamVote("offer_draw")}>
-                        🤝 Offer Draw
-                      </button>
-                    </>
-                  )}
-                </>
-              )}
             </>
           )}
         </>
       )}
+
+      {/* 2. Action Area: Vote Box OR Action Buttons */}
+      {gameStatus !== GameStatus.Over && (
+        <>
+          {/* If Vote is active, show Vote Box */}
+          {teamVote.isActive && renderVoteUI()}
+
+          {/* If Vote NOT active, show Resign/Draw Buttons */}
+          {!teamVote.isActive &&
+            gameStatus === GameStatus.AwaitingProposals && (
+              <>
+                {(side === "white" || side === "black") && (
+                  <>
+                    {drawOffer === side ? (
+                      <button
+                        disabled
+                        style={{ opacity: 0.6, cursor: "default" }}
+                      >
+                        ⏳ Draw Offered...
+                      </button>
+                    ) : drawOffer && drawOffer !== side ? (
+                      <span style={{ fontStyle: "italic", fontSize: "0.9em" }}>
+                        Voting on Draw...
+                      </span>
+                    ) : (
+                      <>
+                        <button onClick={() => onStartTeamVote("resign")}>
+                          🏳️ Resign
+                        </button>
+                        <button onClick={() => onStartTeamVote("offer_draw")}>
+                          🤝 Offer Draw
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+        </>
+      )}
+
       {gameStatus === GameStatus.Over && pgn && (
         <button onClick={copyPgn}>📋 Copy PGN</button>
       )}
