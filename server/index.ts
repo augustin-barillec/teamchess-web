@@ -22,7 +22,6 @@ type Engine = ReturnType<typeof loadEngine>;
 
 const DISCONNECT_GRACE_MS = 20000;
 const STOCKFISH_SEARCH_DEPTH = 15;
-const POLL_DURATION_MS = 20000;
 const TEAM_VOTE_DURATION_MS = 20000;
 
 const stockfishPath = path.join(
@@ -71,7 +70,7 @@ interface InternalVoteState {
   type: VoteType;
   initiatorId: string;
   yesVoters: Set<string>;
-  eligibleVoters: Set<string>; // NEW: Track who is allowed to vote
+  eligibleVoters: Set<string>;
   required: number;
   timer: NodeJS.Timeout;
   endTime: number;
@@ -92,13 +91,6 @@ interface GameState {
   endReason?: string;
   endWinner?: string | null;
   drawOffer?: "white" | "black";
-  poll?: {
-    question: string;
-    yesVoters: Set<string>;
-    noVoters: Set<string>;
-    timer: NodeJS.Timeout;
-    endTime: number;
-  };
   whiteVote?: InternalVoteState;
   blackVote?: InternalVoteState;
 }
@@ -137,7 +129,6 @@ function broadcastPlayers() {
       name: sess.name,
       connected: onlinePids.has(sess.pid),
     };
-
     if (sess.side === "white") whitePlayers.push(p);
     else if (sess.side === "black") blackPlayers.push(p);
     else spectators.push(p);
@@ -321,7 +312,6 @@ function tryFinalizeTurn() {
 
     const allEntries = [...gameState.proposals.entries()];
     const candidatesStr = allEntries.map(([, { lan }]) => lan);
-
     const candidatesObjs: Proposal[] = allEntries.map(([id, val]) => ({
       id,
       name: val.name,
@@ -403,7 +393,6 @@ function tryFinalizeTurn() {
             gameState.side = gameState.side === "white" ? "black" : "white";
             gameState.moveNumber++;
             gameState.status = GameStatus.AwaitingProposals;
-
             io.emit("turn_change", {
               moveNumber: gameState.moveNumber,
               side: gameState.side,
@@ -417,7 +406,6 @@ function tryFinalizeTurn() {
             `CRITICAL: Error on move. FEN: ${currentFen}, Move: ${selLan}`,
             e
           );
-
           gameState.status = GameStatus.AwaitingProposals;
           gameState.proposals.clear();
           io.emit("game_status_update", { status: gameState.status });
@@ -460,7 +448,6 @@ function leave(this: Socket) {
     if (sess.side === "black") gameState.blackIds.delete(pid);
 
     sessions.delete(pid);
-
     endIfOneSided();
     tryFinalizeTurn();
     broadcastPlayers();
@@ -473,36 +460,6 @@ function leave(this: Socket) {
 
   broadcastPlayers();
   tryFinalizeTurn();
-}
-
-function getPollClientData() {
-  if (!gameState.poll) {
-    return {
-      isActive: false,
-      question: "",
-      yesVotes: [],
-      noVotes: [],
-      endTime: 0,
-    };
-  }
-
-  const yesNames = Array.from(gameState.poll.yesVoters)
-    .map((pid) => sessions.get(pid))
-    .filter((s) => !!s)
-    .map((s) => s!.name);
-
-  const noNames = Array.from(gameState.poll.noVoters)
-    .map((pid) => sessions.get(pid))
-    .filter((s) => !!s)
-    .map((s) => s!.name);
-
-  return {
-    isActive: true,
-    question: gameState.poll.question,
-    yesVotes: yesNames,
-    noVotes: noNames,
-    endTime: gameState.poll.endTime,
-  };
 }
 
 // Internal function to start a vote (can be triggered by socket or system)
@@ -558,7 +515,6 @@ function startTeamVoteLogic(
 
   // START VOTE
   const endTime = Date.now() + TEAM_VOTE_DURATION_MS;
-
   // If system triggered (accept_draw), start with 0 votes.
   // If player triggered, start with 1 vote (themselves).
   const initialYes = isSystemTriggered
@@ -622,6 +578,7 @@ io.on("connection", (socket: Socket) => {
       clearTimeout(sess.reconnectTimer);
       sess.reconnectTimer = undefined;
     }
+
     if (providedName) sess.name = providedName;
   }
 
@@ -670,10 +627,6 @@ io.on("connection", (socket: Socket) => {
         pgn: getCleanPgn(gameState.chess),
       });
     }
-  }
-
-  if (gameState.poll) {
-    socket.emit("poll_update", getPollClientData());
   }
 
   if (socket.data.side === "white" || socket.data.side === "black") {
@@ -755,7 +708,6 @@ io.on("connection", (socket: Socket) => {
       endReason: undefined,
       endWinner: undefined,
       drawOffer: undefined,
-      poll: undefined,
       whiteVote: undefined,
       blackVote: undefined,
     };
@@ -765,7 +717,6 @@ io.on("connection", (socket: Socket) => {
       whiteTime: gameState.whiteTime,
       blackTime: gameState.blackTime,
     });
-    io.emit("poll_update", getPollClientData());
     broadcastTeamVote("white");
     broadcastTeamVote("black");
 
@@ -812,7 +763,6 @@ io.on("connection", (socket: Socket) => {
 
     const active =
       gameState.side === "white" ? gameState.whiteIds : gameState.blackIds;
-
     if (!active.has(pid)) return cb?.({ error: "Not your turn." });
     if (gameState.proposals.has(pid)) return cb?.({ error: "Already moved." });
 
@@ -854,56 +804,6 @@ io.on("connection", (socket: Socket) => {
     });
   });
 
-  socket.on("start_poll", (question: string) => {
-    const cleanQuestion = question?.trim().slice(0, 100);
-    if (!cleanQuestion || gameState.poll) return;
-
-    const endTime = Date.now() + POLL_DURATION_MS;
-
-    gameState.poll = {
-      question: cleanQuestion,
-      yesVoters: new Set(),
-      noVoters: new Set(),
-      endTime: endTime,
-      timer: setTimeout(() => {
-        if (gameState.poll) {
-          const { question, yesVoters, noVoters } = gameState.poll;
-          const yesNames = Array.from(yesVoters)
-            .map((id) => sessions.get(id)?.name || "Unknown")
-            .join(", ");
-          const noNames = Array.from(noVoters)
-            .map((id) => sessions.get(id)?.name || "Unknown")
-            .join(", ");
-
-          const resultMsg = `📊 Poll Result: "${question}"\nYes (${yesVoters.size}): ${yesNames}\nNo (${noVoters.size}): ${noNames}`;
-
-          sendSystemMessage(resultMsg);
-
-          gameState.poll = undefined;
-          io.emit("poll_update", getPollClientData());
-        }
-      }, POLL_DURATION_MS),
-    };
-
-    sendSystemMessage(`${socket.data.name} started a poll: "${cleanQuestion}"`);
-
-    io.emit("poll_update", getPollClientData());
-  });
-
-  socket.on("vote_poll", (vote: "yes" | "no") => {
-    if (!gameState.poll) return;
-
-    if (vote === "yes") {
-      gameState.poll.noVoters.delete(pid);
-      gameState.poll.yesVoters.add(pid);
-    } else {
-      gameState.poll.yesVoters.delete(pid);
-      gameState.poll.noVoters.add(pid);
-    }
-
-    io.emit("poll_update", getPollClientData());
-  });
-
   socket.on("start_team_vote", (type: VoteType) => {
     if (socket.data.side !== "white" && socket.data.side !== "black") return;
     if (gameState.status !== GameStatus.AwaitingProposals) return;
@@ -934,7 +834,10 @@ io.on("connection", (socket: Socket) => {
       clearTeamVote(side);
       sendTeamMessage(
         side,
-        `❌ Vote to ${currentVote.type.replace("_", " ")} failed: ${socket.data.name} voted No.`
+        `❌ Vote to ${currentVote.type.replace(
+          "_",
+          " "
+        )} failed: ${socket.data.name} voted No.`
       );
 
       // Explicitly reject draw if it was an accept_draw vote
@@ -997,7 +900,6 @@ function startServer() {
     engine,
     chess: new Chess(),
     status: GameStatus.Lobby,
-    poll: undefined,
   };
 
   const publicPath = path.join(__dirname, "..", "public");

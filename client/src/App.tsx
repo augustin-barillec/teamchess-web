@@ -23,7 +23,6 @@ import {
   EndReason,
   ChatMessage,
   GameStatus,
-  PollState,
   TeamVoteState,
   VoteType,
 } from "../../server/shared_types";
@@ -138,9 +137,6 @@ interface ControlsPanelProps {
   joinSide: (side: "white" | "black" | "spectator") => void;
   joinSpectator: () => void;
   copyPgn: () => void;
-  pollState: PollState;
-  onStartPoll: () => void;
-  onVotePoll: (vote: "yes" | "no") => void;
   teamVote: TeamVoteState;
   onStartTeamVote: (type: VoteType) => void;
   onSendTeamVote: (vote: "yes" | "no") => void;
@@ -158,9 +154,6 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   joinSide,
   joinSpectator,
   copyPgn,
-  pollState,
-  onStartPoll,
-  onVotePoll,
   teamVote,
   onStartTeamVote,
   onSendTeamVote,
@@ -168,16 +161,16 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!pollState.isActive && !teamVote.isActive) return;
+    if (!teamVote.isActive) return;
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [pollState.isActive, teamVote.isActive]);
+  }, [teamVote.isActive]);
 
-  const pollTimeLeft = Math.max(0, Math.ceil((pollState.endTime - now) / 1000));
   const voteTimeLeft = Math.max(0, Math.ceil((teamVote.endTime - now) / 1000));
 
   const renderVoteUI = () => {
     if (!teamVote.isActive || !teamVote.type) return null;
+
     const titleMap = {
       resign: "Resign",
       offer_draw: "Offer Draw",
@@ -320,93 +313,6 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
       <button onClick={toggleMute}>
         {isMuted ? "🔊 Unmute Sounds" : "🔇 Mute Sounds"}
       </button>
-
-      <div className="poll-container">
-        {pollState.isActive ? (
-          <div
-            style={{
-              background: "#f0f8ff",
-              padding: "10px",
-              borderRadius: "6px",
-              border: "1px solid #cce",
-            }}
-          >
-            <div
-              style={{
-                fontWeight: "bold",
-                fontSize: "1.05em",
-                marginBottom: "5px",
-              }}
-            >
-              📊 {pollState.question}
-            </div>
-            <div
-              style={{
-                fontSize: "0.85em",
-                color: "#666",
-                marginBottom: "10px",
-                fontStyle: "italic",
-              }}
-            >
-              Time left: {pollTimeLeft}s
-            </div>
-
-            <div style={{ display: "flex", gap: "10px" }}>
-              <div style={{ flex: 1 }}>
-                <button
-                  onClick={() => onVotePoll("yes")}
-                  style={{
-                    width: "100%",
-                    background: "#e6fffa",
-                    borderColor: "#38b2ac",
-                    color: "#234e52",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Yes ({pollState.yesVotes.length})
-                </button>
-                <div
-                  style={{
-                    fontSize: "0.8em",
-                    marginTop: "4px",
-                    color: "#555",
-                    lineHeight: "1.2",
-                  }}
-                >
-                  {pollState.yesVotes.join(", ")}
-                </div>
-              </div>
-
-              <div style={{ flex: 1 }}>
-                <button
-                  onClick={() => onVotePoll("no")}
-                  style={{
-                    width: "100%",
-                    background: "#fff5f5",
-                    borderColor: "#fc8181",
-                    color: "#742a2a",
-                    fontWeight: "bold",
-                  }}
-                >
-                  No ({pollState.noVotes.length})
-                </button>
-                <div
-                  style={{
-                    fontSize: "0.8em",
-                    marginTop: "4px",
-                    color: "#555",
-                    lineHeight: "1.2",
-                  }}
-                >
-                  {pollState.noVotes.join(", ")}
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <button onClick={onStartPoll}>📊 Start Poll</button>
-        )}
-      </div>
     </>
   );
 };
@@ -479,13 +385,6 @@ export default function App() {
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
-  const [pollState, setPollState] = useState<PollState>({
-    isActive: false,
-    question: "",
-    yesVotes: [],
-    noVotes: [],
-    endTime: 0,
-  });
   const [teamVote, setTeamVote] = useState<TeamVoteState>({
     isActive: false,
     type: null,
@@ -871,10 +770,6 @@ export default function App() {
       }
     );
 
-    socket.on("poll_update", (state: PollState) => {
-      setPollState(state);
-    });
-
     socket.on("team_vote_update", (state: TeamVoteState) => {
       setTeamVote(state);
     });
@@ -924,7 +819,6 @@ export default function App() {
         if (type === "resign") msg = "Are you sure you want to resign?";
         else if (type === "offer_draw")
           msg = "Are you sure you want to offer a draw?";
-
         if (msg && !window.confirm(msg)) return;
       }
     }
@@ -1176,15 +1070,6 @@ export default function App() {
     );
   };
 
-  const startPoll = () => {
-    const q = window.prompt("Ask a Yes/No question (20s limit):");
-    if (q) socket?.emit("start_poll", q);
-  };
-
-  const votePoll = (vote: "yes" | "no") => {
-    socket?.emit("vote_poll", vote);
-  };
-
   const TabContent = (
     <div className="info-tabs-content">
       <div
@@ -1434,9 +1319,6 @@ export default function App() {
             joinSide={joinSide}
             joinSpectator={joinSpectator}
             copyPgn={copyPgn}
-            pollState={pollState}
-            onStartPoll={startPoll}
-            onVotePoll={votePoll}
             teamVote={teamVote}
             onStartTeamVote={startTeamVote}
             onSendTeamVote={sendTeamVote}
@@ -1565,10 +1447,9 @@ export default function App() {
                 }}
               >
                 Controls
-                {((isMobile && pollState.isActive) || teamVote.isActive) &&
-                  activeTab !== "controls" && (
-                    <span className="unread-dot"></span>
-                  )}
+                {teamVote.isActive && activeTab !== "controls" && (
+                  <span className="unread-dot"></span>
+                )}
               </button>
             </nav>
 
