@@ -1,4 +1,4 @@
-import { Players, Proposal } from "../types";
+import { Players } from "../types";
 import { DisconnectedIcon } from "../DisconnectedIcon";
 
 interface PlayersPanelProps {

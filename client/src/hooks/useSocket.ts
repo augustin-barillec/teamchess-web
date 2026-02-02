@@ -37,14 +37,9 @@ interface UseSocketReturn {
   pgn: string;
   chatMessages: ChatMessage[];
   turns: Turn[];
-  setTurns: React.Dispatch<React.SetStateAction<Turn[]>>;
   position: string;
-  setPosition: React.Dispatch<React.SetStateAction<string>>;
   clocks: { whiteTime: number; blackTime: number };
   lastMoveSquares: { from: string; to: string } | null;
-  setLastMoveSquares: React.Dispatch<
-    React.SetStateAction<{ from: string; to: string } | null>
-  >;
   drawOffer: "white" | "black" | null;
   teamVote: TeamVoteState;
   setHasUnreadMessages: React.Dispatch<React.SetStateAction<boolean>>;
@@ -98,7 +93,7 @@ export function useSocket({
     requiredVotes: 0,
     endTime: 0,
   });
-  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const [_hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const prevClocks = useRef({ whiteTime: 600, blackTime: 600 });
 
   // Socket initialization
@@ -114,6 +109,7 @@ export function useSocket({
       reconnectionDelayMax: 2000,
       randomizationFactor: 0.2,
     });
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSocket(s);
     return () => {
       s.disconnect();
@@ -129,6 +125,7 @@ export function useSocket({
         ? "black"
         : "spectator";
     if (serverSide !== side) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSide(serverSide);
       localStorage.setItem(STORAGE_KEYS.side, serverSide);
     }
@@ -346,12 +343,9 @@ export function useSocket({
     pgn,
     chatMessages,
     turns,
-    setTurns,
     position,
-    setPosition,
     clocks,
     lastMoveSquares,
-    setLastMoveSquares,
     drawOffer,
     teamVote,
     setHasUnreadMessages,
