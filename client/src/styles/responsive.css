@@ -1,0 +1,183 @@
+@media (max-width: 900px) {
+  .main-layout {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .game-column {
+    width: 100%;
+    max-width: 800px;
+    order: 1;
+  }
+
+  .info-column {
+    order: 2;
+    width: 100%;
+    max-width: 800px;
+    position: relative;
+    top: 0;
+  }
+
+  .info-column > .info-tabs-content {
+    display: none;
+  }
+
+  .info-column {
+    background: none;
+    border: none;
+    overflow: visible;
+  }
+  .info-column .info-tabs-nav {
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    overflow: hidden;
+  }
+  .info-tabs-nav button.active {
+    background: #f4f4f4;
+    color: #555;
+    border-bottom-color: transparent;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    padding: 10px;
+  }
+
+  .header-bar {
+    justify-content: center;
+  }
+
+  .clock-box {
+    font-size: 1.5rem;
+    min-width: 100px;
+  }
+
+  .material-display {
+    font-size: 1.5rem;
+  }
+
+  .moves-list,
+  .chat-box-container,
+  .player-lists-container {
+    height: 400px;
+  }
+}
+
+@media (min-width: 900.01px) {
+  .info-column {
+    display: contents;
+  }
+
+  .info-tabs-nav {
+    display: none;
+  }
+
+  .info-tabs-content {
+    display: contents;
+  }
+
+  .tab-panel {
+    display: block !important;
+    background: #fdfdfd;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    overflow: hidden;
+    position: sticky;
+    top: 20px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 20%;
+    min-width: 220px;
+  }
+
+  .game-column {
+    flex-grow: 0;
+    flex-shrink: 1;
+    flex-basis: 50%;
+    max-width: 70vh;
+    min-width: 350px;
+  }
+
+  .players-panel,
+  .moves-panel,
+  .controls-panel {
+    flex-basis: 12%;
+    min-width: 140px;
+  }
+
+  .chat-panel {
+    flex-basis: 20%;
+    min-width: 200px;
+  }
+
+  .tab-panel > h3 {
+    display: block;
+    font-size: 1.2em;
+    margin: 0;
+    padding: 10px 10px 8px 10px;
+    border-bottom: 1px solid #ccc;
+    background: #f4f4f4;
+  }
+
+  .unread-dot {
+    display: none;
+  }
+
+  .action-panel-desktop-left {
+    justify-content: flex-start;
+    flex-grow: 1;
+  }
+}
+
+.mobile-info-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: #f8f8f8;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  gap: 10px;
+}
+
+.mobile-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 10px;
+  border-top: 1px solid #ccc;
+  border-radius: 0 0 8px 8px;
+  background: #f4f4f4;
+  flex-shrink: 0;
+}
+
+.mobile-info-header h3 {
+  margin: 0;
+  padding: 12px 0;
+  font-size: 1.1em;
+}
+
+.mobile-info-overlay .info-tabs-content {
+  flex-grow: 1;
+  min-height: 0;
+  position: relative;
+  background: #fdfdfd;
+  border: 1px solid #ccc;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+}
+
+.mobile-info-overlay .tab-panel.active {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.mobile-info-overlay .moves-list,
+.mobile-info-overlay .chat-box-container,
+.mobile-info-overlay .player-lists-container,
+.mobile-info-overlay .controls-panel-content {
+  height: 100%;
+}
