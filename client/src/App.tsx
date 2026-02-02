@@ -6,364 +6,62 @@ import {
   CSSProperties,
   KeyboardEvent,
 } from "react";
-import type { ChangeEvent, RefObject } from "react";
 import { Toaster, toast } from "react-hot-toast";
-import { io, Socket } from "socket.io-client";
 import { Chess, Square, Move } from "chess.js";
 import {
   Chessboard,
   PieceDropHandlerArgs,
   PieceHandlerArgs,
 } from "react-chessboard";
+import { GameStatus, VoteType } from "./types";
 import {
-  Players,
-  GameInfo,
-  Proposal,
-  Selection,
-  EndReason,
-  ChatMessage,
-  GameStatus,
-  TeamVoteState,
-  VoteType,
-} from "../../server/shared_types";
-import { DisconnectedIcon } from "./DisconnectedIcon";
+  STORAGE_KEYS,
+  pieceToFigurineWhite,
+  pieceToFigurineBlack,
+} from "./constants";
+import { useSocket } from "./hooks/useSocket";
+import { NameChangeModal } from "./components/NameChangeModal";
+import { ControlsPanel } from "./components/ControlsPanel";
+import { PromotionDialog } from "./components/PromotionDialog";
+import { PlayerInfoBox } from "./components/PlayerInfoBox";
+import { PlayersPanel } from "./components/PlayersPanel";
+import { MovesPanel } from "./components/MovesPanel";
+import { ChatPanel } from "./components/ChatPanel";
 import { sounds } from "./soundEngine";
 
-const STORAGE_KEYS = {
-  pid: "tc:pid",
-  name: "tc:name",
-  side: "tc:side",
-} as const;
-
-const reasonMessages: Record<string, (winner: string | null) => string> = {
-  [EndReason.Checkmate]: (winner) =>
-    `☑️ Checkmate!\n${
-      winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
-    } wins!`,
-  [EndReason.Stalemate]: () => `🤝 Game drawn by stalemate.`,
-  [EndReason.Threefold]: () => `🤝 Game drawn by threefold repetition.`,
-  [EndReason.Insufficient]: () => `🤝 Game drawn by insufficient material.`,
-  [EndReason.DrawRule]: () => `🤝 Game drawn by rule (e.g. fifty-move).`,
-  [EndReason.Resignation]: (winner) =>
-    `🏳️ Resignation!\n${
-      winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
-    } wins!`,
-  [EndReason.DrawAgreement]: () => `🤝 Draw agreed.`,
-  [EndReason.Timeout]: (winner) =>
-    `⏱️ Time!\n${
-      winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
-    } wins!`,
-  [EndReason.Abandonment]: (winner) =>
-    `🚫 Forfeit!\n${
-      winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
-    } wins as the opposing team is empty.`,
-};
-
-const pieceToFigurineWhite: Record<string, string> = {
-  K: "♔",
-  Q: "♕",
-  R: "♖",
-  B: "♗",
-  N: "♘",
-  P: "♙",
-};
-
-const pieceToFigurineBlack: Record<string, string> = {
-  K: "♚",
-  Q: "♛",
-  R: "♜",
-  B: "♝",
-  N: "♞",
-  P: "♟",
-};
-
-interface NameChangeModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: () => void;
-  value: string;
-  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
-  onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
-  inputRef: RefObject<HTMLInputElement | null>;
-  gameStatus: GameStatus;
-  side: "white" | "black" | "spectator";
-}
-
-const NameChangeModal: React.FC<NameChangeModalProps> = ({
-  isOpen,
-  onClose,
-  onSave,
-  value,
-  onChange,
-  onKeyDown,
-  inputRef,
-  gameStatus: _gameStatus,
-  side: _side,
-}) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="name-modal-overlay" onClick={onClose}>
-      <div className="name-modal-dialog" onClick={(e) => e.stopPropagation()}>
-        <h3>Change Name</h3>
-        <input
-          ref={inputRef}
-          type="text"
-          value={value}
-          onChange={onChange}
-          onKeyDown={onKeyDown}
-          placeholder="Set your name"
-          aria-label="Set your name (Enter to save)"
-        />
-
-        <div className="name-modal-buttons">
-          <button onClick={onClose}>Cancel</button>
-          <button onClick={onSave}>Save</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-interface ControlsPanelProps {
-  gameStatus: GameStatus;
-  side: "white" | "black" | "spectator";
-  drawOffer: "white" | "black" | null;
-  pgn: string;
-  isMuted: boolean;
-  toggleMute: () => void;
-  resetGame: () => void;
-  autoAssign: () => void;
-  joinSide: (side: "white" | "black" | "spectator") => void;
-  joinSpectator: () => void;
-  copyPgn: () => void;
-  teamVote: TeamVoteState;
-  onStartTeamVote: (type: VoteType) => void;
-  onSendTeamVote: (vote: "yes" | "no") => void;
-}
-
-const ControlsPanel: React.FC<ControlsPanelProps> = ({
-  gameStatus,
-  side,
-  drawOffer,
-  pgn,
-  isMuted,
-  toggleMute,
-  resetGame,
-  autoAssign,
-  joinSide,
-  joinSpectator,
-  copyPgn,
-  teamVote,
-  onStartTeamVote,
-  onSendTeamVote,
-}) => {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!teamVote.isActive) return;
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, [teamVote.isActive]);
-
-  const voteTimeLeft = Math.max(0, Math.ceil((teamVote.endTime - now) / 1000));
-
-  const renderVoteUI = () => {
-    if (!teamVote.isActive || !teamVote.type) return null;
-
-    const titleMap = {
-      resign: "Resign",
-      offer_draw: "Offer Draw",
-      accept_draw: "Accept Draw",
-    };
-
-    return (
-      <div className="poll-container" style={{ marginBottom: "10px" }}>
-        <div
-          style={{
-            background: "#ebf8ff",
-            padding: "10px",
-            borderRadius: "6px",
-            border: "1px solid #bee3f8",
-          }}
-        >
-          <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
-            🗳️ Vote: {titleMap[teamVote.type]}
-          </div>
-          <div
-            style={{
-              fontSize: "0.85em",
-              color: "#666",
-              marginBottom: "10px",
-              fontStyle: "italic",
-            }}
-          >
-            Time left: {voteTimeLeft}s • Required: {teamVote.requiredVotes}
-          </div>
-
-          <div style={{ display: "flex", gap: "10px" }}>
-            <button
-              onClick={() => onSendTeamVote("yes")}
-              style={{
-                flex: 1,
-                background: "#e6fffa",
-                borderColor: "#38b2ac",
-                color: "#234e52",
-                fontWeight: "bold",
-              }}
-            >
-              Yes ({teamVote.yesVotes.length})
-            </button>
-            <button
-              onClick={() => onSendTeamVote("no")}
-              style={{
-                flex: 1,
-                background: "#fff5f5",
-                borderColor: "#fc8181",
-                color: "#742a2a",
-                fontWeight: "bold",
-              }}
-            >
-              No
-            </button>
-          </div>
-          <div style={{ fontSize: "0.8em", marginTop: "8px", color: "#555" }}>
-            Voters: {teamVote.yesVotes.join(", ")}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <>
-      {gameStatus !== GameStatus.Lobby && (
-        <button onClick={resetGame}>🔄 Reset Game</button>
-      )}
-
-      {/* 1. Join/Switch Buttons (Always Visible) */}
-      {gameStatus !== GameStatus.Over && (
-        <>
-          {side === "spectator" && (
-            <>
-              <button onClick={autoAssign}>🎲 Auto Assign</button>
-              <button onClick={() => joinSide("white")}>♔ Join White</button>
-              <button onClick={() => joinSide("black")}>♚ Join Black</button>
-            </>
-          )}
-          {(side === "white" || side === "black") && (
-            <>
-              <button onClick={joinSpectator}>👁️ Join Spectators</button>
-              {gameStatus === GameStatus.Lobby && (
-                <button
-                  onClick={() => joinSide(side === "white" ? "black" : "white")}
-                >
-                  🔁 Switch to {side === "white" ? "Black" : "White"}
-                </button>
-              )}
-            </>
-          )}
-        </>
-      )}
-
-      {/* 2. Action Area: Vote Box OR Action Buttons */}
-      {gameStatus !== GameStatus.Over && (
-        <>
-          {/* If Vote is active, show Vote Box */}
-          {teamVote.isActive && renderVoteUI()}
-
-          {/* If Vote NOT active, show Resign/Draw Buttons */}
-          {!teamVote.isActive &&
-            gameStatus === GameStatus.AwaitingProposals && (
-              <>
-                {(side === "white" || side === "black") && (
-                  <>
-                    {drawOffer === side ? (
-                      <button
-                        disabled
-                        style={{ opacity: 0.6, cursor: "default" }}
-                      >
-                        ⏳ Draw Offered...
-                      </button>
-                    ) : drawOffer && drawOffer !== side ? (
-                      <span style={{ fontStyle: "italic", fontSize: "0.9em" }}>
-                        Voting on Draw...
-                      </span>
-                    ) : (
-                      <>
-                        <button onClick={() => onStartTeamVote("resign")}>
-                          🏳️ Resign
-                        </button>
-                        <button onClick={() => onStartTeamVote("offer_draw")}>
-                          🤝 Offer Draw
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-        </>
-      )}
-
-      {gameStatus === GameStatus.Over && pgn && (
-        <button onClick={copyPgn}>📋 Copy PGN</button>
-      )}
-
-      <button onClick={toggleMute}>
-        {isMuted ? "🔊 Unmute Sounds" : "🔇 Mute Sounds"}
-      </button>
-    </>
-  );
-};
-
 export default function App() {
-  const [amDisconnected, setAmDisconnected] = useState(false);
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [myId, setMyId] = useState<string>(
-    localStorage.getItem(STORAGE_KEYS.pid) || ""
-  );
-  const [name, setName] = useState(
-    localStorage.getItem(STORAGE_KEYS.name) || "Player"
-  );
-  const [nameInput, setNameInput] = useState(
-    localStorage.getItem(STORAGE_KEYS.name) || "Player"
-  );
-  const [side, setSide] = useState<"spectator" | "white" | "black">(
-    (localStorage.getItem(STORAGE_KEYS.side) as
-      | "spectator"
-      | "white"
-      | "black") || "spectator"
-  );
-  const [players, setPlayers] = useState<Players>({
-    spectators: [],
-    whitePlayers: [],
-    blackPlayers: [],
-  });
-  const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Lobby);
-  const [_winner, setWinner] = useState<"white" | "black" | null>(null);
-  const [_endReason, setEndReason] = useState<string | null>(null);
-  const [pgn, setPgn] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [turns, setTurns] = useState<
-    {
-      moveNumber: number;
-      side: "white" | "black";
-      proposals: Proposal[];
-      selection?: Selection;
-    }[]
-  >([]);
   const [chess] = useState(new Chess());
-  const [position, setPosition] = useState(chess.fen());
-  const [clocks, setClocks] = useState({ whiteTime: 0, blackTime: 0 });
-  const [lastMoveSquares, setLastMoveSquares] = useState<{
-    from: string;
-    to: string;
-  } | null>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
+  const activeTabRef = useRef<string>("players");
+
+  const {
+    socket,
+    amDisconnected,
+    myId,
+    name,
+    nameInput,
+    setNameInput,
+    side,
+    setSide,
+    players,
+    gameStatus,
+    pgn,
+    chatMessages,
+    turns,
+    setTurns,
+    position,
+    setPosition,
+    clocks,
+    lastMoveSquares,
+    setLastMoveSquares,
+    drawOffer,
+    teamVote,
+    setHasUnreadMessages,
+  } = useSocket({ chess, isMobile, activeTabRef });
+
   const [legalSquareStyles, setLegalSquareStyles] = useState<
     Record<string, CSSProperties>
   >({});
-  const [drawOffer, setDrawOffer] = useState<"white" | "black" | null>(null);
   const [promotionMove, setPromotionMove] = useState<{
     from: string;
     to: string;
@@ -373,11 +71,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<
     "chat" | "moves" | "players" | "controls"
   >("players");
-  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const [hasUnreadMessages, setLocalHasUnreadMessages] = useState(false);
   const movesRef = useRef<HTMLDivElement>(null);
-  const activeTabRef = useRef(activeTab);
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
@@ -385,21 +81,13 @@ export default function App() {
   const current = turns[turns.length - 1];
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
-  const [teamVote, setTeamVote] = useState<TeamVoteState>({
-    isActive: false,
-    type: null,
-    initiatorName: "",
-    yesVotes: [],
-    requiredVotes: 0,
-    endTime: 0,
-  });
   const [isMuted, setIsMuted] = useState(sounds.getMuted());
+
   const toggleMute = () => {
     const next = !isMuted;
     setIsMuted(next);
     sounds.setMuted(next);
   };
-  const prevClocks = useRef({ whiteTime: 600, blackTime: 600 });
 
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
@@ -520,32 +208,6 @@ export default function App() {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [position, chess]);
 
-  const _playerCount = useMemo(
-    () =>
-      players.spectators.length +
-      players.whitePlayers.length +
-      players.blackPlayers.length,
-    [players]
-  );
-
-  useEffect(() => {
-    const s = io({
-      auth: {
-        pid: localStorage.getItem(STORAGE_KEYS.pid) || undefined,
-        name: localStorage.getItem(STORAGE_KEYS.name) || "Player",
-      },
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 500,
-      reconnectionDelayMax: 2000,
-      randomizationFactor: 0.2,
-    });
-    setSocket(s);
-    return () => {
-      s.disconnect();
-    };
-  }, []);
-
   useEffect(() => {
     const observer = new ResizeObserver((entries) => {
       if (entries[0]) setBoardWidth(entries[0].contentRect.width);
@@ -568,216 +230,6 @@ export default function App() {
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
-
-  useEffect(() => {
-    if (!myId) return;
-    const serverSide = players.whitePlayers.some((p) => p.id === myId)
-      ? "white"
-      : players.blackPlayers.some((p) => p.id === myId)
-        ? "black"
-        : "spectator";
-    if (serverSide !== side) {
-      setSide(serverSide);
-      localStorage.setItem(STORAGE_KEYS.side, serverSide);
-    }
-  }, [players, myId, side]);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on("connect", () => {
-      setAmDisconnected(false);
-    });
-
-    socket.on("disconnect", () => {
-      setAmDisconnected(true);
-    });
-
-    socket.on("error", (data: { message: string }) => {
-      toast.error(data.message);
-    });
-
-    socket.on(
-      "session",
-      ({ id, name: serverName }: { id: string; name: string }) => {
-        setMyId(id);
-        setName(serverName);
-        setNameInput(serverName);
-        localStorage.setItem(STORAGE_KEYS.pid, id);
-        localStorage.setItem(STORAGE_KEYS.name, serverName);
-        socket.auth = { pid: id, name: serverName };
-      }
-    );
-
-    socket.on("players", (p: Players) => setPlayers(p));
-
-    socket.on(
-      "game_started",
-      ({
-        moveNumber,
-        side,
-        proposals,
-      }: GameInfo & { proposals: Proposal[] }) => {
-        setGameStatus(GameStatus.AwaitingProposals);
-        setWinner(null);
-        setEndReason(null);
-        setPgn("");
-        setTurns([{ moveNumber, side, proposals: proposals || [] }]);
-        setLastMoveSquares(null);
-        setDrawOffer(null);
-
-        prevClocks.current = { whiteTime: 600, blackTime: 600 };
-
-        sounds.play("start");
-      }
-    );
-
-    socket.on("game_reset", () => {
-      setGameStatus(GameStatus.Lobby);
-      setWinner(null);
-      setEndReason(null);
-      setPgn("");
-      setTurns([]);
-      chess.reset();
-      setPosition(chess.fen());
-      setClocks({ whiteTime: 0, blackTime: 0 });
-      setLastMoveSquares(null);
-      setDrawOffer(null);
-      prevClocks.current = { whiteTime: 600, blackTime: 600 };
-    });
-
-    socket.on("clock_update", ({ whiteTime, blackTime }) => {
-      const prev = prevClocks.current;
-
-      if (prev.whiteTime > 60 && whiteTime <= 60 && whiteTime > 0) {
-        sounds.play("lowtime");
-      }
-
-      if (prev.blackTime > 60 && blackTime <= 60 && blackTime > 0) {
-        sounds.play("lowtime");
-      }
-
-      prevClocks.current = { whiteTime, blackTime };
-      setClocks({ whiteTime, blackTime });
-    });
-
-    socket.on("position_update", ({ fen }) => {
-      chess.load(fen);
-      setPosition(fen);
-    });
-
-    socket.on("move_submitted", (m: Proposal) =>
-      setTurns((ts) =>
-        ts.map((t) =>
-          t.moveNumber === m.moveNumber && t.side === m.side
-            ? { ...t, proposals: [...t.proposals, m] }
-            : t
-        )
-      )
-    );
-
-    socket.on("move_selected", (sel: Selection) => {
-      setTurns((ts) =>
-        ts.map((t) =>
-          t.moveNumber === sel.moveNumber && t.side === sel.side
-            ? {
-                ...t,
-                selection: sel,
-                proposals: sel.candidates,
-              }
-            : t
-        )
-      );
-      chess.load(sel.fen);
-      const from = sel.lan.slice(0, 2);
-      const to = sel.lan.slice(2, 4);
-      setLastMoveSquares({ from, to });
-      setPosition(sel.fen);
-
-      const isFirstMove = sel.moveNumber === 1 && sel.side === "white";
-
-      if (!isFirstMove) {
-        const san = sel.san || "";
-        if (san.includes("#") || san.includes("+")) {
-          sounds.play("check");
-        } else if (san.includes("x")) {
-          sounds.play("capture");
-        } else {
-          sounds.play("move");
-        }
-      }
-    });
-
-    socket.on("turn_change", ({ moveNumber, side }: GameInfo) =>
-      setTurns((ts) => [...ts, { moveNumber, side, proposals: [] }])
-    );
-
-    socket.on(
-      "game_over",
-      ({
-        reason,
-        winner,
-        pgn: newPgn,
-      }: {
-        reason: string;
-        winner: "white" | "black" | null;
-        pgn: string;
-      }) => {
-        setGameStatus(GameStatus.Over);
-        setWinner(winner);
-        setEndReason(reason);
-        setPgn(newPgn);
-        setDrawOffer(null);
-
-        sounds.play("end");
-
-        const gameOverMessage = reasonMessages[reason]
-          ? reasonMessages[reason](winner)
-          : `🎉 Game over! ${
-              winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
-            } wins!`;
-
-        if (isMobile) {
-          toast(gameOverMessage, {
-            duration: 5000,
-            icon: "♟️",
-          });
-        }
-      }
-    );
-
-    socket.on("chat_message", (msg: ChatMessage) => {
-      setChatMessages((msgs) => [...msgs, msg]);
-      if (!msg.system && activeTabRef.current !== "chat")
-        setHasUnreadMessages(true);
-    });
-
-    socket.on("game_status_update", ({ status }: { status: GameStatus }) => {
-      setGameStatus(status);
-    });
-
-    socket.on(
-      "draw_offer_update",
-      ({ side }: { side: "white" | "black" | null }) => {
-        setDrawOffer(side as "white" | "black" | null);
-        if (side && isMobile) {
-          const teamName = side.charAt(0).toUpperCase() + side.slice(1);
-          toast(`Draw offer from the ${teamName} team.`, {
-            icon: "🤝",
-            duration: 4000,
-          });
-        }
-      }
-    );
-
-    socket.on("team_vote_update", (state: TeamVoteState) => {
-      setTeamVote(state);
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [socket, chess, isMobile]);
 
   useEffect(() => {
     if (isNameModalOpen && nameInputRef.current) {
@@ -808,12 +260,9 @@ export default function App() {
   const joinSpectator = () => joinSide("spectator");
 
   const startTeamVote = (type: VoteType) => {
-    // Confirmation for Solo Players
     if (side === "white" || side === "black") {
       const myTeamArray =
         side === "white" ? players.whitePlayers : players.blackPlayers;
-      // If I am the only one connected in my team (N=1), the action is immediate.
-      // We should ask for confirmation.
       if (myTeamArray.length === 1) {
         let msg = "";
         if (type === "resign") msg = "Are you sure you want to resign?";
@@ -919,32 +368,6 @@ export default function App() {
     }
   };
 
-  const PromotionDialog = () => {
-    if (!promotionMove) return null;
-    const turnColor = chess.turn();
-    const promotionPieces = ["Q", "R", "B", "N"];
-    const pieceMap =
-      turnColor === "w" ? pieceToFigurineWhite : pieceToFigurineBlack;
-    return (
-      <div className="promotion-dialog">
-        <h3>Promote to:</h3>
-        <div className="promotion-choices">
-          {promotionPieces.map((p) => (
-            <button
-              key={p}
-              onClick={() =>
-                onPromote(p.toLowerCase() as "q" | "r" | "b" | "n")
-              }
-            >
-              {" "}
-              {pieceMap[p]}{" "}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   const boardOptions = {
     position,
     boardOrientation: orientation,
@@ -1035,270 +458,31 @@ export default function App() {
     },
   };
 
-  const PlayerInfoBox = ({
-    clockTime,
-    lostPieces,
-    materialAdv,
-    isActive,
-  }: {
-    clockTime: number;
-    lostPieces: string[];
-    materialAdv: number;
-    isActive: boolean;
-  }) => {
-    const isLowTime = clockTime > 0 && clockTime <= 60;
-    return (
-      <div className="game-player-info">
-        <div
-          className={`clock-box ${isActive ? "active" : ""} ${
-            isLowTime ? "low-time" : ""
-          }`}
-        >
-          {String(Math.floor(clockTime / 60)).padStart(2, "0")}:
-          {String(clockTime % 60).padStart(2, "0")}
-        </div>
-        <div className="material-display">
-          <span>{lostPieces.join(" ")}</span>
-          <span
-            className="material-adv-label"
-            style={{ visibility: materialAdv > 0 ? "visible" : "hidden" }}
-          >
-            {materialAdv > 0 ? `+${materialAdv}` : ""}
-          </span>
-        </div>
-      </div>
-    );
-  };
-
   const TabContent = (
     <div className="info-tabs-content">
-      <div
-        className={
-          "tab-panel players-panel " + (activeTab === "players" ? "active" : "")
-        }
-      >
-        <h3>Players</h3>
-        <div className="player-lists-container">
-          <div>
-            {" "}
-            <h3>Spectators</h3>{" "}
-            <ul className="player-list">
-              {" "}
-              {players.spectators.map((p) => {
-                const isMe = p.id === myId;
-                const disconnected = isMe ? amDisconnected : !p.connected;
-                return (
-                  <li key={p.id}>
-                    {" "}
-                    {isMe ? (
-                      <strong>
-                        <button
-                          className="clickable-name"
-                          onClick={openNameModal}
-                        >
-                          {p.name}
-                          {p.name === "Player" ? " ✏️" : ""}
-                        </button>
-                      </strong>
-                    ) : (
-                      <span>{p.name}</span>
-                    )}{" "}
-                    {disconnected && <DisconnectedIcon />}{" "}
-                  </li>
-                );
-              })}{" "}
-            </ul>{" "}
-          </div>
-          <div>
-            {" "}
-            <h3>White</h3>{" "}
-            <ul className="player-list">
-              {" "}
-              {players.whitePlayers.map((p) => {
-                const isMe = p.id === myId;
-                const disconnected = isMe ? amDisconnected : !p.connected;
-                return (
-                  <li key={p.id}>
-                    {" "}
-                    {isMe ? (
-                      <strong>
-                        <button
-                          className="clickable-name"
-                          onClick={openNameModal}
-                        >
-                          {p.name}
-                          {p.name === "Player" ? " ✏️" : ""}
-                        </button>
-                      </strong>
-                    ) : (
-                      <span>{p.name}</span>
-                    )}{" "}
-                    {disconnected && <DisconnectedIcon />}{" "}
-                    {hasPlayed(p.id, "white") && <span>✔️</span>}{" "}
-                  </li>
-                );
-              })}{" "}
-            </ul>{" "}
-          </div>
-          <div>
-            {" "}
-            <h3>Black</h3>{" "}
-            <ul className="player-list">
-              {" "}
-              {players.blackPlayers.map((p) => {
-                const isMe = p.id === myId;
-                const disconnected = isMe ? amDisconnected : !p.connected;
-                return (
-                  <li key={p.id}>
-                    {" "}
-                    {isMe ? (
-                      <strong>
-                        <button
-                          className="clickable-name"
-                          onClick={openNameModal}
-                        >
-                          {p.name}
-                          {p.name === "Player" ? " ✏️" : ""}
-                        </button>
-                      </strong>
-                    ) : (
-                      <span>{p.name}</span>
-                    )}{" "}
-                    {disconnected && <DisconnectedIcon />}{" "}
-                    {hasPlayed(p.id, "black") && <span>✔️</span>}{" "}
-                  </li>
-                );
-              })}{" "}
-            </ul>{" "}
-          </div>
-        </div>
-      </div>
-      <div
-        className={
-          "tab-panel moves-panel " + (activeTab === "moves" ? "active" : "")
-        }
-      >
-        <h3>Moves</h3>
-        {turns.some((t) => t.selection) ? (
-          <div ref={movesRef} className="moves-list">
-            {" "}
-            {turns
-              .filter((t) => t.selection)
-              .map((t) => (
-                <div
-                  key={`${t.side}-${t.moveNumber}`}
-                  className="move-turn-header"
-                  style={{ marginBottom: "1rem" }}
-                >
-                  {" "}
-                  <strong>{t.moveNumber}</strong>{" "}
-                  <ul style={{ margin: 4, paddingLeft: "1.2rem" }}>
-                    {" "}
-                    {t.proposals.map((p) => {
-                      const isSel = t.selection!.lan === p.lan;
-                      return (
-                        <li key={p.id}>
-                          {" "}
-                          {p.id === myId ? (
-                            <strong>{p.name}</strong>
-                          ) : (
-                            p.name
-                          )}{" "}
-                          {isSel ? (
-                            <span className="moves-list-item">{p.san}</span>
-                          ) : (
-                            p.san
-                          )}{" "}
-                        </li>
-                      );
-                    })}{" "}
-                  </ul>{" "}
-                </div>
-              ))}{" "}
-          </div>
-        ) : (
-          <p style={{ padding: "10px", fontStyle: "italic" }}>
-            No moves played yet.
-          </p>
-        )}
-      </div>
-      <div
-        className={
-          "tab-panel chat-panel " + (activeTab === "chat" ? "active" : "")
-        }
-      >
-        <h3>Chat</h3>
-        <div className="chat-box-container">
-          <div className="chat-messages">
-            {" "}
-            {chatMessages
-              .slice()
-              .reverse()
-              .map((msg, idx) => {
-                if (msg.system) {
-                  return (
-                    <div key={idx} className="chat-message-item system">
-                      {" "}
-                      {msg.message}{" "}
-                    </div>
-                  );
-                }
-                return (
-                  <div
-                    key={idx}
-                    className={
-                      "chat-message-item " +
-                      (myId === msg.senderId ? "own" : "other")
-                    }
-                  >
-                    {" "}
-                    {myId === msg.senderId ? (
-                      <strong>{msg.sender}:</strong>
-                    ) : (
-                      <span>{msg.sender}:</span>
-                    )}{" "}
-                    {msg.message}{" "}
-                  </div>
-                );
-              })}{" "}
-          </div>
-          <div className="chat-form">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const message = chatInput.trim();
-                if (message) {
-                  socket?.emit("chat_message", message);
-                  setChatInput("");
-                }
-              }}
-            >
-              <input
-                ref={chatInputRef}
-                type="text"
-                name="chatInput"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck="false"
-                placeholder="Type a message..."
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    const message = chatInput.trim();
-                    if (message) {
-                      socket?.emit("chat_message", message);
-                      setChatInput("");
-                    }
-                  }
-                }}
-              />
-            </form>
-          </div>
-        </div>
-      </div>
+      <PlayersPanel
+        activeTab={activeTab}
+        players={players}
+        myId={myId}
+        amDisconnected={amDisconnected}
+        openNameModal={openNameModal}
+        hasPlayed={hasPlayed}
+      />
+      <MovesPanel
+        activeTab={activeTab}
+        turns={turns}
+        myId={myId}
+        movesRef={movesRef}
+      />
+      <ChatPanel
+        activeTab={activeTab}
+        chatMessages={chatMessages}
+        myId={myId}
+        chatInput={chatInput}
+        setChatInput={setChatInput}
+        chatInputRef={chatInputRef}
+        socket={socket}
+      />
       <div
         className={
           "tab-panel controls-panel " +
@@ -1357,7 +541,7 @@ export default function App() {
       {amDisconnected && (
         <div className="offline-banner">
           {" "}
-          You’re offline. Trying to reconnect…{" "}
+          You're offline. Trying to reconnect…{" "}
         </div>
       )}
 
@@ -1385,7 +569,11 @@ export default function App() {
             <div ref={boardContainerRef} className="board-wrapper">
               {" "}
               <Chessboard options={boardOptions} />
-              <PromotionDialog />{" "}
+              <PromotionDialog
+                promotionMove={promotionMove}
+                turnColor={chess.turn()}
+                onPromote={onPromote}
+              />{" "}
             </div>
             <PlayerInfoBox
               clockTime={
@@ -1431,6 +619,7 @@ export default function App() {
                 className={activeTab === "chat" ? "active" : ""}
                 onClick={() => {
                   setActiveTab("chat");
+                  setLocalHasUnreadMessages(false);
                   setHasUnreadMessages(false);
                   setIsMobileInfoVisible(true);
                 }}
