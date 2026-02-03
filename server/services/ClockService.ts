@@ -18,9 +18,7 @@ export class ClockService {
   /**
    * Sets the callback to be called when time runs out.
    */
-  setTimeoutCallback(
-    callback: (reason: string, winner: string) => void
-  ): void {
+  setTimeoutCallback(callback: (reason: string, winner: string) => void): void {
     this.onTimeoutCallback = callback;
   }
 

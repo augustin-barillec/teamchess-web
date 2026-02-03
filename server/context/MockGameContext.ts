@@ -81,13 +81,12 @@ export class MockGameContext implements IGameContext {
    * Mock IO server that captures emit calls.
    */
   get io(): IIO {
-    const self = this;
     return {
       emit: (event: string, data?: unknown) => {
-        self.emittedEvents.push({ event, data, target: "broadcast" });
+        this.emittedEvents.push({ event, data, target: "broadcast" });
       },
       sockets: {
-        sockets: self.mockSockets as Map<string, ISocket>,
+        sockets: this.mockSockets as Map<string, ISocket>,
       },
       on: () => {},
     };

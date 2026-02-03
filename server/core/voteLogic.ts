@@ -28,10 +28,7 @@ export function checkVotePrerequisites(
   votingSide: PlayerSide
 ): VotePrerequisiteResult {
   // Can't accept draw if no valid offer
-  if (
-    type === "accept_draw" &&
-    (!drawOffer || drawOffer === votingSide)
-  ) {
+  if (type === "accept_draw" && (!drawOffer || drawOffer === votingSide)) {
     return {
       shouldAutoExecute: false,
       canStartVote: false,

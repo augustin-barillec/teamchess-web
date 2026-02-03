@@ -1,4 +1,4 @@
-import { Server, Socket } from "socket.io";
+import { Server } from "socket.io";
 import { Chess } from "chess.js";
 import type { Session, GameState, Engine, PlayerSide } from "../types.js";
 import { GameStatus } from "../shared_types.js";

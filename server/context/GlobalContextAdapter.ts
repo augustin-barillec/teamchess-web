@@ -66,8 +66,7 @@ export class GlobalContextAdapter implements IGameContext {
   getActiveTeamPids(side: PlayerSide): Set<string> {
     const onlinePids = this.getOnlinePids();
     const gameState = getGameState();
-    const teamIds =
-      side === "white" ? gameState.whiteIds : gameState.blackIds;
+    const teamIds = side === "white" ? gameState.whiteIds : gameState.blackIds;
     return new Set([...teamIds].filter((pid) => onlinePids.has(pid)));
   }
 
