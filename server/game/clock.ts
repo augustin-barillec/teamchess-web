@@ -1,5 +1,6 @@
-import { getGameState, getIO } from "../state.js";
-import { GameStatus, EndReason } from "../types.js";
+import type { IGameContext } from "../context/GameContext.js";
+import { globalContext } from "../context/GlobalContextAdapter.js";
+import { GameStatus, EndReason } from "../shared_types.js";
 
 // This callback will be set by gameLogic.ts to avoid circular dependency
 let onTimeoutCallback: ((reason: string, winner: string) => void) | null = null;
@@ -10,9 +11,12 @@ export function setTimeoutCallback(
   onTimeoutCallback = callback;
 }
 
-export function startClock(): void {
-  const gameState = getGameState();
-  const io = getIO();
+/**
+ * Starts the game clock.
+ * @param ctx Optional context for dependency injection (defaults to global)
+ */
+export function startClock(ctx: IGameContext = globalContext): void {
+  const { gameState, io } = ctx;
 
   if (gameState.status !== GameStatus.AwaitingProposals) return;
   if (gameState.timerInterval) clearInterval(gameState.timerInterval);
@@ -40,8 +44,12 @@ export function startClock(): void {
   }, 1000);
 }
 
-export function stopClock(): void {
-  const gameState = getGameState();
+/**
+ * Stops the game clock.
+ * @param ctx Optional context for dependency injection (defaults to global)
+ */
+export function stopClock(ctx: IGameContext = globalContext): void {
+  const { gameState } = ctx;
   if (gameState.timerInterval) {
     clearInterval(gameState.timerInterval);
     gameState.timerInterval = undefined;

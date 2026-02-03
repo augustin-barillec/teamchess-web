@@ -1,7 +1,14 @@
-import { sessions, getGameState, getIO } from "../state.js";
-import { InternalVoteState, VoteType, EndReason } from "../types.js";
+import type { IGameContext } from "../context/GameContext.js";
+import { globalContext } from "../context/GlobalContextAdapter.js";
+import type { InternalVoteState, VoteType, PlayerSide } from "../types.js";
+import { EndReason } from "../shared_types.js";
 import { TEAM_VOTE_DURATION_MS } from "../constants.js";
 import { sendSystemMessage, sendTeamMessage } from "../utils/messaging.js";
+import {
+  checkVotePrerequisites,
+  createVoteState,
+  formatVoteType,
+} from "../core/voteLogic.js";
 
 // Callback for ending the game (set by gameLogic to avoid circular dependency)
 let endGameCallback: ((reason: string, winner: string | null) => void) | null =
@@ -13,8 +20,15 @@ export function setEndGameCallback(
   endGameCallback = callback;
 }
 
-export function getTeamVoteClientData(side: "white" | "black") {
-  const gameState = getGameState();
+/**
+ * Gets vote data formatted for client display.
+ * @param ctx Optional context for dependency injection (defaults to global)
+ */
+export function getTeamVoteClientData(
+  side: PlayerSide,
+  ctx: IGameContext = globalContext
+) {
+  const { gameState, sessions } = ctx;
   const vote = side === "white" ? gameState.whiteVote : gameState.blackVote;
   if (!vote) {
     return {
@@ -41,109 +55,129 @@ export function getTeamVoteClientData(side: "white" | "black") {
   };
 }
 
-export function broadcastTeamVote(side: "white" | "black"): void {
-  const io = getIO();
-  const data = getTeamVoteClientData(side);
-  for (const socket of io.sockets.sockets.values()) {
-    if (socket.data.side === side) {
-      socket.emit("team_vote_update", data);
-    }
+/**
+ * Broadcasts vote state to all team members.
+ * @param ctx Optional context for dependency injection (defaults to global)
+ */
+export function broadcastTeamVote(
+  side: PlayerSide,
+  ctx: IGameContext = globalContext
+): void {
+  const data = getTeamVoteClientData(side, ctx);
+  for (const socket of ctx.getSocketsBySide(side)) {
+    socket.emit("team_vote_update", data);
   }
 }
 
-export function clearTeamVote(side: "white" | "black"): void {
-  const gameState = getGameState();
+/**
+ * Clears an active team vote.
+ * @param ctx Optional context for dependency injection (defaults to global)
+ */
+export function clearTeamVote(
+  side: PlayerSide,
+  ctx: IGameContext = globalContext
+): void {
+  const { gameState } = ctx;
   const vote = side === "white" ? gameState.whiteVote : gameState.blackVote;
   if (vote) {
     clearTimeout(vote.timer);
     if (side === "white") gameState.whiteVote = undefined;
     else gameState.blackVote = undefined;
-    broadcastTeamVote(side);
+    broadcastTeamVote(side, ctx);
   }
 }
 
+/**
+ * Starts or auto-executes a team vote.
+ * @param ctx Optional context for dependency injection (defaults to global)
+ */
 export function startTeamVoteLogic(
-  side: "white" | "black",
+  side: PlayerSide,
   type: VoteType,
   initiatorId: string,
-  initiatorName: string
+  initiatorName: string,
+  ctx: IGameContext = globalContext
 ): void {
-  const gameState = getGameState();
-  const io = getIO();
-
-  // Validation
-  if (
-    type === "accept_draw" &&
-    (!gameState.drawOffer || gameState.drawOffer === side)
-  )
-    return;
-  if (type === "offer_draw" && gameState.drawOffer) return;
+  const { gameState, io } = ctx;
 
   const currentVote =
     side === "white" ? gameState.whiteVote : gameState.blackVote;
-  if (currentVote) return;
-
-  // Snapshot N (connected teammates)
-  const onlinePids = new Set<string>();
-  for (const s of io.sockets.sockets.values()) {
-    if (s.data.pid) onlinePids.add(s.data.pid);
-  }
-  const teamIds = side === "white" ? gameState.whiteIds : gameState.blackIds;
-  const connectedTeamIds = [...teamIds].filter((pid) => onlinePids.has(pid));
-  const N = connectedTeamIds.length;
-
-  // AUTO-EXECUTE if N<=1 AND it is a player-initiated action (Resign/Offer).
   const isSystemTriggered = initiatorId === "system";
 
-  if (N <= 1 && !isSystemTriggered) {
+  // Get connected team members
+  const connectedTeamPids = ctx.getActiveTeamPids(side);
+  const N = connectedTeamPids.size;
+
+  // Use pure logic to check prerequisites
+  const prereqResult = checkVotePrerequisites(
+    type,
+    N,
+    isSystemTriggered,
+    currentVote
+      ? {
+          type: currentVote.type,
+          initiatorId: currentVote.initiatorId,
+          yesVoters: currentVote.yesVoters,
+          eligibleVoters: currentVote.eligibleVoters,
+          required: currentVote.required,
+        }
+      : undefined,
+    gameState.drawOffer,
+    side
+  );
+
+  if (!prereqResult.canStartVote && !prereqResult.shouldAutoExecute) {
+    return;
+  }
+
+  // AUTO-EXECUTE for single player
+  if (prereqResult.shouldAutoExecute) {
     if (type === "resign") {
       const winner = side === "white" ? "black" : "white";
-      sendSystemMessage(`${initiatorName} resigns.`);
+      sendSystemMessage(`${initiatorName} resigns.`, ctx);
       if (endGameCallback) endGameCallback(EndReason.Resignation, winner);
     } else if (type === "offer_draw") {
       gameState.drawOffer = side;
       io.emit("draw_offer_update", { side });
-      sendSystemMessage(`${initiatorName} offers a draw.`);
+      sendSystemMessage(`${initiatorName} offers a draw.`, ctx);
 
       // Trigger vote for other side
       const otherSide = side === "white" ? "black" : "white";
-      startTeamVoteLogic(otherSide, "accept_draw", "system", "System");
+      startTeamVoteLogic(otherSide, "accept_draw", "system", "System", ctx);
     } else if (type === "accept_draw") {
-      sendSystemMessage(`${initiatorName} accepts the draw.`);
+      sendSystemMessage(`${initiatorName} accepts the draw.`, ctx);
       if (endGameCallback) endGameCallback(EndReason.DrawAgreement, null);
     }
     return;
   }
 
-  // START VOTE
+  // START VOTE using pure logic
   const endTime = Date.now() + TEAM_VOTE_DURATION_MS;
-  // If system triggered (accept_draw), start with 0 votes.
-  // If player triggered, start with 1 vote (themselves).
-  const initialYes = isSystemTriggered
-    ? new Set<string>()
-    : new Set([initiatorId]);
-
-  const voteState: InternalVoteState = {
+  const pureVoteState = createVoteState(
     type,
     initiatorId,
-    yesVoters: initialYes,
-    eligibleVoters: new Set(connectedTeamIds), // Snapshot of voters
-    required: N,
+    connectedTeamPids,
+    isSystemTriggered
+  );
+
+  const voteState: InternalVoteState = {
+    ...pureVoteState,
     endTime,
     timer: setTimeout(() => {
       sendTeamMessage(
         side,
-        `❌ Vote to ${type.replace("_", " ")} failed: Time expired.`
+        `❌ Vote to ${formatVoteType(type)} failed: Time expired.`,
+        ctx
       );
       if (side === "white") gameState.whiteVote = undefined;
       else gameState.blackVote = undefined;
-      broadcastTeamVote(side);
+      broadcastTeamVote(side, ctx);
 
       // If accept_draw fails by timeout, reject the offer
       if (type === "accept_draw") {
         gameState.drawOffer = undefined;
         io.emit("draw_offer_update", { side: null });
-        sendSystemMessage("Draw offer rejected (timeout).");
+        sendSystemMessage("Draw offer rejected (timeout).", ctx);
       }
     }, TEAM_VOTE_DURATION_MS),
   };
@@ -152,15 +186,13 @@ export function startTeamVoteLogic(
   else gameState.blackVote = voteState;
 
   if (isSystemTriggered) {
-    sendTeamMessage(side, `🗳️ Draw offered! Vote to Accept Draw. (0/${N})`);
+    sendTeamMessage(side, `🗳️ Draw offered! Vote to Accept Draw. (0/${N})`, ctx);
   } else {
     sendTeamMessage(
       side,
-      `🗳️ ${initiatorName} started a vote to ${type.replace(
-        "_",
-        " "
-      )}. (1/${N})`
+      `🗳️ ${initiatorName} started a vote to ${formatVoteType(type)}. (1/${N})`,
+      ctx
     );
   }
-  broadcastTeamVote(side);
+  broadcastTeamVote(side, ctx);
 }

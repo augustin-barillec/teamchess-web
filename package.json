@@ -12,6 +12,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p client/tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "prepare": "husky"
   },
   "dependencies": {
@@ -27,6 +30,7 @@
     "stockfish": "^16.0.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^3.0.0",
     "@eslint/js": "^9.39.2",
     "@types/express": "^5.0.3",
     "@types/node": "^24.1.0",
@@ -43,7 +47,8 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.53.1",
-    "vite": "^7.1.4"
+    "vite": "^7.1.4",
+    "vitest": "^3.0.0"
   },
   "lint-staged": {
     "*.{js,cjs,ts,tsx}": [

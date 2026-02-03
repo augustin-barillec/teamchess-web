@@ -1,6 +1,7 @@
 import { Socket } from "socket.io";
 import { Chess } from "chess.js";
-import { sessions, getGameState, setGameState, getIO } from "../state.js";
+import type { IGameContext } from "../context/GameContext.js";
+import { globalContext } from "../context/GlobalContextAdapter.js";
 import { GameStatus, VoteType, EndReason } from "../types.js";
 import {
   broadcastPlayers,
@@ -16,16 +17,22 @@ import {
   startTeamVoteLogic,
 } from "../voting/teamVote.js";
 import { createEngine } from "../engine/stockfish.js";
+import { processVote, formatVoteType } from "../core/voteLogic.js";
+import { DEFAULT_TIME } from "../constants.js";
 
-export function handleSetName(socket: Socket, name: string): void {
+export function handleSetName(
+  socket: Socket,
+  name: string,
+  ctx: IGameContext = globalContext
+): void {
   const pid = socket.data.pid;
   const newName = name.trim().slice(0, 30);
   if (newName) {
-    const sess = sessions.get(pid);
+    const sess = ctx.sessions.get(pid);
     if (sess) {
       sess.name = newName;
       socket.data.name = newName;
-      broadcastPlayers();
+      broadcastPlayers(ctx);
       socket.emit("session", { id: pid, name: sess.name });
     }
   }
@@ -34,10 +41,11 @@ export function handleSetName(socket: Socket, name: string): void {
 export function handleJoinSide(
   socket: Socket,
   side: "white" | "black" | "spectator",
-  cb?: (res: { success?: boolean; error?: string }) => void
+  cb?: (res: { success?: boolean; error?: string }) => void,
+  ctx: IGameContext = globalContext
 ): void {
   const pid = socket.data.pid;
-  const gameState = getGameState();
+  const { gameState, sessions } = ctx;
   const currentSess = sessions.get(pid);
   if (!currentSess) return;
 
@@ -52,15 +60,15 @@ export function handleJoinSide(
     if (side === "white") gameState.whiteIds.add(pid);
     else if (side === "black") gameState.blackIds.add(pid);
 
-    endIfOneSided();
+    endIfOneSided(ctx);
   }
 
-  broadcastPlayers();
-  tryFinalizeTurn();
+  broadcastPlayers(ctx);
+  tryFinalizeTurn(ctx);
 
   // UPDATE CLIENT VOTE UI
   if (side === "white" || side === "black") {
-    socket.emit("team_vote_update", getTeamVoteClientData(side));
+    socket.emit("team_vote_update", getTeamVoteClientData(side, ctx));
   } else {
     socket.emit("team_vote_update", {
       isActive: false,
@@ -77,54 +85,36 @@ export function handleJoinSide(
 
 export function handleResetGame(
   socket: Socket,
-  cb?: (res: { success?: boolean; error?: string }) => void
+  cb?: (res: { success?: boolean; error?: string }) => void,
+  ctx: IGameContext = globalContext
 ): void {
-  const gameState = getGameState();
-  const io = getIO();
+  const { gameState, io } = ctx;
 
   if (gameState.timerInterval) clearInterval(gameState.timerInterval);
   const engine = createEngine();
 
-  setGameState({
-    ...gameState,
-    whiteIds: new Set(),
-    blackIds: new Set(),
-    moveNumber: 1,
-    side: "white",
-    proposals: new Map(),
-    whiteTime: 600,
-    blackTime: 600,
-    timerInterval: undefined,
-    engine,
-    chess: new Chess(),
-    status: GameStatus.Lobby,
-    endReason: undefined,
-    endWinner: undefined,
-    drawOffer: undefined,
-    whiteVote: undefined,
-    blackVote: undefined,
-  });
+  ctx.resetGame(engine);
 
   io.emit("game_reset");
   io.emit("clock_update", {
-    whiteTime: 600,
-    blackTime: 600,
+    whiteTime: DEFAULT_TIME,
+    blackTime: DEFAULT_TIME,
   });
-  broadcastTeamVote("white");
-  broadcastTeamVote("black");
+  broadcastTeamVote("white", ctx);
+  broadcastTeamVote("black", ctx);
 
-  sendSystemMessage(`${socket.data.name} has reset the game.`);
+  sendSystemMessage(`${socket.data.name} has reset the game.`, ctx);
   cb?.({ success: true });
 }
 
 export function handlePlayMove(
   socket: Socket,
   lan: string,
-  cb?: (res: { error?: string }) => void
+  cb?: (res: { error?: string }) => void,
+  ctx: IGameContext = globalContext
 ): void {
   const pid = socket.data.pid;
-  const gameState = getGameState();
-  const io = getIO();
+  const { gameState, io, sessions } = ctx;
 
   if (gameState.status === GameStatus.Lobby) {
     if (socket.data.side !== "white") {
@@ -154,9 +144,10 @@ export function handlePlayMove(
       proposals: [],
     });
     io.emit("position_update", { fen: gameState.chess.fen() });
-    startClock();
+    startClock(ctx);
     sendSystemMessage(
-      `${socket.data.name} has started the game by playing the first move.`
+      `${socket.data.name} has started the game by playing the first move.`,
+      ctx
     );
   } else if (gameState.status !== GameStatus.AwaitingProposals) {
     return cb?.({ error: "Not accepting proposals right now." });
@@ -192,36 +183,52 @@ export function handlePlayMove(
     san: move.san,
   });
 
-  tryFinalizeTurn();
+  tryFinalizeTurn(ctx);
   cb?.({});
 }
 
-export function handleChatMessage(socket: Socket, message: string): void {
+export function handleChatMessage(
+  socket: Socket,
+  message: string,
+  ctx: IGameContext = globalContext
+): void {
   const pid = socket.data.pid;
-  const io = getIO();
 
   if (!message.trim()) return;
-  io.emit("chat_message", {
+  ctx.io.emit("chat_message", {
     sender: socket.data.name,
     senderId: pid,
     message: message.trim(),
   });
 }
 
-export function handleStartTeamVote(socket: Socket, type: VoteType): void {
-  const gameState = getGameState();
+export function handleStartTeamVote(
+  socket: Socket,
+  type: VoteType,
+  ctx: IGameContext = globalContext
+): void {
+  const { gameState } = ctx;
 
   if (socket.data.side !== "white" && socket.data.side !== "black") return;
   if (gameState.status !== GameStatus.AwaitingProposals) return;
 
-  startTeamVoteLogic(socket.data.side, type, socket.data.pid, socket.data.name);
+  startTeamVoteLogic(
+    socket.data.side,
+    type,
+    socket.data.pid,
+    socket.data.name,
+    ctx
+  );
 }
 
-export function handleVoteTeam(socket: Socket, vote: "yes" | "no"): void {
+export function handleVoteTeam(
+  socket: Socket,
+  vote: "yes" | "no",
+  ctx: IGameContext = globalContext
+): void {
   const pid = socket.data.pid;
   const side = socket.data.side;
-  const gameState = getGameState();
-  const io = getIO();
+  const { gameState, io } = ctx;
 
   if (side !== "white" && side !== "black") return;
 
@@ -229,58 +236,68 @@ export function handleVoteTeam(socket: Socket, vote: "yes" | "no"): void {
     side === "white" ? gameState.whiteVote : gameState.blackVote;
   if (!currentVote) return;
 
-  // CHECK ELIGIBILITY
-  if (!currentVote.eligibleVoters.has(pid)) {
+  // Use pure logic to process vote
+  const voteResult = processVote(
+    {
+      type: currentVote.type,
+      initiatorId: currentVote.initiatorId,
+      yesVoters: currentVote.yesVoters,
+      eligibleVoters: currentVote.eligibleVoters,
+      required: currentVote.required,
+    },
+    pid,
+    vote
+  );
+
+  if (voteResult.reason === "Not eligible to vote") {
     socket.emit("error", { message: "You cannot vote (joined late)." });
     return;
   }
 
-  if (vote === "no") {
-    clearTeamVote(side);
+  if (voteResult.failed) {
+    clearTeamVote(side, ctx);
     sendTeamMessage(
       side,
-      `❌ Vote to ${currentVote.type.replace(
-        "_",
-        " "
-      )} failed: ${socket.data.name} voted No.`
+      `❌ Vote to ${formatVoteType(currentVote.type)} failed: ${socket.data.name} voted No.`,
+      ctx
     );
 
     // Explicitly reject draw if it was an accept_draw vote
     if (currentVote.type === "accept_draw") {
       gameState.drawOffer = undefined;
       io.emit("draw_offer_update", { side: null });
-      sendSystemMessage(`${socket.data.name} rejected the draw offer.`);
+      sendSystemMessage(`${socket.data.name} rejected the draw offer.`, ctx);
     }
-  } else {
-    if (!currentVote.yesVoters.has(pid)) {
-      currentVote.yesVoters.add(pid);
+  } else if (voteResult.updatedYesVoters) {
+    // Update the yes voters
+    currentVote.yesVoters = voteResult.updatedYesVoters;
 
-      if (currentVote.yesVoters.size >= currentVote.required) {
-        clearTeamVote(side);
-        sendTeamMessage(
-          side,
-          `✅ Vote passed! Executing ${currentVote.type.replace("_", " ")}.`
-        );
+    if (voteResult.passed) {
+      clearTeamVote(side, ctx);
+      sendTeamMessage(
+        side,
+        `✅ Vote passed! Executing ${formatVoteType(currentVote.type)}.`,
+        ctx
+      );
 
-        if (currentVote.type === "resign") {
-          const winner = side === "white" ? "black" : "white";
-          sendSystemMessage(`${side} team resigns.`);
-          endGame(EndReason.Resignation, winner);
-        } else if (currentVote.type === "offer_draw") {
-          gameState.drawOffer = side;
-          io.emit("draw_offer_update", { side });
-          sendSystemMessage(`${side} team offers a draw.`);
+      if (currentVote.type === "resign") {
+        const winner = side === "white" ? "black" : "white";
+        sendSystemMessage(`${side} team resigns.`, ctx);
+        endGame(EndReason.Resignation, winner, ctx);
+      } else if (currentVote.type === "offer_draw") {
+        gameState.drawOffer = side;
+        io.emit("draw_offer_update", { side });
+        sendSystemMessage(`${side} team offers a draw.`, ctx);
 
-          // Trigger vote for other side
-          const otherSide = side === "white" ? "black" : "white";
-          startTeamVoteLogic(otherSide, "accept_draw", "system", "System");
-        } else if (currentVote.type === "accept_draw") {
-          sendSystemMessage(`${side} team accepts the draw.`);
-          endGame(EndReason.DrawAgreement, null);
-        }
-      } else {
-        broadcastTeamVote(side);
+        // Trigger vote for other side
+        const otherSide = side === "white" ? "black" : "white";
+        startTeamVoteLogic(otherSide, "accept_draw", "system", "System", ctx);
+      } else if (currentVote.type === "accept_draw") {
+        sendSystemMessage(`${side} team accepts the draw.`, ctx);
+        endGame(EndReason.DrawAgreement, null, ctx);
       }
+    } else {
+      broadcastTeamVote(side, ctx);
     }
   }
 }

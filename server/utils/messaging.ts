@@ -1,14 +1,14 @@
-import { Player } from "../types.js";
-import { sessions, getIO } from "../state.js";
+import type { Player, PlayerSide } from "../types.js";
+import type { IGameContext } from "../context/GameContext.js";
+import { globalContext } from "../context/GlobalContextAdapter.js";
 
-export function broadcastPlayers(): void {
-  const io = getIO();
-  const onlinePids = new Set<string>();
-  for (const socket of io.sockets.sockets.values()) {
-    if (socket.data.pid) {
-      onlinePids.add(socket.data.pid);
-    }
-  }
+/**
+ * Broadcasts the current player list to all clients.
+ * @param ctx Optional context for dependency injection (defaults to global)
+ */
+export function broadcastPlayers(ctx: IGameContext = globalContext): void {
+  const { sessions, io } = ctx;
+  const onlinePids = ctx.getOnlinePids();
 
   const spectators: Player[] = [];
   const whitePlayers: Player[] = [];
@@ -27,9 +27,15 @@ export function broadcastPlayers(): void {
   io.emit("players", { spectators, whitePlayers, blackPlayers });
 }
 
-export function sendSystemMessage(message: string): void {
-  const io = getIO();
-  io.emit("chat_message", {
+/**
+ * Sends a system message to all clients.
+ * @param ctx Optional context for dependency injection (defaults to global)
+ */
+export function sendSystemMessage(
+  message: string,
+  ctx: IGameContext = globalContext
+): void {
+  ctx.io.emit("chat_message", {
     sender: "System",
     senderId: "system",
     message,
@@ -37,19 +43,21 @@ export function sendSystemMessage(message: string): void {
   });
 }
 
+/**
+ * Sends a system message to a specific team.
+ * @param ctx Optional context for dependency injection (defaults to global)
+ */
 export function sendTeamMessage(
-  side: "white" | "black",
-  message: string
+  side: PlayerSide,
+  message: string,
+  ctx: IGameContext = globalContext
 ): void {
-  const io = getIO();
-  for (const socket of io.sockets.sockets.values()) {
-    if (socket.data.side === side) {
-      socket.emit("chat_message", {
-        sender: "Team System",
-        senderId: "system",
-        message,
-        system: true,
-      });
-    }
+  for (const socket of ctx.getSocketsBySide(side)) {
+    socket.emit("chat_message", {
+      sender: "Team System",
+      senderId: "system",
+      message,
+      system: true,
+    });
   }
 }

@@ -1,6 +1,7 @@
 import { Socket } from "socket.io";
 import { nanoid } from "nanoid";
-import { sessions, getGameState, getIO } from "../state.js";
+import type { IGameContext } from "../context/GameContext.js";
+import { globalContext } from "../context/GlobalContextAdapter.js";
 import { GameStatus, VoteType } from "../types.js";
 import { getCleanPgn } from "../utils/pgn.js";
 import { broadcastPlayers } from "../utils/messaging.js";
@@ -17,11 +18,17 @@ import {
   handleVoteTeam,
 } from "./eventHandlers.js";
 
-export function setupConnectionHandler(): void {
-  const io = getIO();
+/**
+ * Sets up the socket connection handler.
+ * @param ctx Optional context for dependency injection (defaults to global)
+ */
+export function setupConnectionHandler(
+  ctx: IGameContext = globalContext
+): void {
+  const { io } = ctx;
 
   io.on("connection", (socket: Socket) => {
-    const gameState = getGameState();
+    const { gameState, sessions } = ctx;
     const { pid: providedPid, name: providedName } =
       (socket.handshake.auth as { pid?: string; name?: string }) || {};
 
@@ -89,35 +96,37 @@ export function setupConnectionHandler(): void {
     }
 
     if (socket.data.side === "white" || socket.data.side === "black") {
-      socket.emit("team_vote_update", getTeamVoteClientData(socket.data.side));
+      socket.emit("team_vote_update", getTeamVoteClientData(socket.data.side, ctx));
     }
 
-    broadcastPlayers();
-    tryFinalizeTurn();
+    broadcastPlayers(ctx);
+    tryFinalizeTurn(ctx);
 
-    // Event handlers
-    socket.on("set_name", (name: string) => handleSetName(socket, name));
+    // Event handlers - pass context to each handler
+    socket.on("set_name", (name: string) => handleSetName(socket, name, ctx));
 
-    socket.on("join_side", ({ side }, cb) => handleJoinSide(socket, side, cb));
+    socket.on("join_side", ({ side }, cb) =>
+      handleJoinSide(socket, side, cb, ctx)
+    );
 
-    socket.on("reset_game", (cb) => handleResetGame(socket, cb));
+    socket.on("reset_game", (cb) => handleResetGame(socket, cb, ctx));
 
     socket.on("play_move", (lan: string, cb) =>
-      handlePlayMove(socket, lan, cb)
+      handlePlayMove(socket, lan, cb, ctx)
     );
 
     socket.on("chat_message", (message: string) =>
-      handleChatMessage(socket, message)
+      handleChatMessage(socket, message, ctx)
     );
 
     socket.on("start_team_vote", (type: VoteType) =>
-      handleStartTeamVote(socket, type)
+      handleStartTeamVote(socket, type, ctx)
     );
 
     socket.on("vote_team", (vote: "yes" | "no") =>
-      handleVoteTeam(socket, vote)
+      handleVoteTeam(socket, vote, ctx)
     );
 
-    socket.on("disconnect", () => leave(socket));
+    socket.on("disconnect", () => leave(socket, ctx));
   });
 }
