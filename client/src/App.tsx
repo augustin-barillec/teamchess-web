@@ -14,11 +14,8 @@ import {
   PieceHandlerArgs,
 } from "react-chessboard";
 import { GameStatus, VoteType } from "./types";
-import {
-  STORAGE_KEYS,
-  pieceToFigurineWhite,
-  pieceToFigurineBlack,
-} from "./constants";
+import { STORAGE_KEYS } from "./constants";
+import { calculateMaterial } from "./materialCalc";
 import { useSocket } from "./hooks/useSocket";
 import { NameChangeModal } from "./components/NameChangeModal";
 import { ControlsPanel } from "./components/ControlsPanel";
@@ -105,105 +102,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [position, chess]);
 
-  const { whiteMaterialDiff, blackMaterialDiff, materialBalance } =
-    useMemo(() => {
-      const values: Record<string, number> = {
-        p: 1,
-        n: 3,
-        b: 3,
-        r: 5,
-        q: 9,
-        k: 0,
-      };
-      const order = ["q", "r", "b", "n", "p"];
-
-      const wCounts: Record<string, number> = {
-        p: 0,
-        n: 0,
-        b: 0,
-        r: 0,
-        q: 0,
-        k: 0,
-      };
-      const bCounts: Record<string, number> = {
-        p: 0,
-        n: 0,
-        b: 0,
-        r: 0,
-        q: 0,
-        k: 0,
-      };
-
-      chess
-        .board()
-        .flat()
-        .forEach((piece) => {
-          if (piece) {
-            if (piece.color === "w") wCounts[piece.type]++;
-            else bCounts[piece.type]++;
-          }
-        });
-
-      let wScore = 0;
-      let bScore = 0;
-      Object.keys(values).forEach((type) => {
-        wScore += wCounts[type] * values[type];
-        bScore += bCounts[type] * values[type];
-      });
-      const balance = wScore - bScore;
-
-      const whiteDiff: { type: string; figurine: string }[] = [];
-      const blackDiff: { type: string; figurine: string }[] = [];
-
-      order.forEach((type) => {
-        const diff = wCounts[type] - bCounts[type];
-        const absDiff = Math.abs(diff);
-        const figurineW = pieceToFigurineWhite[type.toUpperCase()];
-        const figurineB = pieceToFigurineBlack[type.toUpperCase()];
-
-        if (diff !== 0) {
-          const targetList = diff > 0 ? whiteDiff : blackDiff;
-          const figurine = diff > 0 ? figurineW : figurineB;
-
-          for (let i = 0; i < absDiff; i++) {
-            targetList.push({ type, figurine });
-          }
-        }
-      });
-
-      const groupPiecesToStrings = (
-        pieces: { type: string; figurine: string }[]
-      ) => {
-        const groupedStrings: string[] = [];
-        if (pieces.length === 0) return groupedStrings;
-
-        let currentFigurine = pieces[0].figurine;
-        let currentCount = 0;
-
-        for (const piece of pieces) {
-          if (piece.figurine === currentFigurine) {
-            currentCount++;
-          } else {
-            groupedStrings.push(
-              `${currentFigurine}${currentCount > 1 ? `x${currentCount}` : ""}`
-            );
-            currentFigurine = piece.figurine;
-            currentCount = 1;
-          }
-        }
-        groupedStrings.push(
-          `${currentFigurine}${currentCount > 1 ? `x${currentCount}` : ""}`
-        );
-        return groupedStrings;
-      };
-
-      return {
-        whiteMaterialDiff: groupPiecesToStrings(whiteDiff),
-        blackMaterialDiff: groupPiecesToStrings(blackDiff),
-        materialBalance: balance,
-      };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [position, chess]);
+  const { whiteMaterialDiff, blackMaterialDiff, materialBalance } = useMemo(
+    () => calculateMaterial(chess.board()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [position, chess]
+  );
 
   useEffect(() => {
     const observer = new ResizeObserver((entries) => {
