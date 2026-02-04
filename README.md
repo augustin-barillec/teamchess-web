@@ -1,6 +1,6 @@
 # ♟️ TeamChess
 
-This project is a simple, self-hosted chess application. It's designed to run as a single, dedicated game server.
+TeamChess is a simple, self-hosted chess application designed to run as a single, dedicated game server.
 
 ## The Game Concept
 
@@ -21,31 +21,54 @@ TeamChess is a collaborative chess game. Everyone who connects to the server joi
 
 ## 🚀 Local Development
 
-1.  **Install Dependencies & Git Hooks:**
+You can run the project in three different ways depending on your goal.
+
+### 1. Dev Mode (Coding ⚡)
+
+_Best for writing code. Features live updates (Hot Reload) for the frontend and auto-restart for the backend._
+
+1.  **Terminal 1 (Backend):**
 
     ```sh
-    npm install
+    npm run dev
     ```
 
-    This installs all local dependencies (like `husky` and `prettier`) and runs the `prepare` script to set up the pre-commit hooks. **This step is required** for your pre-commit formatting to work.
+    _Runs the server on port 3001._
 
-2.  **Build and run the container:**
+2.  **Terminal 2 (Frontend):**
+    ```sh
+    npx vite client
+    ```
+    _Runs the client on port 5173._
 
-    First, build the image without using the cache to ensure you have the latest changes:
+👉 **Access:** Open `http://localhost:5173`
 
+### 2. Local Production (Testing 🏗️)
+
+_Best for verifying the build process before deploying. No live updates._
+
+1.  **Build:**
+    ```sh
+    npm run build
+    ```
+2.  **Start:**
+    ```sh
+    npm run start
+    ```
+
+👉 **Access:** Open `http://localhost:3001`
+
+### 3. Docker (Deployment Sim 🐳)
+
+_Best for simulating the exact production environment (Linux/Alpine)._
+
+1.  **Build & Run:**
     ```sh
     docker compose build --no-cache
+    docker compose up -d
     ```
 
-    Then, start the container:
-
-    ```sh
-    docker compose up
-    ```
-
-3.  **Access the game:**
-    Open `http://localhost` in your browser .
-    The `docker-compose.yaml` file maps your machine's port 80 to the container's port 3001 .
+👉 **Access:** Open `http://localhost` (Port 80 maps to container port 3001)
 
 ---
 
@@ -56,11 +79,9 @@ This guide will walk you through setting up a small, cheap virtual machine on Go
 ### Step 1: Install and Configure `gcloud` CLI
 
 1.  **Login to your Google Account:**
-
     ```sh
     gcloud auth login
     ```
-
 2.  **Set your project:** (Replace `YOUR_PROJECT_ID` with your actual GCP project ID)
     ```sh
     gcloud config set project YOUR_PROJECT_ID
@@ -75,6 +96,7 @@ gcloud compute firewall-rules create http-80 \
     --allow tcp:80 \
     --target-tags http-server \
     --description="Allow HTTP traffic on port 80"
+
 ```
 
 ### Step 3: Create the VM Instance
@@ -88,143 +110,130 @@ gcloud compute instances create teamchess-server \
     --image-project=ubuntu-os-cloud \
     --zone=europe-west1-b \
     --tags=http-server
+
 ```
 
 ### Step 4: SSH into the VM and Install Dependencies
 
-1.  **SSH into your new VM:**
+1. **SSH into your new VM:**
 
-    ```sh
-    gcloud compute ssh teamchess-server --zone=europe-west1-b
-    ```
+```sh
+gcloud compute ssh teamchess-server --zone=europe-west1-b
 
-    You are now inside the VM's terminal.
+```
 
-2.  **Update packages:**
+2. **Update packages:**
 
-    ```sh
-    sudo apt-get update
-    ```
+```sh
+sudo apt-get update
 
-3.  **Install Git:**
+```
 
-    ```sh
-    sudo apt-get install git -y
-    ```
+3. **Install Git:**
 
-4.  **Install Docker and Docker Compose:**
+```sh
+sudo apt-get install git -y
 
-    ```sh
-    # Install prerequisites
-    sudo apt-get install ca-certificates curl -y
-    sudo install -m 0755 -d /etc/apt/keyrings
-    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-    sudo chmod a+r /etc/apt/keyrings/docker.asc
+```
 
-    # Add the repository to Apt sources
-    echo \
-      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-    sudo apt-get update
+4. **Install Docker and Docker Compose:**
 
-    # Install Docker Engine and Compose plugin
-    sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
-    ```
+```sh
+# Install prerequisites
+sudo apt-get install ca-certificates curl -y
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL [https://download.docker.com/linux/ubuntu/gpg](https://download.docker.com/linux/ubuntu/gpg) -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add the repository to Apt sources
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] [https://download.docker.com/linux/ubuntu](https://download.docker.com/linux/ubuntu) \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+
+# Install Docker Engine and Compose plugin
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+
+```
 
 5.  **Add your user to the `docker` group** (to avoid using `sudo` for Docker):
 
-    ```sh
-    sudo usermod -aG docker $USER
-    ```
+```sh
+sudo usermod -aG docker $USER
+
+```
 
 6.  **IMPORTANT:** Log out and log back in for the group change to take effect.
 
-    ```sh
-    exit
-    ```
+```sh
+exit
+gcloud compute ssh teamchess-server --zone=europe-west1-b
 
-    Then run the SSH command again:
-
-    ```sh
-    gcloud compute ssh teamchess-server --zone=europe-west1-b
-    ```
+```
 
 ### Step 5: Clone and Run Your Project
 
-1.  **Clone your project:**
+1. **Clone your project:**
 
-2.  **Build and run the container:**
+```sh
+git clone <YOUR_REPO_URL>
+cd teamchess
 
-    First build without cache:
+```
 
-    ```sh
-    docker compose build --no-cache
-    ```
+2. **Build and run the container:**
 
-    Then run in "detached" mode:
+```sh
+docker compose build --no-cache
+docker compose up -d
 
-    ```sh
-    docker compose up -d
-    ```
+```
 
-    - `--build` forces it to build your image from the `Dockerfile`.
-    - `-d` (detached) runs the container in the background so you can close the SSH window.
+### Step 6: Find Your IP and Play!
 
-### Step 6: Find Your IP and Play\!
+1.  **Get your VM's external IP address.** (Run this in your **local terminal**, not SSH):
 
-1.  **Get your VM's external IP address.** You can run this in your **local terminal** (not the SSH one):
+```sh
+gcloud compute instances describe teamchess-server \
+    --zone=europe-west1-b \
+    --format='get(networkInterfaces[0].accessConfigs[0].natIP)'
 
-    ```sh
-    gcloud compute instances describe teamchess-server \
-        --zone=europe-west1-b \
-        --format='get(networkInterfaces[0].accessConfigs[0].natIP)'
-    ```
+```
 
-2.  **Play:** Paste the IP address (e.g., `http://34.123.45.67`) into your browser. Share it with your friends\!
+2. **Play:** Paste the IP address into your browser. Share it with your friends!
 
 ---
 
 ## ✏️ Updating Production (Deploying Changes)
 
-Here is the simple workflow for when you've made code changes locally and want to push them to your live server.
+When you have pushed code changes to `main`:
 
-### On Your Local Machine
+1. **SSH** into your VM:
 
-1.  Make your code changes.
-2.  Test them locally (`docker compose up --build`).
-3.  When you're happy, commit and push your changes to `main`:
-    ```sh
-    git add .
-    git commit -m "feat: added a new feature"
-    git push main
-    ```
+```sh
+gcloud compute ssh teamchess-server --zone=europe-west1-b
 
-### On Your GCP VM
+```
 
-1.  **SSH** into your VM:
+2. **Navigate** to your project directory:
 
-    ```sh
-    gcloud compute ssh teamchess-server --zone=europe-west1-b
-    ```
+```sh
+cd teamchess
 
-2.  **Navigate** to your project directory:
+```
 
-    ```sh
-    cd your-repo-name
-    ```
+3. **Pull** the latest changes:
 
-3.  **Pull** the latest changes from GitHub:
+```sh
+git pull
 
-    ```sh
-    git pull main
-    ```
+```
 
-4.  **Rebuild and restart** the container with your new code:
+4. **Rebuild and restart**:
 
-    ```sh
-    docker compose build --no-cache
-    docker compose up -d
-    ```
+```sh
+docker compose build --no-cache
+docker compose up -d
 
-That's it\! Docker Compose will intelligently rebuild the image and restart the container with your new code.
+```
