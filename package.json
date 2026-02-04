@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "tsx server/index.ts",
+    "client": "vite client",
     "build:client": "vite build client",
     "build:server": "tsc -p tsconfig.json && cp server/load_engine.cjs dist/",
     "build": "npm run build:client && npm run build:server",

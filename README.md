@@ -37,7 +37,7 @@ _Best for writing code. Features live updates (Hot Reload) for the frontend and 
 
 2.  **Terminal 2 (Frontend):**
     ```sh
-    npx vite client
+    npm run client
     ```
     _Runs the client on port 5173._
 
