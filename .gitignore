@@ -18,3 +18,9 @@ npm-debug.log
 Thumbs.db
 .vscode/
 .idea/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

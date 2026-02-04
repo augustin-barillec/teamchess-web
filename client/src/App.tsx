@@ -427,17 +427,6 @@ export default function App() {
         side={side}
       />
 
-      <div
-        className="mobile-info-overlay"
-        style={{ display: isMobileInfoVisible ? "flex" : "none" }}
-      >
-        {TabContent}
-        <div className="mobile-info-header">
-          <h3>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h3>
-          <button onClick={() => setIsMobileInfoVisible(false)}>Close</button>
-        </div>
-      </div>
-
       {amDisconnected && (
         <div className="offline-banner">
           {" "}
@@ -493,7 +482,9 @@ export default function App() {
             />
           </div>
 
-          <div className="info-column">
+          <div
+            className={`info-column${isMobileInfoVisible ? " mobile-overlay-active" : ""}`}
+          >
             <nav className="info-tabs-nav">
               <button
                 className={activeTab === "players" ? "active" : ""}
@@ -543,6 +534,12 @@ export default function App() {
             </nav>
 
             {TabContent}
+            <div className="mobile-info-header">
+              <h3>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h3>
+              <button onClick={() => setIsMobileInfoVisible(false)}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       </div>

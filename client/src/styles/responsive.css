@@ -16,26 +16,71 @@
     max-width: 800px;
     position: relative;
     top: 0;
+    background: none;
+    border: none;
+    overflow: visible;
   }
 
   .info-column > .info-tabs-content {
     display: none;
   }
 
-  .info-column {
-    background: none;
-    border: none;
-    overflow: visible;
-  }
   .info-column .info-tabs-nav {
     border-radius: 8px;
     border: 1px solid #ccc;
     overflow: hidden;
   }
+
   .info-tabs-nav button.active {
     background: #f4f4f4;
     color: #555;
     border-bottom-color: transparent;
+  }
+
+  /* Mobile overlay mode */
+  .info-column.mobile-overlay-active {
+    position: fixed;
+    inset: 0;
+    max-width: none;
+    background-color: #f8f8f8;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .info-column.mobile-overlay-active .info-tabs-nav {
+    display: none;
+  }
+
+  .info-column.mobile-overlay-active > .info-tabs-content {
+    display: block;
+    flex-grow: 1;
+    min-height: 0;
+    position: relative;
+    background: #fdfdfd;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+  }
+
+  .info-column.mobile-overlay-active .tab-panel.active {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+
+  .info-column.mobile-overlay-active .moves-list,
+  .info-column.mobile-overlay-active .chat-box-container,
+  .info-column.mobile-overlay-active .player-lists-container,
+  .info-column.mobile-overlay-active .controls-panel-content {
+    height: 100%;
+  }
+
+  .info-column.mobile-overlay-active .mobile-info-header {
+    display: flex;
   }
 }
 
@@ -130,19 +175,8 @@
   }
 }
 
-.mobile-info-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: #f8f8f8;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  padding: 10px;
-  gap: 10px;
-}
-
 .mobile-info-header {
-  display: flex;
+  display: none;
   justify-content: space-between;
   align-items: center;
   padding: 0 10px;
@@ -156,28 +190,4 @@
   margin: 0;
   padding: 12px 0;
   font-size: 1.1em;
-}
-
-.mobile-info-overlay .info-tabs-content {
-  flex-grow: 1;
-  min-height: 0;
-  position: relative;
-  background: #fdfdfd;
-  border: 1px solid #ccc;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  overflow: hidden;
-}
-
-.mobile-info-overlay .tab-panel.active {
-  position: absolute;
-  inset: 0;
-  display: block;
-}
-
-.mobile-info-overlay .moves-list,
-.mobile-info-overlay .chat-box-container,
-.mobile-info-overlay .player-lists-container,
-.mobile-info-overlay .controls-panel-content {
-  height: 100%;
 }
