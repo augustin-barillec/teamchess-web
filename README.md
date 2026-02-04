@@ -40,7 +40,7 @@ TeamChess is a collaborative chess game. Everyone who connects to the server joi
     Then, start the container:
 
     ```sh
-    docker compose up --build
+    docker compose up
     ```
 
 3.  **Access the game:**
@@ -224,7 +224,7 @@ Here is the simple workflow for when you've made code changes locally and want t
 
     ```sh
     docker compose build --no-cache
-    docker compose up --build -d
+    docker compose up -d
     ```
 
 That's it\! Docker Compose will intelligently rebuild the image and restart the container with your new code.
