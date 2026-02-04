@@ -165,7 +165,7 @@ gcloud compute instances create teamchess-server \
     Then run in "detached" mode:
 
     ```sh
-    docker compose up --build -d
+    docker compose up -d
     ```
 
     - `--build` forces it to build your image from the `Dockerfile`.

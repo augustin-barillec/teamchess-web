@@ -4,7 +4,6 @@
 # Build Artifacts
 /dist
 /client/dist
-/public
 /.vite
 
 # TypeScript

@@ -15,7 +15,6 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   console.log("Starting TeamChess server...");
-
   // Initialize engine loader (async import)
   await initEngineLoader();
 
@@ -29,7 +28,6 @@ async function startServer() {
     pingInterval: 5000,
     pingTimeout: 5000,
   });
-
   // Set global IO instance
   setIO(io);
 
@@ -47,17 +45,15 @@ async function startServer() {
     chess: new Chess(),
     status: GameStatus.Lobby,
   });
-
   // Setup socket connection handler
   setupConnectionHandler();
 
   // Serve static files
-  const publicPath = path.join(__dirname, "..", "public");
+  const publicPath = path.join(__dirname, "../client/dist");
   app.use(express.static(publicPath));
   app.get(/.*/, (req, res) => {
     res.sendFile(path.join(publicPath, "index.html"));
   });
-
   // Start server
   const PORT = process.env.PORT || 3001;
   server.listen(PORT, () => {
