@@ -77,37 +77,6 @@ test("three_players_stockfish", async ({ browser }) => {
   await player3.click('button:has-text("Join Black")');
   await player3.waitForTimeout(500);
 
-  // Helper function for drag and drop move
-  async function makeMove(
-    page: import("@playwright/test").Page,
-    from: string,
-    to: string
-  ) {
-    const fromSquare = page.locator(`[data-square="${from}"]`);
-    const toSquare = page.locator(`[data-square="${to}"]`);
-
-    // Get bounding boxes for precise drag
-    const fromBox = await fromSquare.boundingBox();
-    const toBox = await toSquare.boundingBox();
-
-    if (!fromBox || !toBox) {
-      throw new Error(`Could not find squares ${from} or ${to}`);
-    }
-
-    // Drag from center of source to center of target
-    await page.mouse.move(
-      fromBox.x + fromBox.width / 2,
-      fromBox.y + fromBox.height / 2
-    );
-    await page.mouse.down();
-    await page.mouse.move(
-      toBox.x + toBox.width / 2,
-      toBox.y + toBox.height / 2,
-      { steps: 5 }
-    );
-    await page.mouse.up();
-  }
-
   // Player 1 (White) plays e2-e4
   await makeMove(player1, "e2", "e4");
   await player1.waitForTimeout(1000);
@@ -199,6 +168,33 @@ test("name_change", async ({ browser }) => {
   await context2.close();
 });
 
+// Helper function for drag and drop move
+async function makeMove(
+  page: import("@playwright/test").Page,
+  from: string,
+  to: string
+) {
+  const fromSquare = page.locator(`[data-square="${from}"]`);
+  const toSquare = page.locator(`[data-square="${to}"]`);
+
+  const fromBox = await fromSquare.boundingBox();
+  const toBox = await toSquare.boundingBox();
+
+  if (!fromBox || !toBox) {
+    throw new Error(`Could not find squares ${from} or ${to}`);
+  }
+
+  await page.mouse.move(
+    fromBox.x + fromBox.width / 2,
+    fromBox.y + fromBox.height / 2
+  );
+  await page.mouse.down();
+  await page.mouse.move(toBox.x + toBox.width / 2, toBox.y + toBox.height / 2, {
+    steps: 5,
+  });
+  await page.mouse.up();
+}
+
 test("chat_message", async ({ browser }) => {
   // Create 2 browser contexts for 2 players with video recording
   const context1 = await browser.newContext({
@@ -234,6 +230,99 @@ test("chat_message", async ({ browser }) => {
   // Close pages and save videos with descriptive names
   await saveVideo(player1, "chat_message", "player1");
   await saveVideo(player2, "chat_message", "player2");
+
+  // Close all contexts
+  await context1.close();
+  await context2.close();
+});
+
+test("pawn_promotion_to_queen", async ({ browser }) => {
+  // Create 2 browser contexts for 2 players with video recording
+  const context1 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+  const context2 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+
+  const player1 = await context1.newPage();
+  const player2 = await context2.newPage();
+
+  // Both players join the website
+  await player1.goto("/");
+  await player2.goto("/");
+
+  // Wait for app to load
+  await player1.waitForSelector(".app-container");
+  await player2.waitForSelector(".app-container");
+
+  // Player 1 joins White team
+  await player1.click('button:has-text("Join White")');
+  await player1.waitForTimeout(500);
+
+  // Player 2 joins Black team
+  await player2.click('button:has-text("Join Black")');
+  await player2.waitForTimeout(500);
+
+  // Sequence of moves to get white pawn to h8:
+  // 1. g2-g4 (white)
+  // 2. h7-h5 (black)
+  // 3. g4xh5 (white captures)
+  // 4. g7-g6 (black)
+  // 5. h5xg6 (white captures)
+  // 6. Ng8-f6 (black moves knight)
+  // 7. g6-g7 (white)
+  // 8. a7-a6 (black)
+  // 9. g7xh8=Q (white promotes to queen)
+
+  // Move 1: g2-g4 (white)
+  await makeMove(player1, "g2", "g4");
+  await player1.waitForTimeout(1000);
+
+  // Move 2: h7-h5 (black)
+  await makeMove(player2, "h7", "h5");
+  await player2.waitForTimeout(1000);
+
+  // Move 3: g4xh5 (white captures)
+  await makeMove(player1, "g4", "h5");
+  await player1.waitForTimeout(1000);
+
+  // Move 4: g7-g6 (black)
+  await makeMove(player2, "g7", "g6");
+  await player2.waitForTimeout(1000);
+
+  // Move 5: h5xg6 (white captures)
+  await makeMove(player1, "h5", "g6");
+  await player1.waitForTimeout(1000);
+
+  // Move 6: Ng8-f6 (black moves knight)
+  await makeMove(player2, "g8", "f6");
+  await player2.waitForTimeout(1000);
+
+  // Move 7: g6-g7 (white)
+  await makeMove(player1, "g6", "g7");
+  await player1.waitForTimeout(1000);
+
+  // Move 8: a7-a6 (black)
+  await makeMove(player2, "a7", "a6");
+  await player2.waitForTimeout(1000);
+
+  // Move 9: g7xh8 (white captures rook, triggers promotion)
+  await makeMove(player1, "g7", "h8");
+  await player1.waitForTimeout(500);
+
+  // Select Queen in promotion dialog (first button)
+  await player1.click(".promotion-choices button:first-child");
+  await player1.waitForTimeout(1000);
+
+  // Assert: There is a white queen on h8
+  await expect(
+    player1.locator('[data-square="h8"] [data-piece="wQ"]')
+  ).toBeVisible();
+
+  // Close pages and save videos with descriptive names
+  await saveVideo(player1, "pawn_promotion", "player1_white");
+  await saveVideo(player2, "pawn_promotion", "player2_black");
 
   // Close all contexts
   await context1.close();
