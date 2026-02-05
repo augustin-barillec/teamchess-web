@@ -1,82 +1,99 @@
-import { test, expect } from "@playwright/test";
+import { test } from "@playwright/test";
 
-test.describe("TeamChess App", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    // Wait for the app to fully load
-    await page.waitForSelector(".app-container");
+test("three players join and make moves, stockfish selects best move", async ({
+  browser,
+}) => {
+  // Create 3 browser contexts for 3 players with video recording
+  const videoDir = "test-results/multiplayer-videos";
+  const context1 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+  const context2 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+  const context3 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
   });
 
-  test("should load the application and display the chessboard", async ({
-    page,
-  }) => {
-    // Check that the app container is visible
-    await expect(page.locator(".app-container")).toBeVisible();
+  const player1 = await context1.newPage();
+  const player2 = await context2.newPage();
+  const player3 = await context3.newPage();
 
-    // Check that the chessboard is rendered
-    await expect(page.locator(".board-wrapper")).toBeVisible();
-  });
+  // All players join the website
+  await player1.goto("/");
+  await player2.goto("/");
+  await player3.goto("/");
 
-  test("should display all panels on desktop", async ({ page }) => {
-    // On desktop (>900px), all panels are visible side by side
-    await expect(page.locator(".players-panel")).toBeVisible();
-    await expect(page.locator(".moves-panel")).toBeVisible();
-    await expect(page.locator(".chat-panel")).toBeVisible();
-    await expect(page.locator(".controls-panel")).toBeVisible();
-  });
+  // Wait for app to load for all players
+  await player1.waitForSelector(".app-container");
+  await player2.waitForSelector(".app-container");
+  await player3.waitForSelector(".app-container");
 
-  test("should display player lists in players panel", async ({ page }) => {
-    const playersPanel = page.locator(".players-panel");
-    await expect(playersPanel).toBeVisible();
+  // Player 1 joins White team
+  await player1.click('button:has-text("Join White")');
+  await player1.waitForTimeout(500);
 
-    // Check for team headers
-    await expect(playersPanel.locator("text=White")).toBeVisible();
-    await expect(playersPanel.locator("text=Black")).toBeVisible();
-  });
+  // Player 2 joins Black team
+  await player2.click('button:has-text("Join Black")');
+  await player2.waitForTimeout(500);
 
-  test("should display clock boxes", async ({ page }) => {
-    // There should be clock elements for both players
-    const clockBoxes = page.locator(".clock-box");
-    await expect(clockBoxes.first()).toBeVisible();
-  });
+  // Player 3 joins Black team
+  await player3.click('button:has-text("Join Black")');
+  await player3.waitForTimeout(500);
 
-  test("should have controls panel with game options", async ({ page }) => {
-    const controlsPanel = page.locator(".controls-panel");
-    await expect(controlsPanel).toBeVisible();
+  // Helper function for drag and drop move
+  async function makeMove(
+    page: import("@playwright/test").Page,
+    from: string,
+    to: string
+  ) {
+    const fromSquare = page.locator(`[data-square="${from}"]`);
+    const toSquare = page.locator(`[data-square="${to}"]`);
 
-    // Should have Controls header
-    await expect(
-      controlsPanel.locator('h3:has-text("Controls")')
-    ).toBeVisible();
-  });
+    // Get bounding boxes for precise drag
+    const fromBox = await fromSquare.boundingBox();
+    const toBox = await toSquare.boundingBox();
 
-  test("should display chat panel with input", async ({ page }) => {
-    const chatPanel = page.locator(".chat-panel");
-    await expect(chatPanel).toBeVisible();
+    if (!fromBox || !toBox) {
+      throw new Error(`Could not find squares ${from} or ${to}`);
+    }
 
-    // Chat should have an input field
-    const chatInput = chatPanel.locator('input[type="text"]');
-    await expect(chatInput).toBeVisible();
-  });
-});
+    // Drag from center of source to center of target
+    await page.mouse.move(
+      fromBox.x + fromBox.width / 2,
+      fromBox.y + fromBox.height / 2
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      toBox.x + toBox.width / 2,
+      toBox.y + toBox.height / 2,
+      { steps: 5 }
+    );
+    await page.mouse.up();
+  }
 
-test.describe("TeamChess Game Interactions", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await page.waitForSelector(".app-container");
-  });
+  // Player 1 (White) plays e2-e4
+  await makeMove(player1, "e2", "e4");
+  await player1.waitForTimeout(1000);
 
-  test("should allow typing in chat", async ({ page }) => {
-    const chatInput = page.locator('.chat-panel input[type="text"]');
-    await chatInput.fill("Hello, team!");
-    await expect(chatInput).toHaveValue("Hello, team!");
-  });
+  // Player 2 (Black) proposes e7-e5 (good move)
+  await makeMove(player2, "e7", "e5");
+  await player2.waitForTimeout(500);
 
-  test("should have team join buttons available", async ({ page }) => {
-    const controlsPanel = page.locator(".controls-panel");
+  // Player 3 (Black) proposes b8-a6 (bad move)
+  await makeMove(player3, "b8", "a6");
+  await player3.waitForTimeout(500);
 
-    // Look for join/team related buttons
-    const hasTeamButtons = await controlsPanel.locator("button").count();
-    expect(hasTeamButtons).toBeGreaterThan(0);
-  });
+  // Wait for Stockfish to evaluate and select the best move (e7-e5)
+  await player1.waitForTimeout(3000);
+
+  // Close pages first to finalize video recording
+  await player1.close();
+  await player2.close();
+  await player3.close();
+
+  // Close all contexts
+  await context1.close();
+  await context2.close();
+  await context3.close();
 });

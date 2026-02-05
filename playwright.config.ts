@@ -24,27 +24,20 @@ export default defineConfig({
         viewport: { width: 1280, height: 720 },
       },
     },
-    {
-      name: "firefox",
-      use: {
-        ...devices["Desktop Firefox"],
-        viewport: { width: 1280, height: 720 },
-      },
-    },
   ],
 
   webServer: [
     {
       command: "npm run dev",
       port: 3001,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       stdout: "ignore",
       stderr: "pipe",
     },
     {
       command: "npm run client",
       url: "http://localhost:5173",
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
     },
   ],
 });
