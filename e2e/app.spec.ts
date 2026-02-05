@@ -198,3 +198,44 @@ test("name_change", async ({ browser }) => {
   await context1.close();
   await context2.close();
 });
+
+test("chat_message", async ({ browser }) => {
+  // Create 2 browser contexts for 2 players with video recording
+  const context1 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+  const context2 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+
+  const player1 = await context1.newPage();
+  const player2 = await context2.newPage();
+
+  // Both players join the website
+  await player1.goto("/");
+  await player2.goto("/");
+
+  // Wait for app to load
+  await player1.waitForSelector(".app-container");
+  await player2.waitForSelector(".app-container");
+
+  // Player 1 types "hello1" in the chat input and presses Enter
+  const chatInput = player1.locator('.chat-panel input[type="text"]');
+  await chatInput.fill("hello1");
+  await chatInput.press("Enter");
+  await player1.waitForTimeout(500);
+
+  // Assert: Player 1 sees "hello1" in chat messages
+  await expect(player1.locator(".chat-messages")).toContainText("hello1");
+
+  // Assert: Player 2 sees "hello1" in chat messages
+  await expect(player2.locator(".chat-messages")).toContainText("hello1");
+
+  // Close pages and save videos with descriptive names
+  await saveVideo(player1, "chat_message", "player1");
+  await saveVideo(player2, "chat_message", "player2");
+
+  // Close all contexts
+  await context1.close();
+  await context2.close();
+});
