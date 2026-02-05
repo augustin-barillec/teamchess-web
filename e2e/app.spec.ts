@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
 test("three players join and make moves, stockfish selects best move", async ({
   browser,
@@ -76,6 +76,14 @@ test("three players join and make moves, stockfish selects best move", async ({
   await makeMove(player1, "e2", "e4");
   await player1.waitForTimeout(1000);
 
+  // Assert: After white's turn, e4 has a white pawn and e2 is empty
+  await expect(
+    player1.locator('[data-square="e4"] [data-piece="wP"]')
+  ).toBeVisible();
+  await expect(
+    player1.locator('[data-square="e2"] [data-piece]')
+  ).not.toBeVisible();
+
   // Player 2 (Black) proposes e7-e5 (good move)
   await makeMove(player2, "e7", "e5");
   await player2.waitForTimeout(500);
@@ -86,6 +94,15 @@ test("three players join and make moves, stockfish selects best move", async ({
 
   // Wait for Stockfish to evaluate and select the best move (e7-e5)
   await player1.waitForTimeout(3000);
+
+  // Assert: After black's turn, e5 has a black pawn and e7 is empty
+  // (Stockfish should have selected e7-e5 as the best move)
+  await expect(
+    player1.locator('[data-square="e5"] [data-piece="bP"]')
+  ).toBeVisible();
+  await expect(
+    player1.locator('[data-square="e7"] [data-piece]')
+  ).not.toBeVisible();
 
   // Close pages first to finalize video recording
   await player1.close();
