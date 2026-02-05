@@ -5,13 +5,13 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: "http://localhost:80",
     trace: "on-first-retry",
     video: "on",
   },
@@ -23,21 +23,6 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         viewport: { width: 1280, height: 720 },
       },
-    },
-  ],
-
-  webServer: [
-    {
-      command: "npm run dev",
-      port: 3001,
-      reuseExistingServer: false,
-      stdout: "ignore",
-      stderr: "pipe",
-    },
-    {
-      command: "npm run client",
-      url: "http://localhost:5173",
-      reuseExistingServer: false,
     },
   ],
 });

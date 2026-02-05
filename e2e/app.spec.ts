@@ -1,10 +1,46 @@
 import { test, expect } from "@playwright/test";
+import * as fs from "fs";
+import * as path from "path";
+import { execSync } from "child_process";
 
-test("three players join and make moves, stockfish selects best move", async ({
-  browser,
-}) => {
+const videoDir = "test-results/multiplayer-videos";
+
+// Start Docker container before each test
+test.beforeEach(async () => {
+  // Stop any existing container first
+  execSync("docker compose down", { stdio: "ignore" });
+
+  // Start fresh container
+  execSync("docker compose up -d", { stdio: "ignore" });
+
+  // Wait for server to be ready
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+});
+
+// Stop Docker container after each test
+test.afterEach(async () => {
+  execSync("docker compose down", { stdio: "ignore" });
+});
+
+// Helper to rename video file after page closes
+async function saveVideo(
+  page: import("@playwright/test").Page,
+  testName: string,
+  playerName: string
+) {
+  const video = page.video();
+  if (video) {
+    const videoPath = await video.path();
+    const newPath = path.join(videoDir, `${testName}_${playerName}.webm`);
+    await page.close();
+    fs.renameSync(videoPath, newPath);
+  } else {
+    await page.close();
+  }
+}
+
+test("three_players_stockfish", async ({ browser }) => {
   // Create 3 browser contexts for 3 players with video recording
-  const videoDir = "test-results/multiplayer-videos";
   const context1 = await browser.newContext({
     recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
   });
@@ -104,13 +140,61 @@ test("three players join and make moves, stockfish selects best move", async ({
     player1.locator('[data-square="e7"] [data-piece]')
   ).not.toBeVisible();
 
-  // Close pages first to finalize video recording
-  await player1.close();
-  await player2.close();
-  await player3.close();
+  // Close pages and save videos with descriptive names
+  await saveVideo(player1, "three_players_stockfish", "player1_white");
+  await saveVideo(player2, "three_players_stockfish", "player2_black");
+  await saveVideo(player3, "three_players_stockfish", "player3_black");
 
   // Close all contexts
   await context1.close();
   await context2.close();
   await context3.close();
+});
+
+test("name_change", async ({ browser }) => {
+  // Create 2 browser contexts for 2 players with video recording
+  const context1 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+  const context2 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+
+  const player1 = await context1.newPage();
+  const player2 = await context2.newPage();
+
+  // Both players join the website
+  await player1.goto("/");
+  await player2.goto("/");
+
+  // Wait for app to load
+  await player1.waitForSelector(".app-container");
+  await player2.waitForSelector(".app-container");
+
+  // Player 1 clicks on their name to open the name change modal
+  await player1.click("button.clickable-name");
+  await player1.waitForSelector(".name-modal-dialog");
+
+  // Player 1 clears the input and types "toto1"
+  const nameInput = player1.locator('.name-modal-dialog input[type="text"]');
+  await nameInput.clear();
+  await nameInput.fill("toto1");
+
+  // Player 1 clicks Save
+  await player1.click('.name-modal-dialog button:has-text("Save")');
+  await player1.waitForTimeout(500);
+
+  // Assert: Player 1 sees their new name "toto1"
+  await expect(player1.locator("button.clickable-name")).toHaveText("toto1");
+
+  // Assert: Player 2 sees "toto1" in the players list
+  await expect(player2.locator(".players-panel")).toContainText("toto1");
+
+  // Close pages and save videos with descriptive names
+  await saveVideo(player1, "name_change", "player1");
+  await saveVideo(player2, "name_change", "player2");
+
+  // Close all contexts
+  await context1.close();
+  await context2.close();
 });
