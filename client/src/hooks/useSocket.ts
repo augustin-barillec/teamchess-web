@@ -10,6 +10,7 @@ import {
   ChatMessage,
   GameStatus,
   TeamVoteState,
+  KickVoteState,
 } from "../types";
 import { Turn } from "../types";
 import { STORAGE_KEYS, reasonMessages } from "../constants";
@@ -42,6 +43,7 @@ interface UseSocketReturn {
   lastMoveSquares: { from: string; to: string } | null;
   drawOffer: "white" | "black" | null;
   teamVote: TeamVoteState;
+  kickVote: KickVoteState;
   setHasUnreadMessages: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -92,6 +94,20 @@ export function useSocket({
     yesVotes: [],
     requiredVotes: 0,
     endTime: 0,
+  });
+  const [kickVote, setKickVote] = useState<KickVoteState>({
+    isActive: false,
+    targetId: null,
+    targetName: "",
+    initiatorName: "",
+    yesVotes: [],
+    noVotes: [],
+    requiredVotes: 0,
+    totalVoters: 0,
+    endTime: 0,
+    myVoteEligible: false,
+    myCurrentVote: null,
+    amTarget: false,
   });
   const [_hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const prevClocks = useRef({ whiteTime: 600, blackTime: 600 });
@@ -324,6 +340,15 @@ export function useSocket({
       setTeamVote(state);
     });
 
+    socket.on("kick_vote_update", (state: KickVoteState) => {
+      setKickVote(state);
+    });
+
+    socket.on("kicked", () => {
+      toast.error("You have been kicked by vote.");
+      socket.disconnect();
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -348,6 +373,7 @@ export function useSocket({
     lastMoveSquares,
     drawOffer,
     teamVote,
+    kickVote,
     setHasUnreadMessages,
   };
 }

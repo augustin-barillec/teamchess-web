@@ -18,6 +18,13 @@ import {
 } from "../voting/teamVote.js";
 import { createEngine } from "../engine/stockfish.js";
 import { processVote, formatVoteType } from "../core/voteLogic.js";
+import { processKickVote } from "../core/kickVoteLogic.js";
+import {
+  startKickVoteLogic,
+  clearKickVote,
+  broadcastKickVote,
+  executeKick,
+} from "../voting/kickVote.js";
 import { DEFAULT_TIME } from "../constants.js";
 
 export function handleSetName(
@@ -102,6 +109,7 @@ export function handleResetGame(
   });
   broadcastTeamVote("white", ctx);
   broadcastTeamVote("black", ctx);
+  broadcastKickVote(ctx);
 
   sendSystemMessage(`${socket.data.name} has reset the game.`, ctx);
   cb?.({ success: true });
@@ -299,5 +307,97 @@ export function handleVoteTeam(
     } else {
       broadcastTeamVote(side, ctx);
     }
+  }
+}
+
+export function handleStartKickVote(
+  socket: Socket,
+  targetId: string,
+  ctx: IGameContext = globalContext
+): void {
+  const { sessions } = ctx;
+  const initiatorPid = socket.data.pid;
+
+  // Validate target exists
+  const targetSess = sessions.get(targetId);
+  if (!targetSess) {
+    socket.emit("error", { message: "Target player not found." });
+    return;
+  }
+
+  const result = startKickVoteLogic(
+    initiatorPid,
+    socket.data.name,
+    targetId,
+    targetSess.name,
+    ctx
+  );
+
+  if (result.error) {
+    socket.emit("error", { message: result.error });
+  }
+}
+
+export function handleKickVote(
+  socket: Socket,
+  vote: "yes" | "no",
+  ctx: IGameContext = globalContext
+): void {
+  const pid = socket.data.pid;
+  const { gameState } = ctx;
+
+  const currentVote = gameState.kickVote;
+  if (!currentVote) return;
+
+  const voteResult = processKickVote(
+    {
+      targetId: currentVote.targetId,
+      initiatorId: currentVote.initiatorId,
+      yesVoters: currentVote.yesVoters,
+      noVoters: currentVote.noVoters,
+      eligibleVoters: currentVote.eligibleVoters,
+      required: currentVote.required,
+      total: currentVote.total,
+    },
+    pid,
+    vote
+  );
+
+  if (voteResult.reason === "Not eligible to vote") {
+    socket.emit("error", { message: "You are not eligible to vote." });
+    return;
+  }
+
+  // "Already voted yes" / "Already voted no" — silently ignore (no-op)
+  if (voteResult.reason) return;
+
+  // Update internal state
+  if (voteResult.updatedYesVoters)
+    currentVote.yesVoters = voteResult.updatedYesVoters;
+  if (voteResult.updatedNoVoters)
+    currentVote.noVoters = voteResult.updatedNoVoters;
+
+  if (voteResult.passed) {
+    const targetName = currentVote.targetName;
+    const targetPid = currentVote.targetId;
+    const yesCount = currentVote.yesVoters.size;
+    const noCount = currentVote.noVoters.size;
+    clearKickVote(ctx);
+    sendSystemMessage(
+      `Vote to kick ${targetName} passed. (${yesCount} Yes, ${noCount} No)`,
+      ctx
+    );
+    executeKick(targetPid, targetName, ctx);
+  } else if (voteResult.failed) {
+    const targetName = currentVote.targetName;
+    const yesCount = currentVote.yesVoters.size;
+    const noCount = currentVote.noVoters.size;
+    clearKickVote(ctx);
+    sendSystemMessage(
+      `Vote to kick ${targetName} failed: Not enough votes possible. (${yesCount} Yes, ${noCount} No)`,
+      ctx
+    );
+  } else {
+    broadcastKickVote(ctx);
   }
 }

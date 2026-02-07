@@ -73,6 +73,8 @@ export class MockGameContext implements IGameContext {
       drawOffer: undefined,
       whiteVote: undefined,
       blackVote: undefined,
+      kickVote: undefined,
+      blacklist: new Set(),
       ...initialState,
     };
   }
@@ -173,6 +175,7 @@ export class MockGameContext implements IGameContext {
     if (this.gameState.timerInterval) {
       clearInterval(this.gameState.timerInterval);
     }
+    const blacklist = this.gameState.blacklist;
     this.gameState = {
       whiteIds: new Set(),
       blackIds: new Set(),
@@ -190,6 +193,8 @@ export class MockGameContext implements IGameContext {
       drawOffer: undefined,
       whiteVote: undefined,
       blackVote: undefined,
+      kickVote: undefined,
+      blacklist,
     };
   }
 
@@ -206,5 +211,9 @@ export class MockGameContext implements IGameContext {
 
   getSocketsBySide(side: PlayerSide): ISocket[] {
     return [...this.mockSockets.values()].filter((s) => s.data.side === side);
+  }
+
+  getAllSockets(): ISocket[] {
+    return [...this.mockSockets.values()];
   }
 }

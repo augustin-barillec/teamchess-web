@@ -35,6 +35,7 @@ export class GlobalContextAdapter implements IGameContext {
     const current = getGameState();
     if (current.timerInterval) clearInterval(current.timerInterval);
 
+    const blacklist = current.blacklist;
     setGameState({
       whiteIds: new Set(),
       blackIds: new Set(),
@@ -52,6 +53,8 @@ export class GlobalContextAdapter implements IGameContext {
       drawOffer: undefined,
       whiteVote: undefined,
       blackVote: undefined,
+      kickVote: undefined,
+      blacklist,
     });
   }
 
@@ -74,6 +77,10 @@ export class GlobalContextAdapter implements IGameContext {
     return [...getIO().sockets.sockets.values()].filter(
       (s) => s.data.side === side
     );
+  }
+
+  getAllSockets(): Socket[] {
+    return [...getIO().sockets.sockets.values()];
   }
 }
 

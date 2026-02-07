@@ -40,6 +40,7 @@ export interface IGameContext {
   getOnlinePids(): Set<string>;
   getActiveTeamPids(side: PlayerSide): Set<string>;
   getSocketsBySide(side: PlayerSide): ISocket[];
+  getAllSockets(): ISocket[];
 }
 
 /**
@@ -77,6 +78,7 @@ export class GameContext implements IGameContext {
     if (this._gameState.timerInterval) {
       clearInterval(this._gameState.timerInterval);
     }
+    const blacklist = this._gameState.blacklist;
     this._gameState = {
       whiteIds: new Set(),
       blackIds: new Set(),
@@ -94,6 +96,8 @@ export class GameContext implements IGameContext {
       drawOffer: undefined,
       whiteVote: undefined,
       blackVote: undefined,
+      kickVote: undefined,
+      blacklist,
     };
   }
 
@@ -116,6 +120,10 @@ export class GameContext implements IGameContext {
     return [...this._io.sockets.sockets.values()].filter(
       (s) => s.data.side === side
     ) as unknown as ISocket[];
+  }
+
+  getAllSockets(): ISocket[] {
+    return [...this._io.sockets.sockets.values()] as unknown as ISocket[];
   }
 }
 
@@ -140,5 +148,7 @@ export function createInitialGameState(engine: Engine): GameState {
     drawOffer: undefined,
     whiteVote: undefined,
     blackVote: undefined,
+    kickVote: undefined,
+    blacklist: new Set(),
   };
 }

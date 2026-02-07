@@ -21,6 +21,20 @@ export interface InternalVoteState {
   endTime: number;
 }
 
+export interface InternalKickVoteState {
+  targetId: string;
+  targetName: string;
+  initiatorId: string;
+  initiatorName: string;
+  yesVoters: Set<string>;
+  noVoters: Set<string>;
+  eligibleVoters: Set<string>;
+  required: number;
+  total: number;
+  timer: NodeJS.Timeout;
+  endTime: number;
+}
+
 export interface Engine {
   send: (command: string, callback?: (output: string) => void) => void;
   quit: () => void;
@@ -43,6 +57,8 @@ export interface GameState {
   drawOffer?: "white" | "black";
   whiteVote?: InternalVoteState;
   blackVote?: InternalVoteState;
+  kickVote?: InternalKickVoteState;
+  blacklist: Set<string>;
 }
 
 export type {
@@ -54,6 +70,7 @@ export type {
   Selection,
   VoteType,
   TeamVoteState,
+  KickVoteState,
 } from "./shared_types.js";
 
 export { GameStatus, EndReason } from "./shared_types.js";

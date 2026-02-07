@@ -44,6 +44,7 @@ async function startServer() {
     engine,
     chess: new Chess(),
     status: GameStatus.Lobby,
+    blacklist: new Set(),
   });
   // Setup socket connection handler
   setupConnectionHandler();

@@ -54,6 +54,21 @@ export enum GameStatus {
   Over = "Over",
 }
 
+export interface KickVoteState {
+  isActive: boolean;
+  targetId: string | null;
+  targetName: string;
+  initiatorName: string;
+  yesVotes: string[];
+  noVotes: string[];
+  requiredVotes: number;
+  totalVoters: number;
+  endTime: number;
+  myVoteEligible: boolean;
+  myCurrentVote: "yes" | "no" | null;
+  amTarget: boolean;
+}
+
 export enum EndReason {
   Checkmate = "checkmate",
   Stalemate = "stalemate",

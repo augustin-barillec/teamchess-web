@@ -8,6 +8,7 @@ import { broadcastPlayers } from "../utils/messaging.js";
 import { tryFinalizeTurn } from "../game/gameLogic.js";
 import { getTeamVoteClientData } from "../voting/teamVote.js";
 import { leave } from "../players/playerManager.js";
+import { getKickVoteClientData } from "../voting/kickVote.js";
 import {
   handleSetName,
   handleJoinSide,
@@ -16,6 +17,8 @@ import {
   handleChatMessage,
   handleStartTeamVote,
   handleVoteTeam,
+  handleStartKickVote,
+  handleKickVote,
 } from "./eventHandlers.js";
 
 /**
@@ -31,6 +34,13 @@ export function setupConnectionHandler(
     const { gameState, sessions } = ctx;
     const { pid: providedPid, name: providedName } =
       (socket.handshake.auth as { pid?: string; name?: string }) || {};
+
+    // Blacklist check: reject kicked players
+    if (providedPid && gameState.blacklist.has(providedPid)) {
+      socket.emit("kicked", { message: "You have been kicked by vote." });
+      socket.disconnect(true);
+      return;
+    }
 
     const pid =
       providedPid && sessions.has(providedPid) ? providedPid : nanoid();
@@ -102,6 +112,9 @@ export function setupConnectionHandler(
       );
     }
 
+    // Send kick vote state (late joiners see it with myVoteEligible: false)
+    socket.emit("kick_vote_update", getKickVoteClientData(pid, ctx));
+
     broadcastPlayers(ctx);
     tryFinalizeTurn(ctx);
 
@@ -128,6 +141,14 @@ export function setupConnectionHandler(
 
     socket.on("vote_team", (vote: "yes" | "no") =>
       handleVoteTeam(socket, vote, ctx)
+    );
+
+    socket.on("start_kick_vote", (targetId: string) =>
+      handleStartKickVote(socket, targetId, ctx)
+    );
+
+    socket.on("vote_kick", (vote: "yes" | "no") =>
+      handleKickVote(socket, vote, ctx)
     );
 
     socket.on("disconnect", () => leave(socket, ctx));

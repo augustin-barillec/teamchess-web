@@ -50,6 +50,7 @@ export default function App() {
     lastMoveSquares,
     drawOffer,
     teamVote,
+    kickVote,
     setHasUnreadMessages,
   } = useSocket({ chess, isMobile, activeTabRef });
 
@@ -178,6 +179,14 @@ export default function App() {
 
   const sendTeamVote = (vote: "yes" | "no") => {
     socket?.emit("vote_team", vote);
+  };
+
+  const startKickVote = (targetId: string) => {
+    socket?.emit("start_kick_vote", targetId);
+  };
+
+  const sendKickVote = (vote: "yes" | "no") => {
+    socket?.emit("vote_kick", vote);
   };
 
   const resetGame = () => {
@@ -367,6 +376,9 @@ export default function App() {
         amDisconnected={amDisconnected}
         openNameModal={openNameModal}
         hasPlayed={hasPlayed}
+        kickVote={kickVote}
+        onStartKickVote={startKickVote}
+        onSendKickVote={sendKickVote}
       />
       <MovesPanel
         activeTab={activeTab}
