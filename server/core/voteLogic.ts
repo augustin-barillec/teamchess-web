@@ -125,8 +125,22 @@ export function createVoteState(
 }
 
 /**
- * Formats a vote type for display.
+ * Formats a vote type for display (e.g. "resign", "offer draw").
  */
 export function formatVoteType(type: VoteType): string {
   return type.replace("_", " ");
+}
+
+/**
+ * Formats a vote type as a gerund action (e.g. "Resigning", "Offering a draw").
+ */
+export function formatVoteTypeAction(type: VoteType): string {
+  switch (type) {
+    case "resign":
+      return "Resigning";
+    case "offer_draw":
+      return "Offering a draw";
+    case "accept_draw":
+      return "Accepting the draw";
+  }
 }

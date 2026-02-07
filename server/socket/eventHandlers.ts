@@ -17,7 +17,11 @@ import {
   startTeamVoteLogic,
 } from "../voting/teamVote.js";
 import { createEngine } from "../engine/stockfish.js";
-import { processVote, formatVoteType } from "../core/voteLogic.js";
+import {
+  processVote,
+  formatVoteType,
+  formatVoteTypeAction,
+} from "../core/voteLogic.js";
 import { processKickVote } from "../core/kickVoteLogic.js";
 import { processResetVote } from "../core/resetVoteLogic.js";
 import {
@@ -108,16 +112,14 @@ export function handleResetGame(
   }
 
   if (result.passedImmediately) {
-    executeGameReset(socket, ctx);
+    sendSystemMessage(`${socket.data.name} has reset the game.`, ctx);
+    executeGameReset(ctx);
   }
 
   cb?.({ success: true });
 }
 
-export function executeGameReset(
-  socket: Socket,
-  ctx: IGameContext = globalContext
-): void {
+export function executeGameReset(ctx: IGameContext = globalContext): void {
   const { gameState, io } = ctx;
 
   if (gameState.timerInterval) clearInterval(gameState.timerInterval);
@@ -134,8 +136,6 @@ export function executeGameReset(
   broadcastTeamVote("black", ctx);
   broadcastKickVote(ctx);
   broadcastResetVote(ctx);
-
-  sendSystemMessage(`${socket.data.name} has reset the game.`, ctx);
 }
 
 export function handleVoteReset(
@@ -175,19 +175,13 @@ export function handleVoteReset(
     currentVote.noVoters = voteResult.updatedNoVoters;
 
   if (voteResult.passed) {
-    const yesCount = currentVote.yesVoters.size;
     clearResetVote(ctx);
-    sendSystemMessage(
-      `Vote to reset the game passed unanimously. (${yesCount}/${yesCount})`,
-      ctx
-    );
-    executeGameReset(socket, ctx);
+    sendSystemMessage(`✅ Vote passed! Resetting game.`, ctx);
+    executeGameReset(ctx);
   } else if (voteResult.failed) {
-    const yesCount = currentVote.yesVoters.size;
-    const noCount = currentVote.noVoters.size;
     clearResetVote(ctx);
     sendSystemMessage(
-      `Vote to reset the game failed. (${yesCount} Yes, ${noCount} No)`,
+      `❌ Vote to reset the game failed: ${socket.data.name} voted No.`,
       ctx
     );
   } else {
@@ -364,7 +358,7 @@ export function handleVoteTeam(
       clearTeamVote(side, ctx);
       sendTeamMessage(
         side,
-        `✅ Vote passed! Executing ${formatVoteType(currentVote.type)}.`,
+        `✅ Vote passed! ${formatVoteTypeAction(currentVote.type)}.`,
         ctx
       );
 
@@ -460,13 +454,8 @@ export function handleKickVote(
   if (voteResult.passed) {
     const targetName = currentVote.targetName;
     const targetPid = currentVote.targetId;
-    const yesCount = currentVote.yesVoters.size;
-    const noCount = currentVote.noVoters.size;
     clearKickVote(ctx);
-    sendSystemMessage(
-      `Vote to kick ${targetName} passed. (${yesCount} Yes, ${noCount} No)`,
-      ctx
-    );
+    sendSystemMessage(`✅ Vote passed! Kicking ${targetName}.`, ctx);
     executeKick(targetPid, targetName, ctx);
   } else if (voteResult.failed) {
     const targetName = currentVote.targetName;
@@ -474,7 +463,7 @@ export function handleKickVote(
     const noCount = currentVote.noVoters.size;
     clearKickVote(ctx);
     sendSystemMessage(
-      `Vote to kick ${targetName} failed: Not enough votes possible. (${yesCount} Yes, ${noCount} No)`,
+      `❌ Vote to kick ${targetName} failed: Not enough votes possible. (${yesCount} Yes, ${noCount} No)`,
       ctx
     );
   } else {

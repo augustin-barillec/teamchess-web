@@ -144,7 +144,7 @@ export function startKickVoteLogic(
       const yesCount = gameState.kickVote?.yesVoters.size ?? 0;
       const noCount = gameState.kickVote?.noVoters.size ?? 0;
       sendSystemMessage(
-        `Vote to kick ${targetName} failed: Time expired. (${yesCount} Yes, ${noCount} No)`,
+        `❌ Vote to kick ${targetName} failed: Time expired. (${yesCount} Yes, ${noCount} No)`,
         ctx
       );
       gameState.kickVote = undefined;
@@ -155,7 +155,7 @@ export function startKickVoteLogic(
   gameState.kickVote = voteState;
 
   sendSystemMessage(
-    `${initiatorName} started a vote to kick ${targetName}. (${pureState.required} needed)`,
+    `🗳️ ${initiatorName} started a vote to kick ${targetName}.`,
     ctx
   );
   broadcastKickVote(ctx);

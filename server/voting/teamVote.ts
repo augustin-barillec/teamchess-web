@@ -186,15 +186,11 @@ export function startTeamVoteLogic(
   else gameState.blackVote = voteState;
 
   if (isSystemTriggered) {
-    sendTeamMessage(
-      side,
-      `🗳️ Draw offered! Vote to Accept Draw. (0/${N})`,
-      ctx
-    );
+    sendTeamMessage(side, `🗳️ Draw offered! Vote to accept draw.`, ctx);
   } else {
     sendTeamMessage(
       side,
-      `🗳️ ${initiatorName} started a vote to ${formatVoteType(type)}. (1/${N})`,
+      `🗳️ ${initiatorName} started a vote to ${formatVoteType(type)}.`,
       ctx
     );
   }
