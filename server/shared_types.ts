@@ -69,6 +69,18 @@ export interface KickVoteState {
   amTarget: boolean;
 }
 
+export interface ResetVoteState {
+  isActive: boolean;
+  initiatorName: string;
+  yesVotes: string[];
+  noVotes: string[];
+  requiredVotes: number;
+  totalVoters: number;
+  endTime: number;
+  myVoteEligible: boolean;
+  myCurrentVote: "yes" | "no" | null;
+}
+
 export enum EndReason {
   Checkmate = "checkmate",
   Stalemate = "stalemate",

@@ -34,6 +34,7 @@ export class GlobalContextAdapter implements IGameContext {
   resetGame(engine: Engine): void {
     const current = getGameState();
     if (current.timerInterval) clearInterval(current.timerInterval);
+    if (current.resetVote?.timer) clearTimeout(current.resetVote.timer);
 
     const blacklist = current.blacklist;
     setGameState({
@@ -54,6 +55,7 @@ export class GlobalContextAdapter implements IGameContext {
       whiteVote: undefined,
       blackVote: undefined,
       kickVote: undefined,
+      resetVote: undefined,
       blacklist,
     });
   }

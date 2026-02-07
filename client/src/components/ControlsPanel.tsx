@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { GameStatus, TeamVoteState, VoteType } from "../types";
+import { GameStatus, TeamVoteState, ResetVoteState, VoteType } from "../types";
 
 interface ControlsPanelProps {
   gameStatus: GameStatus;
@@ -16,6 +16,8 @@ interface ControlsPanelProps {
   teamVote: TeamVoteState;
   onStartTeamVote: (type: VoteType) => void;
   onSendTeamVote: (vote: "yes" | "no") => void;
+  resetVote: ResetVoteState;
+  onSendResetVote: (vote: "yes" | "no") => void;
 }
 
 export const ControlsPanel: React.FC<ControlsPanelProps> = ({
@@ -33,14 +35,16 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
   teamVote,
   onStartTeamVote,
   onSendTeamVote,
+  resetVote,
+  onSendResetVote,
 }) => {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!teamVote.isActive) return;
+    if (!teamVote.isActive && !resetVote.isActive) return;
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [teamVote.isActive]);
+  }, [teamVote.isActive, resetVote.isActive]);
 
   const voteTimeLeft = Math.max(0, Math.ceil((teamVote.endTime - now) / 1000));
 
@@ -111,11 +115,81 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
     );
   };
 
+  const renderResetVoteUI = () => {
+    if (!resetVote.isActive) return null;
+
+    const resetVoteTimeLeft = Math.max(
+      0,
+      Math.ceil((resetVote.endTime - now) / 1000)
+    );
+
+    return (
+      <div className="poll-container" style={{ marginBottom: "10px" }}>
+        <div
+          style={{
+            background: "#ebf8ff",
+            padding: "10px",
+            borderRadius: "6px",
+            border: "1px solid #bee3f8",
+          }}
+        >
+          <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
+            🗳️ Vote: Reset Game
+          </div>
+          <div
+            style={{
+              fontSize: "0.85em",
+              color: "#666",
+              marginBottom: "10px",
+              fontStyle: "italic",
+            }}
+          >
+            Time left: {resetVoteTimeLeft}s • Required:{" "}
+            {resetVote.requiredVotes}
+          </div>
+
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              onClick={() => onSendResetVote("yes")}
+              style={{
+                flex: 1,
+                background: "#e6fffa",
+                borderColor: "#38b2ac",
+                color: "#234e52",
+                fontWeight: "bold",
+              }}
+            >
+              Yes ({resetVote.yesVotes.length})
+            </button>
+            <button
+              onClick={() => onSendResetVote("no")}
+              style={{
+                flex: 1,
+                background: "#fff5f5",
+                borderColor: "#fc8181",
+                color: "#742a2a",
+                fontWeight: "bold",
+              }}
+            >
+              No
+            </button>
+          </div>
+          <div style={{ fontSize: "0.8em", marginTop: "8px", color: "#555" }}>
+            Voters: {resetVote.yesVotes.join(", ")}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
-      {gameStatus !== GameStatus.Lobby && (
-        <button onClick={resetGame}>🔄 Reset Game</button>
-      )}
+      {gameStatus !== GameStatus.Lobby &&
+        (resetVote.isActive ? (
+          renderResetVoteUI()
+        ) : (
+          <button onClick={resetGame}>🔄 Reset Game</button>
+        ))}
 
       {/* 1. Join/Switch Buttons (Always Visible) */}
       {gameStatus !== GameStatus.Over && (

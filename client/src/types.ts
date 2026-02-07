@@ -17,6 +17,7 @@ export type {
   VoteType,
   TeamVoteState,
   KickVoteState,
+  ResetVoteState,
 } from "../../server/shared_types";
 
 export { GameStatus, EndReason } from "../../server/shared_types";

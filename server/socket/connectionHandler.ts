@@ -9,6 +9,7 @@ import { tryFinalizeTurn } from "../game/gameLogic.js";
 import { getTeamVoteClientData } from "../voting/teamVote.js";
 import { leave } from "../players/playerManager.js";
 import { getKickVoteClientData } from "../voting/kickVote.js";
+import { getResetVoteClientData } from "../voting/resetVote.js";
 import {
   handleSetName,
   handleJoinSide,
@@ -19,6 +20,7 @@ import {
   handleVoteTeam,
   handleStartKickVote,
   handleKickVote,
+  handleVoteReset,
 } from "./eventHandlers.js";
 
 /**
@@ -114,6 +116,7 @@ export function setupConnectionHandler(
 
     // Send kick vote state (late joiners see it with myVoteEligible: false)
     socket.emit("kick_vote_update", getKickVoteClientData(pid, ctx));
+    socket.emit("reset_vote_update", getResetVoteClientData(pid, ctx));
 
     broadcastPlayers(ctx);
     tryFinalizeTurn(ctx);
@@ -149,6 +152,10 @@ export function setupConnectionHandler(
 
     socket.on("vote_kick", (vote: "yes" | "no") =>
       handleKickVote(socket, vote, ctx)
+    );
+
+    socket.on("vote_reset", (vote: "yes" | "no") =>
+      handleVoteReset(socket, vote, ctx)
     );
 
     socket.on("disconnect", () => leave(socket, ctx));

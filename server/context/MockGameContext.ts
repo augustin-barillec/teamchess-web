@@ -74,6 +74,7 @@ export class MockGameContext implements IGameContext {
       whiteVote: undefined,
       blackVote: undefined,
       kickVote: undefined,
+      resetVote: undefined,
       blacklist: new Set(),
       ...initialState,
     };
@@ -175,6 +176,9 @@ export class MockGameContext implements IGameContext {
     if (this.gameState.timerInterval) {
       clearInterval(this.gameState.timerInterval);
     }
+    if (this.gameState.resetVote?.timer) {
+      clearTimeout(this.gameState.resetVote.timer);
+    }
     const blacklist = this.gameState.blacklist;
     this.gameState = {
       whiteIds: new Set(),
@@ -194,6 +198,7 @@ export class MockGameContext implements IGameContext {
       whiteVote: undefined,
       blackVote: undefined,
       kickVote: undefined,
+      resetVote: undefined,
       blacklist,
     };
   }

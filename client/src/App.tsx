@@ -51,6 +51,7 @@ export default function App() {
     drawOffer,
     teamVote,
     kickVote,
+    resetVote,
     setHasUnreadMessages,
   } = useSocket({ chess, isMobile, activeTabRef });
 
@@ -190,15 +191,14 @@ export default function App() {
   };
 
   const resetGame = () => {
-    if (window.confirm("Are you sure you want to reset the game?")) {
-      socket?.emit(
-        "reset_game",
-        (res: { success: boolean; error?: string }) => {
-          if (res.error) return toast.error(res.error);
-        }
-      );
-      setIsMobileInfoVisible(false);
-    }
+    socket?.emit("reset_game", (res: { success: boolean; error?: string }) => {
+      if (res.error) return toast.error(res.error);
+    });
+    setIsMobileInfoVisible(false);
+  };
+
+  const sendResetVote = (vote: "yes" | "no") => {
+    socket?.emit("vote_reset", vote);
   };
 
   const submitMove = (lan: string) => {
@@ -418,6 +418,8 @@ export default function App() {
             teamVote={teamVote}
             onStartTeamVote={startTeamVote}
             onSendTeamVote={sendTeamVote}
+            resetVote={resetVote}
+            onSendResetVote={sendResetVote}
           />
         </div>
       </div>
@@ -539,9 +541,10 @@ export default function App() {
                 }}
               >
                 Controls
-                {teamVote.isActive && activeTab !== "controls" && (
-                  <span className="unread-dot"></span>
-                )}
+                {(teamVote.isActive || resetVote.isActive) &&
+                  activeTab !== "controls" && (
+                    <span className="unread-dot"></span>
+                  )}
               </button>
             </nav>
 

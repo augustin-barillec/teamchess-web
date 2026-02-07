@@ -78,6 +78,9 @@ export class GameContext implements IGameContext {
     if (this._gameState.timerInterval) {
       clearInterval(this._gameState.timerInterval);
     }
+    if (this._gameState.resetVote?.timer) {
+      clearTimeout(this._gameState.resetVote.timer);
+    }
     const blacklist = this._gameState.blacklist;
     this._gameState = {
       whiteIds: new Set(),
@@ -97,6 +100,7 @@ export class GameContext implements IGameContext {
       whiteVote: undefined,
       blackVote: undefined,
       kickVote: undefined,
+      resetVote: undefined,
       blacklist,
     };
   }
@@ -149,6 +153,7 @@ export function createInitialGameState(engine: Engine): GameState {
     whiteVote: undefined,
     blackVote: undefined,
     kickVote: undefined,
+    resetVote: undefined,
     blacklist: new Set(),
   };
 }

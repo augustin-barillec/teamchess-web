@@ -19,12 +19,18 @@ import {
 import { createEngine } from "../engine/stockfish.js";
 import { processVote, formatVoteType } from "../core/voteLogic.js";
 import { processKickVote } from "../core/kickVoteLogic.js";
+import { processResetVote } from "../core/resetVoteLogic.js";
 import {
   startKickVoteLogic,
   clearKickVote,
   broadcastKickVote,
   executeKick,
 } from "../voting/kickVote.js";
+import {
+  startResetVoteLogic,
+  clearResetVote,
+  broadcastResetVote,
+} from "../voting/resetVote.js";
 import { DEFAULT_TIME } from "../constants.js";
 
 export function handleSetName(
@@ -95,6 +101,23 @@ export function handleResetGame(
   cb?: (res: { success?: boolean; error?: string }) => void,
   ctx: IGameContext = globalContext
 ): void {
+  const result = startResetVoteLogic(socket.data.pid, socket.data.name, ctx);
+
+  if (result.error) {
+    return cb?.({ error: result.error });
+  }
+
+  if (result.passedImmediately) {
+    executeGameReset(socket, ctx);
+  }
+
+  cb?.({ success: true });
+}
+
+export function executeGameReset(
+  socket: Socket,
+  ctx: IGameContext = globalContext
+): void {
   const { gameState, io } = ctx;
 
   if (gameState.timerInterval) clearInterval(gameState.timerInterval);
@@ -110,9 +133,66 @@ export function handleResetGame(
   broadcastTeamVote("white", ctx);
   broadcastTeamVote("black", ctx);
   broadcastKickVote(ctx);
+  broadcastResetVote(ctx);
 
   sendSystemMessage(`${socket.data.name} has reset the game.`, ctx);
-  cb?.({ success: true });
+}
+
+export function handleVoteReset(
+  socket: Socket,
+  vote: "yes" | "no",
+  ctx: IGameContext = globalContext
+): void {
+  const pid = socket.data.pid;
+  const { gameState } = ctx;
+
+  const currentVote = gameState.resetVote;
+  if (!currentVote) return;
+
+  const voteResult = processResetVote(
+    {
+      initiatorId: currentVote.initiatorId,
+      yesVoters: currentVote.yesVoters,
+      noVoters: currentVote.noVoters,
+      eligibleVoters: currentVote.eligibleVoters,
+      required: currentVote.required,
+      total: currentVote.total,
+    },
+    pid,
+    vote
+  );
+
+  if (voteResult.reason === "Not eligible to vote") {
+    socket.emit("error", { message: "You are not eligible to vote." });
+    return;
+  }
+
+  if (voteResult.reason) return;
+
+  if (voteResult.updatedYesVoters)
+    currentVote.yesVoters = voteResult.updatedYesVoters;
+  if (voteResult.updatedNoVoters)
+    currentVote.noVoters = voteResult.updatedNoVoters;
+
+  if (voteResult.passed) {
+    const yesCount = currentVote.yesVoters.size;
+    clearResetVote(ctx);
+    sendSystemMessage(
+      `Vote to reset the game passed unanimously. (${yesCount}/${yesCount})`,
+      ctx
+    );
+    executeGameReset(socket, ctx);
+  } else if (voteResult.failed) {
+    const yesCount = currentVote.yesVoters.size;
+    const noCount = currentVote.noVoters.size;
+    clearResetVote(ctx);
+    sendSystemMessage(
+      `Vote to reset the game failed. (${yesCount} Yes, ${noCount} No)`,
+      ctx
+    );
+  } else {
+    broadcastResetVote(ctx);
+  }
 }
 
 export function handlePlayMove(
