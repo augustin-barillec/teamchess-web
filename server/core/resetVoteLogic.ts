@@ -31,7 +31,7 @@ export function checkResetVotePrerequisites(
  * Pure function - returns new state object.
  *
  * All connected users are eligible to vote.
- * Required = total eligible voters (unanimous).
+ * Required = strict majority (floor(N/2) + 1).
  * The initiator automatically votes yes.
  */
 export function createResetVoteState(
@@ -39,7 +39,8 @@ export function createResetVoteState(
   allConnectedPids: Set<string>
 ): ResetVoteState {
   const eligibleVoters = new Set(allConnectedPids);
-  const required = eligibleVoters.size;
+  const N = eligibleVoters.size;
+  const required = Math.floor(N / 2) + 1;
 
   const yesVoters = new Set([initiatorId]);
 
@@ -65,10 +66,9 @@ export interface ResetVoteProcessResult {
  * Processes a reset vote from a player.
  * Pure function - returns result without modifying input.
  *
- * Since the vote is unanimous:
- * - Any "no" vote immediately fails the vote.
- * - Vote passes when yesVoters.size >= required.
- * - Voters can change their mind (switch yes<->no).
+ * Voters can change their mind (switch yes<->no).
+ * Passes immediately when yesVoters >= required.
+ * Fails immediately when too many no votes make passing impossible.
  */
 export function processResetVote(
   vote: ResetVoteState,
@@ -106,13 +106,16 @@ export function processResetVote(
     newYesVoters.delete(voterId);
     newNoVoters.add(voterId);
 
-    // Unanimous: any no vote makes passing impossible
-    return {
-      passed: false,
-      failed: true,
-      updatedYesVoters: newYesVoters,
-      updatedNoVoters: newNoVoters,
-    };
+    // Check if passing is still possible
+    const maxPossibleYes = vote.eligibleVoters.size - newNoVoters.size;
+    if (maxPossibleYes < vote.required) {
+      return {
+        passed: false,
+        failed: true,
+        updatedYesVoters: newYesVoters,
+        updatedNoVoters: newNoVoters,
+      };
+    }
   }
 
   return {

@@ -29,12 +29,20 @@ describe("resetVoteLogic", () => {
   });
 
   describe("createResetVoteState", () => {
-    it("sets required to total eligible voters (unanimous)", () => {
+    it("sets required to strict majority (floor(N/2) + 1)", () => {
       const allPids = new Set(["p1", "p2", "p3"]);
       const result = createResetVoteState("p1", allPids);
 
-      expect(result.required).toBe(3);
+      expect(result.required).toBe(2);
       expect(result.total).toBe(3);
+    });
+
+    it("computes majority correctly for even number of voters", () => {
+      const allPids = new Set(["p1", "p2", "p3", "p4"]);
+      const result = createResetVoteState("p1", allPids);
+
+      expect(result.required).toBe(3);
+      expect(result.total).toBe(4);
     });
 
     it("includes all connected PIDs as eligible", () => {
@@ -90,7 +98,7 @@ describe("resetVoteLogic", () => {
         yesVoters: new Set(["p1"]),
         noVoters: new Set<string>(),
         eligibleVoters: new Set(["p1", "p2", "p3"]),
-        required: 3,
+        required: 2,
         total: 3,
         ...overrides,
       };
@@ -117,7 +125,12 @@ describe("resetVoteLogic", () => {
     });
 
     it("records yes vote without passing when below threshold", () => {
-      const vote = makeVote();
+      // 4 voters, required=3, p1 voted yes → p2 votes yes → 2/3 → not enough
+      const vote = makeVote({
+        eligibleVoters: new Set(["p1", "p2", "p3", "p4"]),
+        required: 3,
+        total: 4,
+      });
       const result = processResetVote(vote, "p2", "yes");
       expect(result.passed).toBe(false);
       expect(result.failed).toBe(false);
@@ -125,22 +138,30 @@ describe("resetVoteLogic", () => {
       expect(result.updatedYesVoters?.has("p2")).toBe(true);
     });
 
-    it("passes vote when all voters say yes", () => {
-      const vote = makeVote({
-        yesVoters: new Set(["p1", "p2"]),
-      });
-      const result = processResetVote(vote, "p3", "yes");
+    it("passes vote when majority reached", () => {
+      const vote = makeVote(); // p1 voted yes, required=2
+      const result = processResetVote(vote, "p2", "yes");
       expect(result.passed).toBe(true);
       expect(result.failed).toBe(false);
-      expect(result.updatedYesVoters?.size).toBe(3);
+      expect(result.updatedYesVoters?.size).toBe(2);
     });
 
-    it("fails immediately on any no vote", () => {
-      const vote = makeVote();
+    it("does not fail on a single no vote when majority is still possible", () => {
+      const vote = makeVote(); // 3 voters, required=2, p1 voted yes
       const result = processResetVote(vote, "p2", "no");
       expect(result.passed).toBe(false);
-      expect(result.failed).toBe(true);
+      expect(result.failed).toBe(false);
       expect(result.updatedNoVoters?.has("p2")).toBe(true);
+    });
+
+    it("fails when too many no votes make passing impossible", () => {
+      const vote = makeVote({
+        noVoters: new Set(["p2"]),
+      }); // 3 voters, required=2, p2 already voted no
+      const result = processResetVote(vote, "p3", "no");
+      expect(result.passed).toBe(false);
+      expect(result.failed).toBe(true);
+      expect(result.updatedNoVoters?.size).toBe(2);
     });
 
     it("does not mutate original vote state", () => {
@@ -156,19 +177,23 @@ describe("resetVoteLogic", () => {
       expect(originalNoVoters.size).toBe(0);
     });
 
-    it("allows switching from yes to no (fails immediately)", () => {
+    it("allows switching from yes to no", () => {
       const vote = makeVote({
         yesVoters: new Set(["p1", "p2"]),
       });
       const result = processResetVote(vote, "p2", "no");
       expect(result.passed).toBe(false);
-      expect(result.failed).toBe(true);
+      expect(result.failed).toBe(false);
       expect(result.updatedYesVoters?.has("p2")).toBe(false);
       expect(result.updatedNoVoters?.has("p2")).toBe(true);
     });
 
     it("allows switching from no to yes", () => {
+      // 4 voters, required=3, p1 voted yes, p2 voted no → p2 switches to yes → 2/3 → not pass yet
       const vote = makeVote({
+        eligibleVoters: new Set(["p1", "p2", "p3", "p4"]),
+        required: 3,
+        total: 4,
         noVoters: new Set(["p2"]),
       });
       const result = processResetVote(vote, "p2", "yes");
@@ -179,14 +204,14 @@ describe("resetVoteLogic", () => {
     });
 
     it("switching from no to yes can trigger pass", () => {
-      // p1, p3 voted yes; p2 voted no → p2 switches to yes → 3/3 → pass
+      // p1 voted yes; p2 voted no → p2 switches to yes → 2/3 → pass
       const vote = makeVote({
-        yesVoters: new Set(["p1", "p3"]),
+        yesVoters: new Set(["p1"]),
         noVoters: new Set(["p2"]),
       });
       const result = processResetVote(vote, "p2", "yes");
       expect(result.passed).toBe(true);
-      expect(result.updatedYesVoters?.size).toBe(3);
+      expect(result.updatedYesVoters?.size).toBe(2);
       expect(result.updatedNoVoters?.size).toBe(0);
     });
   });

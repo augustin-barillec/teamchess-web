@@ -88,7 +88,7 @@ export function clearResetVote(ctx: IGameContext = globalContext): void {
 
 /**
  * Starts a reset vote.
- * Returns { passedImmediately: true } when solo player (1/1 unanimous).
+ * Returns { passedImmediately: true } when solo player (1/1 majority).
  */
 export function startResetVoteLogic(
   initiatorId: string,
@@ -117,7 +117,7 @@ export function startResetVoteLogic(
   const allConnectedPids = ctx.getOnlinePids();
   const pureState = createResetVoteState(initiatorId, allConnectedPids);
 
-  // Solo player: 1/1 = unanimous, pass immediately
+  // Solo player: 1/1 = majority, pass immediately
   if (pureState.yesVoters.size >= pureState.required) {
     return { passedImmediately: true };
   }
@@ -129,8 +129,6 @@ export function startResetVoteLogic(
     initiatorName,
     endTime,
     timer: setTimeout(() => {
-      const yesCount = gameState.resetVote?.yesVoters.size ?? 0;
-      const noCount = gameState.resetVote?.noVoters.size ?? 0;
       sendSystemMessage(`❌ Vote to reset the game failed: Time expired.`, ctx);
       gameState.resetVote = undefined;
       broadcastResetVote(ctx);
