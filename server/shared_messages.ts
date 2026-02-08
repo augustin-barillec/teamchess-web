@@ -10,7 +10,7 @@ const cap = (s: string | null) =>
 
 export const reasonMessages: Record<string, (winner: string | null) => string> =
   {
-    [EndReason.Checkmate]: (winner) => `☑️ Checkmate!\n${cap(winner)} wins!`,
+    [EndReason.Checkmate]: (winner) => `🏆 Checkmate!\n${cap(winner)} wins!`,
     [EndReason.Stalemate]: () => `🤝 Game drawn by stalemate.`,
     [EndReason.Threefold]: () => `🤝 Game drawn by threefold repetition.`,
     [EndReason.Insufficient]: () => `🤝 Game drawn by insufficient material.`,
@@ -20,7 +20,7 @@ export const reasonMessages: Record<string, (winner: string | null) => string> =
     [EndReason.DrawAgreement]: () => `🤝 Draw agreed.`,
     [EndReason.Timeout]: (winner) => `⏱️ Time!\n${cap(winner)} wins!`,
     [EndReason.Abandonment]: (winner) =>
-      `🚫 Forfeit!\n${cap(winner)} wins as the opposing team is empty.`,
+      `🚪 Forfeit!\n${cap(winner)} wins — opposing team is empty.`,
   };
 
 export const gameOverFallback = (winner: string | null): string =>
@@ -85,7 +85,7 @@ export const MSG = {
   teamOffersDraw: (side: string) => `${side} team offers a draw.`,
   teamAcceptsDraw: (side: string) => `${side} team accepts the draw.`,
   playerRejectedDraw: (name: string) => `${name} rejected the draw offer.`,
-  drawOfferRejectedTimeout: "Draw offer rejected (timeout).",
+  drawOfferRejectedTimeout: "❌ Draw offer expired.",
 
   // Team vote messages (sent to team)
   teamVoteStarted: (name: string, type: VoteType) =>
@@ -119,18 +119,17 @@ export const MSG = {
   playerResetGame: (name: string) => `${name} has reset the game.`,
 
   // Game flow
-  gameStarted: (name: string) =>
-    `${name} has started the game by playing the first move.`,
+  gameStarted: (name: string) => `${name} played the first move.`,
   systemError:
-    "⚠️ System Error: The move could not be processed. The turn has been reset. Please submit your moves again.",
+    "⚠️ System error: move could not be processed. Please resubmit your moves.",
 
   // Error messages (sent to individual sockets)
   errorNotEligible: "You are not eligible to vote.",
-  errorJoinedLate: "You cannot vote (joined late).",
+  errorJoinedLate: "You cannot vote — joined late.",
   errorTargetNotFound: "Target player not found.",
   errorOnlyWhiteStart: "Only the White team can start the game.",
   errorBothTeamsRequired: "Both teams must have at least one player to start.",
-  errorNotAccepting: "Not accepting proposals right now.",
+  errorNotAccepting: "Not accepting moves right now.",
   errorNotYourTurn: "Not your turn.",
   errorAlreadyMoved: "Already moved.",
   errorIllegalFormat: "Illegal move format.",

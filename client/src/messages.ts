@@ -50,13 +50,13 @@ export const UI = {
   voteTypeResign: "Resign",
   voteTypeOfferDraw: "Offer Draw",
   voteTypeAcceptDraw: "Accept Draw",
-  voteResetGame: "🗳️ Vote: Reset Game",
-  votingOnDraw: "Voting on Draw...",
-  voteInProgress: "Vote in progress",
+  voteResetGame: "Vote: Reset Game",
+  votingOnDraw: "⏳ Voting on draw...",
+  voteInProgress: "Vote in progress.",
 
   // Kick vote
-  kickVoteTargetSelf: "Vote to kick YOU",
-  kickVoteTargetOther: "Kick this player?",
+  kickVoteTargetSelf: "Vote to kick you",
+  kickVoteTargetOther: "Vote to kick this player?",
   kickVoteTooltip: (name: string) => `Vote to kick ${name}`,
 
   // Status
@@ -71,11 +71,11 @@ export const UI = {
   confirmOfferDraw: "Are you sure you want to offer a draw?",
 
   // Toasts
-  toastMoveSubmitted: "Move submitted \u2714\uFE0F",
+  toastMoveSubmitted: "✅ Move submitted",
   toastPgnCopied: "PGN copied!",
   toastPgnCopyFailed: "Could not copy PGN.",
   toastIllegalMove: "Illegal move!",
-  toastOnlyWhiteStart: "Only White can make the first move to start the game.",
+  toastOnlyWhiteStart: "Only White can make the first move.",
   toastDrawOffer: (teamName: string) => `Draw offer from the ${teamName} team.`,
   toastKicked: "You have been kicked by vote.",
 } as const;
