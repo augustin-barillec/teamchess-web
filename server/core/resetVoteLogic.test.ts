@@ -4,6 +4,7 @@ import {
   createResetVoteState,
   processResetVote,
 } from "./resetVoteLogic.js";
+import { VOTE_REASONS } from "../shared_messages.js";
 
 describe("resetVoteLogic", () => {
   describe("checkResetVotePrerequisites", () => {
@@ -24,7 +25,7 @@ describe("resetVoteLogic", () => {
 
       const result = checkResetVotePrerequisites(existingVote);
       expect(result.canStart).toBe(false);
-      expect(result.reason).toBe("A reset vote is already in progress");
+      expect(result.reason).toBe(VOTE_REASONS.resetVoteInProgress);
     });
   });
 
@@ -109,19 +110,19 @@ describe("resetVoteLogic", () => {
       const result = processResetVote(vote, "p4", "yes");
       expect(result.passed).toBe(false);
       expect(result.failed).toBe(false);
-      expect(result.reason).toBe("Not eligible to vote");
+      expect(result.reason).toBe(VOTE_REASONS.notEligibleToVote);
     });
 
     it("rejects duplicate yes vote", () => {
       const vote = makeVote();
       const result = processResetVote(vote, "p1", "yes");
-      expect(result.reason).toBe("Already voted yes");
+      expect(result.reason).toBe(VOTE_REASONS.alreadyVotedYes);
     });
 
     it("rejects duplicate no vote", () => {
       const vote = makeVote({ noVoters: new Set(["p2"]) });
       const result = processResetVote(vote, "p2", "no");
-      expect(result.reason).toBe("Already voted no");
+      expect(result.reason).toBe(VOTE_REASONS.alreadyVotedNo);
     });
 
     it("records yes vote without passing when below threshold", () => {

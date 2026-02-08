@@ -1,6 +1,7 @@
 import type { Player, PlayerSide } from "../types.js";
 import type { IGameContext } from "../context/GameContext.js";
 import { globalContext } from "../context/GlobalContextAdapter.js";
+import { SENDER_SYSTEM, SENDER_TEAM_SYSTEM } from "../shared_messages.js";
 
 /**
  * Broadcasts the current player list to all clients.
@@ -36,7 +37,7 @@ export function sendSystemMessage(
   ctx: IGameContext = globalContext
 ): void {
   ctx.io.emit("chat_message", {
-    sender: "System",
+    sender: SENDER_SYSTEM,
     senderId: "system",
     message,
     system: true,
@@ -54,7 +55,7 @@ export function sendTeamMessage(
 ): void {
   for (const socket of ctx.getSocketsBySide(side)) {
     socket.emit("chat_message", {
-      sender: "Team System",
+      sender: SENDER_TEAM_SYSTEM,
       senderId: "system",
       message,
       system: true,

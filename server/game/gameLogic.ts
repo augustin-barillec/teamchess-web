@@ -1,7 +1,7 @@
 import type { IGameContext } from "../context/GameContext.js";
 import { globalContext } from "../context/GlobalContextAdapter.js";
 import { GameStatus, EndReason, Proposal } from "../types.js";
-import { reasonMessages } from "../constants.js";
+import { reasonMessages, gameOverFallback, MSG } from "../shared_messages.js";
 import { getCleanPgn } from "../utils/pgn.js";
 import { broadcastPlayers, sendSystemMessage } from "../utils/messaging.js";
 import { clearTeamVote, setEndGameCallback } from "../voting/teamVote.js";
@@ -38,9 +38,7 @@ export function endGame(
 
   const message = reasonMessages[reason]
     ? reasonMessages[reason](winner)
-    : `🎉 Game over! ${
-        winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
-      } wins!`;
+    : gameOverFallback(winner);
 
   sendSystemMessage(message, ctx);
   broadcastPlayers(ctx);
@@ -171,10 +169,7 @@ export function tryFinalizeTurn(ctx: IGameContext = globalContext): void {
       gameState.status = GameStatus.AwaitingProposals;
       gameState.proposals.clear();
       io.emit("game_status_update", { status: gameState.status });
-      sendSystemMessage(
-        "⚠️ System Error: The move could not be processed. The turn has been reset. Please submit your moves again.",
-        ctx
-      );
+      sendSystemMessage(MSG.systemError, ctx);
     }
   });
 }

@@ -1,4 +1,5 @@
 import { pieceToFigurineWhite, pieceToFigurineBlack } from "../constants";
+import { UI } from "../messages";
 
 interface PromotionDialogProps {
   promotionMove: { from: string; to: string } | null;
@@ -19,7 +20,7 @@ export const PromotionDialog: React.FC<PromotionDialogProps> = ({
 
   return (
     <div className="promotion-dialog">
-      <h3>Promote to:</h3>
+      <h3>{UI.promotionTitle}</h3>
       <div className="promotion-choices">
         {promotionPieces.map((p) => (
           <button

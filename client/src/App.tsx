@@ -15,6 +15,7 @@ import {
 } from "react-chessboard";
 import { GameStatus, VoteType } from "./types";
 import { STORAGE_KEYS } from "./constants";
+import { UI } from "./messages";
 import { calculateMaterial } from "./materialCalc";
 import { useSocket } from "./hooks/useSocket";
 import { NameChangeModal } from "./components/NameChangeModal";
@@ -167,9 +168,8 @@ export default function App() {
         side === "white" ? players.whitePlayers : players.blackPlayers;
       if (myTeamArray.length === 1) {
         let msg = "";
-        if (type === "resign") msg = "Are you sure you want to resign?";
-        else if (type === "offer_draw")
-          msg = "Are you sure you want to offer a draw?";
+        if (type === "resign") msg = UI.confirmResign;
+        else if (type === "offer_draw") msg = UI.confirmOfferDraw;
         if (msg && !window.confirm(msg)) return;
       }
     }
@@ -206,7 +206,7 @@ export default function App() {
     socket.emit("play_move", lan, (res: { error?: string }) => {
       if (res?.error) toast.error(res.error);
       else if (isMobile) {
-        toast.success("Move submitted ✔️");
+        toast.success(UI.toastMoveSubmitted);
       }
     });
   };
@@ -241,9 +241,9 @@ export default function App() {
       document.body.appendChild(textArea);
       textArea.select();
       document.execCommand("copy");
-      toast.success("PGN copied!");
+      toast.success(UI.toastPgnCopied);
     } catch (_err) {
-      toast.error("Could not copy PGN.");
+      toast.error(UI.toastPgnCopyFailed);
     } finally {
       document.body.removeChild(textArea);
     }
@@ -333,7 +333,7 @@ export default function App() {
       if (!from || !to) return false;
       if (gameStatus === GameStatus.Lobby) {
         if (side !== "white") {
-          toast.error("Only White can make the first move to start the game.");
+          toast.error(UI.toastOnlyWhiteStart);
           return false;
         }
       } else if (gameStatus === GameStatus.AwaitingProposals) {
@@ -354,7 +354,7 @@ export default function App() {
         if (!move) return false;
         chess.undo();
       } catch (_e) {
-        toast.error("Illegal move!");
+        toast.error(UI.toastIllegalMove);
         return false;
       }
       if (isPromotion) {
@@ -401,7 +401,7 @@ export default function App() {
           (activeTab === "controls" ? "active" : "")
         }
       >
-        <h3>Controls</h3>
+        <h3>{UI.headingControls}</h3>
         <div className="controls-panel-content">
           <ControlsPanel
             gameStatus={gameStatus}
@@ -442,10 +442,7 @@ export default function App() {
       />
 
       {amDisconnected && (
-        <div className="offline-banner">
-          {" "}
-          You're offline. Trying to reconnect…{" "}
-        </div>
+        <div className="offline-banner"> {UI.offlineBanner} </div>
       )}
 
       <div className="app-container">
@@ -508,7 +505,7 @@ export default function App() {
                 }}
               >
                 {" "}
-                Players{" "}
+                {UI.tabPlayers}{" "}
               </button>
               <button
                 className={activeTab === "moves" ? "active" : ""}
@@ -518,7 +515,7 @@ export default function App() {
                 }}
               >
                 {" "}
-                Moves{" "}
+                {UI.tabMoves}{" "}
               </button>
               <button
                 className={activeTab === "chat" ? "active" : ""}
@@ -530,7 +527,7 @@ export default function App() {
                 }}
               >
                 {" "}
-                Chat{" "}
+                {UI.tabChat}{" "}
                 {hasUnreadMessages && <span className="unread-dot"></span>}{" "}
               </button>
               <button
@@ -540,7 +537,7 @@ export default function App() {
                   setIsMobileInfoVisible(true);
                 }}
               >
-                Controls
+                {UI.tabControls}
                 {(teamVote.isActive || resetVote.isActive) &&
                   activeTab !== "controls" && (
                     <span className="unread-dot"></span>
@@ -552,7 +549,7 @@ export default function App() {
             <div className="mobile-info-header">
               <h3>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h3>
               <button onClick={() => setIsMobileInfoVisible(false)}>
-                Close
+                {UI.btnClose}
               </button>
             </div>
           </div>

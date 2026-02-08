@@ -1,5 +1,6 @@
 import type { ChangeEvent, RefObject, KeyboardEvent } from "react";
 import { GameStatus } from "../types";
+import { UI } from "../messages";
 
 interface NameChangeModalProps {
   isOpen: boolean;
@@ -29,20 +30,20 @@ export const NameChangeModal: React.FC<NameChangeModalProps> = ({
   return (
     <div className="name-modal-overlay" onClick={onClose}>
       <div className="name-modal-dialog" onClick={(e) => e.stopPropagation()}>
-        <h3>Change Name</h3>
+        <h3>{UI.nameModalTitle}</h3>
         <input
           ref={inputRef}
           type="text"
           value={value}
           onChange={onChange}
           onKeyDown={onKeyDown}
-          placeholder="Set your name"
-          aria-label="Set your name (Enter to save)"
+          placeholder={UI.nameModalPlaceholder}
+          aria-label={UI.nameModalAriaLabel}
         />
 
         <div className="name-modal-buttons">
-          <button onClick={onClose}>Cancel</button>
-          <button onClick={onSave}>Save</button>
+          <button onClick={onClose}>{UI.nameModalCancel}</button>
+          <button onClick={onSave}>{UI.nameModalSave}</button>
         </div>
       </div>
     </div>

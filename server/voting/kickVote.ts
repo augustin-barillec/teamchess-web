@@ -7,6 +7,7 @@ import {
   checkKickVotePrerequisites,
   createKickVoteState,
 } from "../core/kickVoteLogic.js";
+import { MSG } from "../shared_messages.js";
 
 /**
  * Gets kick vote data formatted for a specific client.
@@ -144,7 +145,7 @@ export function startKickVoteLogic(
       const yesCount = gameState.kickVote?.yesVoters.size ?? 0;
       const noCount = gameState.kickVote?.noVoters.size ?? 0;
       sendSystemMessage(
-        `❌ Vote to kick ${targetName} failed: Time expired. (${yesCount} Yes, ${noCount} No)`,
+        MSG.kickVoteExpired(targetName, yesCount, noCount),
         ctx
       );
       gameState.kickVote = undefined;
@@ -154,10 +155,7 @@ export function startKickVoteLogic(
 
   gameState.kickVote = voteState;
 
-  sendSystemMessage(
-    `🗳️ ${initiatorName} started a vote to kick ${targetName}.`,
-    ctx
-  );
+  sendSystemMessage(MSG.kickVoteStarted(initiatorName, targetName), ctx);
   broadcastKickVote(ctx);
 
   return {};
@@ -179,7 +177,7 @@ export function executeKick(
   // Find and disconnect the target's socket
   for (const socket of ctx.getAllSockets()) {
     if (socket.data.pid === targetPid) {
-      socket.emit("kicked", { message: "You have been kicked by vote." });
+      socket.emit("kicked", { message: MSG.youHaveBeenKicked });
       // For real sockets, we need to disconnect them
       if ("disconnect" in socket && typeof socket.disconnect === "function") {
         (socket as unknown as { disconnect: () => void }).disconnect();
@@ -196,6 +194,6 @@ export function executeKick(
     sessions.delete(targetPid);
   }
 
-  sendSystemMessage(`${targetName} has been kicked.`, ctx);
+  sendSystemMessage(MSG.playerKicked(targetName), ctx);
   broadcastPlayers(ctx);
 }

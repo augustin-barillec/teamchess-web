@@ -5,6 +5,7 @@ import { globalContext } from "../context/GlobalContextAdapter.js";
 import { GameStatus, VoteType } from "../types.js";
 import { getCleanPgn } from "../utils/pgn.js";
 import { broadcastPlayers } from "../utils/messaging.js";
+import { MSG, DEFAULT_PLAYER_NAME } from "../shared_messages.js";
 import { tryFinalizeTurn } from "../game/gameLogic.js";
 import { getTeamVoteClientData } from "../voting/teamVote.js";
 import { leave } from "../players/playerManager.js";
@@ -39,7 +40,7 @@ export function setupConnectionHandler(
 
     // Blacklist check: reject kicked players
     if (providedPid && gameState.blacklist.has(providedPid)) {
-      socket.emit("kicked", { message: "You have been kicked by vote." });
+      socket.emit("kicked", { message: MSG.youHaveBeenKicked });
       socket.disconnect(true);
       return;
     }
@@ -49,7 +50,11 @@ export function setupConnectionHandler(
     let sess = sessions.get(pid);
 
     if (!sess) {
-      sess = { pid, name: providedName || "Player", side: "spectator" };
+      sess = {
+        pid,
+        name: providedName || DEFAULT_PLAYER_NAME,
+        side: "spectator",
+      };
       sessions.set(pid, sess);
     } else {
       if (sess.reconnectTimer) {

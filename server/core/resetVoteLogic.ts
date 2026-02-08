@@ -1,3 +1,5 @@
+import { VOTE_REASONS } from "../shared_messages.js";
+
 export interface ResetVoteState {
   initiatorId: string;
   yesVoters: Set<string>;
@@ -20,7 +22,7 @@ export function checkResetVotePrerequisites(
   existingResetVote: ResetVoteState | undefined
 ): ResetVotePrerequisiteResult {
   if (existingResetVote) {
-    return { canStart: false, reason: "A reset vote is already in progress" };
+    return { canStart: false, reason: VOTE_REASONS.resetVoteInProgress };
   }
 
   return { canStart: true };
@@ -76,7 +78,11 @@ export function processResetVote(
   voteChoice: "yes" | "no"
 ): ResetVoteProcessResult {
   if (!vote.eligibleVoters.has(voterId)) {
-    return { passed: false, failed: false, reason: "Not eligible to vote" };
+    return {
+      passed: false,
+      failed: false,
+      reason: VOTE_REASONS.notEligibleToVote,
+    };
   }
 
   const newYesVoters = new Set(vote.yesVoters);
@@ -84,7 +90,11 @@ export function processResetVote(
 
   if (voteChoice === "yes") {
     if (newYesVoters.has(voterId)) {
-      return { passed: false, failed: false, reason: "Already voted yes" };
+      return {
+        passed: false,
+        failed: false,
+        reason: VOTE_REASONS.alreadyVotedYes,
+      };
     }
     // Switch from no if needed
     newNoVoters.delete(voterId);
@@ -100,7 +110,11 @@ export function processResetVote(
     }
   } else {
     if (newNoVoters.has(voterId)) {
-      return { passed: false, failed: false, reason: "Already voted no" };
+      return {
+        passed: false,
+        failed: false,
+        reason: VOTE_REASONS.alreadyVotedNo,
+      };
     }
     // Switch from yes if needed
     newYesVoters.delete(voterId);

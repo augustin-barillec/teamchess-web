@@ -1,6 +1,7 @@
 import { RefObject } from "react";
 import { Socket } from "socket.io-client";
 import { ChatMessage } from "../types";
+import { UI } from "../messages";
 
 interface ChatPanelProps {
   activeTab: string;
@@ -47,7 +48,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         "tab-panel chat-panel " + (activeTab === "chat" ? "active" : "")
       }
     >
-      <h3>Chat</h3>
+      <h3>{UI.headingChat}</h3>
       <div className="chat-box-container">
         <div className="chat-messages">
           {" "}
@@ -92,7 +93,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck="false"
-              placeholder="Type a message..."
+              placeholder={UI.chatPlaceholder}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={handleKeyDown}

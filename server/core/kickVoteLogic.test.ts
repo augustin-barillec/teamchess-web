@@ -4,6 +4,7 @@ import {
   createKickVoteState,
   processKickVote,
 } from "./kickVoteLogic.js";
+import { VOTE_REASONS } from "../shared_messages.js";
 
 describe("kickVoteLogic", () => {
   describe("checkKickVotePrerequisites", () => {
@@ -25,13 +26,13 @@ describe("kickVoteLogic", () => {
 
       const result = checkKickVotePrerequisites(existingVote, "p2", "p4");
       expect(result.canStart).toBe(false);
-      expect(result.reason).toBe("A kick vote is already in progress");
+      expect(result.reason).toBe(VOTE_REASONS.kickVoteInProgress);
     });
 
     it("rejects self-kick", () => {
       const result = checkKickVotePrerequisites(undefined, "p1", "p1");
       expect(result.canStart).toBe(false);
-      expect(result.reason).toBe("You cannot vote to kick yourself");
+      expect(result.reason).toBe(VOTE_REASONS.cannotKickSelf);
     });
   });
 
@@ -135,25 +136,25 @@ describe("kickVoteLogic", () => {
       const result = processKickVote(vote, "p6", "yes");
       expect(result.passed).toBe(false);
       expect(result.failed).toBe(false);
-      expect(result.reason).toBe("Not eligible to vote");
+      expect(result.reason).toBe(VOTE_REASONS.notEligibleToVote);
     });
 
     it("rejects vote from target player", () => {
       const vote = makeVote();
       const result = processKickVote(vote, "p5", "yes");
-      expect(result.reason).toBe("Not eligible to vote");
+      expect(result.reason).toBe(VOTE_REASONS.notEligibleToVote);
     });
 
     it("rejects duplicate yes vote", () => {
       const vote = makeVote();
       const result = processKickVote(vote, "p1", "yes");
-      expect(result.reason).toBe("Already voted yes");
+      expect(result.reason).toBe(VOTE_REASONS.alreadyVotedYes);
     });
 
     it("rejects duplicate no vote", () => {
       const vote = makeVote({ noVoters: new Set(["p2"]) });
       const result = processKickVote(vote, "p2", "no");
-      expect(result.reason).toBe("Already voted no");
+      expect(result.reason).toBe(VOTE_REASONS.alreadyVotedNo);
     });
 
     it("records yes vote without passing when below threshold", () => {

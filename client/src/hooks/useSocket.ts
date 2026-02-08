@@ -14,7 +14,13 @@ import {
   ResetVoteState,
 } from "../types";
 import { Turn } from "../types";
-import { STORAGE_KEYS, reasonMessages } from "../constants";
+import { STORAGE_KEYS } from "../constants";
+import {
+  reasonMessages,
+  gameOverFallback,
+  DEFAULT_PLAYER_NAME,
+  UI,
+} from "../messages";
 import { sounds } from "../soundEngine";
 
 interface UseSocketProps {
@@ -60,10 +66,10 @@ export function useSocket({
     localStorage.getItem(STORAGE_KEYS.pid) || ""
   );
   const [name, setName] = useState(
-    localStorage.getItem(STORAGE_KEYS.name) || "Player"
+    localStorage.getItem(STORAGE_KEYS.name) || DEFAULT_PLAYER_NAME
   );
   const [nameInput, setNameInput] = useState(
-    localStorage.getItem(STORAGE_KEYS.name) || "Player"
+    localStorage.getItem(STORAGE_KEYS.name) || DEFAULT_PLAYER_NAME
   );
   const [side, setSide] = useState<"spectator" | "white" | "black">(
     (localStorage.getItem(STORAGE_KEYS.side) as
@@ -130,7 +136,7 @@ export function useSocket({
     const s = io({
       auth: {
         pid: localStorage.getItem(STORAGE_KEYS.pid) || undefined,
-        name: localStorage.getItem(STORAGE_KEYS.name) || "Player",
+        name: localStorage.getItem(STORAGE_KEYS.name) || DEFAULT_PLAYER_NAME,
       },
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -312,9 +318,7 @@ export function useSocket({
 
         const gameOverMessage = reasonMessages[reason]
           ? reasonMessages[reason](winner)
-          : `🎉 Game over! ${
-              winner ? winner.charAt(0).toUpperCase() + winner.slice(1) : ""
-            } wins!`;
+          : gameOverFallback(winner);
 
         if (isMobile) {
           toast(gameOverMessage, {
@@ -341,7 +345,7 @@ export function useSocket({
         setDrawOffer(side as "white" | "black" | null);
         if (side && isMobile) {
           const teamName = side.charAt(0).toUpperCase() + side.slice(1);
-          toast(`Draw offer from the ${teamName} team.`, {
+          toast(UI.toastDrawOffer(teamName), {
             icon: "🤝",
             duration: 4000,
           });
@@ -362,7 +366,7 @@ export function useSocket({
     });
 
     socket.on("kicked", () => {
-      toast.error("You have been kicked by vote.");
+      toast.error(UI.toastKicked);
       socket.disconnect();
     });
 

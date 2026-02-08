@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   STORAGE_KEYS,
-  reasonMessages,
   pieceToFigurineWhite,
   pieceToFigurineBlack,
 } from "./constants.js";
+import { reasonMessages } from "./messages.js";
 import { EndReason } from "../../server/shared_types.js";
 
 describe("constants", () => {

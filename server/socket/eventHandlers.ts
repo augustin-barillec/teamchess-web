@@ -17,11 +17,7 @@ import {
   startTeamVoteLogic,
 } from "../voting/teamVote.js";
 import { createEngine } from "../engine/stockfish.js";
-import {
-  processVote,
-  formatVoteType,
-  formatVoteTypeAction,
-} from "../core/voteLogic.js";
+import { processVote } from "../core/voteLogic.js";
 import { processKickVote } from "../core/kickVoteLogic.js";
 import { processResetVote } from "../core/resetVoteLogic.js";
 import {
@@ -36,6 +32,7 @@ import {
   broadcastResetVote,
 } from "../voting/resetVote.js";
 import { DEFAULT_TIME } from "../constants.js";
+import { MSG, VOTE_REASONS } from "../shared_messages.js";
 
 export function handleSetName(
   socket: Socket,
@@ -112,7 +109,7 @@ export function handleResetGame(
   }
 
   if (result.passedImmediately) {
-    sendSystemMessage(`${socket.data.name} has reset the game.`, ctx);
+    sendSystemMessage(MSG.playerResetGame(socket.data.name), ctx);
     executeGameReset(ctx);
   }
 
@@ -162,8 +159,8 @@ export function handleVoteReset(
     vote
   );
 
-  if (voteResult.reason === "Not eligible to vote") {
-    socket.emit("error", { message: "You are not eligible to vote." });
+  if (voteResult.reason === VOTE_REASONS.notEligibleToVote) {
+    socket.emit("error", { message: MSG.errorNotEligible });
     return;
   }
 
@@ -176,14 +173,11 @@ export function handleVoteReset(
 
   if (voteResult.passed) {
     clearResetVote(ctx);
-    sendSystemMessage(`✅ Vote passed! Resetting game.`, ctx);
+    sendSystemMessage(MSG.resetVotePassed, ctx);
     executeGameReset(ctx);
   } else if (voteResult.failed) {
     clearResetVote(ctx);
-    sendSystemMessage(
-      `❌ Vote to reset the game failed: ${socket.data.name} voted No.`,
-      ctx
-    );
+    sendSystemMessage(MSG.resetVoteFailed(socket.data.name), ctx);
   } else {
     broadcastResetVote(ctx);
   }
@@ -200,7 +194,7 @@ export function handlePlayMove(
 
   if (gameState.status === GameStatus.Lobby) {
     if (socket.data.side !== "white") {
-      return cb?.({ error: "Only the White team can start the game." });
+      return cb?.({ error: MSG.errorOnlyWhiteStart });
     }
 
     const whites = new Set<string>();
@@ -211,9 +205,7 @@ export function handlePlayMove(
     }
 
     if (blacks.size === 0) {
-      return cb?.({
-        error: "Both teams must have at least one player to start.",
-      });
+      return cb?.({ error: MSG.errorBothTeamsRequired });
     }
 
     gameState.status = GameStatus.AwaitingProposals;
@@ -227,28 +219,26 @@ export function handlePlayMove(
     });
     io.emit("position_update", { fen: gameState.chess.fen() });
     startClock(ctx);
-    sendSystemMessage(
-      `${socket.data.name} has started the game by playing the first move.`,
-      ctx
-    );
+    sendSystemMessage(MSG.gameStarted(socket.data.name), ctx);
   } else if (gameState.status !== GameStatus.AwaitingProposals) {
-    return cb?.({ error: "Not accepting proposals right now." });
+    return cb?.({ error: MSG.errorNotAccepting });
   }
 
   const active =
     gameState.side === "white" ? gameState.whiteIds : gameState.blackIds;
-  if (!active.has(pid)) return cb?.({ error: "Not your turn." });
-  if (gameState.proposals.has(pid)) return cb?.({ error: "Already moved." });
+  if (!active.has(pid)) return cb?.({ error: MSG.errorNotYourTurn });
+  if (gameState.proposals.has(pid))
+    return cb?.({ error: MSG.errorAlreadyMoved });
 
   let move;
   try {
     const tempChess = new Chess(gameState.chess.fen());
     move = tempChess.move(lan);
   } catch (_e) {
-    return cb?.({ error: "Illegal move format." });
+    return cb?.({ error: MSG.errorIllegalFormat });
   }
 
-  if (!move) return cb?.({ error: "Illegal move." });
+  if (!move) return cb?.({ error: MSG.errorIllegalMove });
 
   gameState.proposals.set(pid, {
     lan,
@@ -331,8 +321,8 @@ export function handleVoteTeam(
     vote
   );
 
-  if (voteResult.reason === "Not eligible to vote") {
-    socket.emit("error", { message: "You cannot vote (joined late)." });
+  if (voteResult.reason === VOTE_REASONS.notEligibleToVote) {
+    socket.emit("error", { message: MSG.errorJoinedLate });
     return;
   }
 
@@ -340,7 +330,7 @@ export function handleVoteTeam(
     clearTeamVote(side, ctx);
     sendTeamMessage(
       side,
-      `❌ Vote to ${formatVoteType(currentVote.type)} failed: ${socket.data.name} voted No.`,
+      MSG.teamVoteFailed(currentVote.type, socket.data.name),
       ctx
     );
 
@@ -348,7 +338,7 @@ export function handleVoteTeam(
     if (currentVote.type === "accept_draw") {
       gameState.drawOffer = undefined;
       io.emit("draw_offer_update", { side: null });
-      sendSystemMessage(`${socket.data.name} rejected the draw offer.`, ctx);
+      sendSystemMessage(MSG.playerRejectedDraw(socket.data.name), ctx);
     }
   } else if (voteResult.updatedYesVoters) {
     // Update the yes voters
@@ -356,26 +346,22 @@ export function handleVoteTeam(
 
     if (voteResult.passed) {
       clearTeamVote(side, ctx);
-      sendTeamMessage(
-        side,
-        `✅ Vote passed! ${formatVoteTypeAction(currentVote.type)}.`,
-        ctx
-      );
+      sendTeamMessage(side, MSG.teamVotePassed(currentVote.type), ctx);
 
       if (currentVote.type === "resign") {
         const winner = side === "white" ? "black" : "white";
-        sendSystemMessage(`${side} team resigns.`, ctx);
+        sendSystemMessage(MSG.teamResigns(side), ctx);
         endGame(EndReason.Resignation, winner, ctx);
       } else if (currentVote.type === "offer_draw") {
         gameState.drawOffer = side;
         io.emit("draw_offer_update", { side });
-        sendSystemMessage(`${side} team offers a draw.`, ctx);
+        sendSystemMessage(MSG.teamOffersDraw(side), ctx);
 
         // Trigger vote for other side
         const otherSide = side === "white" ? "black" : "white";
         startTeamVoteLogic(otherSide, "accept_draw", "system", "System", ctx);
       } else if (currentVote.type === "accept_draw") {
-        sendSystemMessage(`${side} team accepts the draw.`, ctx);
+        sendSystemMessage(MSG.teamAcceptsDraw(side), ctx);
         endGame(EndReason.DrawAgreement, null, ctx);
       }
     } else {
@@ -395,7 +381,7 @@ export function handleStartKickVote(
   // Validate target exists
   const targetSess = sessions.get(targetId);
   if (!targetSess) {
-    socket.emit("error", { message: "Target player not found." });
+    socket.emit("error", { message: MSG.errorTargetNotFound });
     return;
   }
 
@@ -437,8 +423,8 @@ export function handleKickVote(
     vote
   );
 
-  if (voteResult.reason === "Not eligible to vote") {
-    socket.emit("error", { message: "You are not eligible to vote." });
+  if (voteResult.reason === VOTE_REASONS.notEligibleToVote) {
+    socket.emit("error", { message: MSG.errorNotEligible });
     return;
   }
 
@@ -455,17 +441,14 @@ export function handleKickVote(
     const targetName = currentVote.targetName;
     const targetPid = currentVote.targetId;
     clearKickVote(ctx);
-    sendSystemMessage(`✅ Vote passed! Kicking ${targetName}.`, ctx);
+    sendSystemMessage(MSG.kickVotePassed(targetName), ctx);
     executeKick(targetPid, targetName, ctx);
   } else if (voteResult.failed) {
     const targetName = currentVote.targetName;
     const yesCount = currentVote.yesVoters.size;
     const noCount = currentVote.noVoters.size;
     clearKickVote(ctx);
-    sendSystemMessage(
-      `❌ Vote to kick ${targetName} failed: Not enough votes possible. (${yesCount} Yes, ${noCount} No)`,
-      ctx
-    );
+    sendSystemMessage(MSG.kickVoteFailed(targetName, yesCount, noCount), ctx);
   } else {
     broadcastKickVote(ctx);
   }

@@ -1,5 +1,6 @@
 import type { VoteType } from "../shared_types.js";
 import type { PlayerSide } from "../types.js";
+import { VOTE_REASONS } from "../shared_messages.js";
 
 export interface VoteState {
   type: VoteType;
@@ -32,7 +33,7 @@ export function checkVotePrerequisites(
     return {
       shouldAutoExecute: false,
       canStartVote: false,
-      reason: "No valid draw offer",
+      reason: VOTE_REASONS.noValidDrawOffer,
     };
   }
 
@@ -41,7 +42,7 @@ export function checkVotePrerequisites(
     return {
       shouldAutoExecute: false,
       canStartVote: false,
-      reason: "Draw already offered",
+      reason: VOTE_REASONS.drawAlreadyOffered,
     };
   }
 
@@ -50,7 +51,7 @@ export function checkVotePrerequisites(
     return {
       shouldAutoExecute: false,
       canStartVote: false,
-      reason: "Vote already in progress",
+      reason: VOTE_REASONS.voteAlreadyInProgress,
     };
   }
 
@@ -80,12 +81,16 @@ export function processVote(
 ): VoteProcessResult {
   // Check eligibility
   if (!vote.eligibleVoters.has(voterId)) {
-    return { passed: false, failed: false, reason: "Not eligible to vote" };
+    return {
+      passed: false,
+      failed: false,
+      reason: VOTE_REASONS.notEligibleToVote,
+    };
   }
 
   // No vote = rejection
   if (voteChoice === "no") {
-    return { passed: false, failed: true, reason: "Vote rejected" };
+    return { passed: false, failed: true, reason: VOTE_REASONS.voteRejected };
   }
 
   // Yes vote - create new set with voter added
@@ -122,25 +127,4 @@ export function createVoteState(
     eligibleVoters: new Set(eligibleVoters),
     required: eligibleVoters.size,
   };
-}
-
-/**
- * Formats a vote type for display (e.g. "resign", "offer draw").
- */
-export function formatVoteType(type: VoteType): string {
-  return type.replace("_", " ");
-}
-
-/**
- * Formats a vote type as a gerund action (e.g. "Resigning", "Offering a draw").
- */
-export function formatVoteTypeAction(type: VoteType): string {
-  switch (type) {
-    case "resign":
-      return "Resigning";
-    case "offer_draw":
-      return "Offering a draw";
-    case "accept_draw":
-      return "Accepting the draw";
-  }
 }

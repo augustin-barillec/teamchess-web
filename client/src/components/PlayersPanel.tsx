@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Players, KickVoteState } from "../types";
 import { DisconnectedIcon } from "../DisconnectedIcon";
+import { DEFAULT_PLAYER_NAME, UI } from "../messages";
 
 interface PlayersPanelProps {
   activeTab: string;
@@ -46,7 +47,7 @@ function KickVoteBox({
         }}
       >
         <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
-          {kickVote.amTarget ? "Vote to kick YOU" : "Kick this player?"}
+          {kickVote.amTarget ? UI.kickVoteTargetSelf : UI.kickVoteTargetOther}
         </div>
         <div
           style={{
@@ -144,7 +145,7 @@ function KickVoteBox({
               fontStyle: "italic",
             }}
           >
-            Vote in progress
+            {UI.voteInProgress}
           </div>
         )}
       </div>
@@ -179,7 +180,7 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
             <strong>
               <button className="clickable-name" onClick={openNameModal}>
                 {p.name}
-                {p.name === "Player" ? " ✏️" : ""}
+                {p.name === DEFAULT_PLAYER_NAME ? " ✏️" : ""}
               </button>
             </strong>
           ) : (
@@ -190,7 +191,7 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
           {showKickButton && (
             <button
               onClick={() => onStartKickVote(p.id)}
-              title={`Vote to kick ${p.name}`}
+              title={UI.kickVoteTooltip(p.name)}
               style={{
                 marginLeft: "auto",
                 background: "none",
@@ -203,7 +204,7 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
                 lineHeight: 1,
               }}
             >
-              Kick
+              {UI.btnKick}
             </button>
           )}
         </div>
@@ -220,22 +221,22 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
         "tab-panel players-panel " + (activeTab === "players" ? "active" : "")
       }
     >
-      <h3>Players</h3>
+      <h3>{UI.headingPlayers}</h3>
       <div className="player-lists-container">
         <div>
-          <h3>Spectators</h3>
+          <h3>{UI.headingSpectators}</h3>
           <ul className="player-list">
             {players.spectators.map((p) => renderPlayerEntry(p))}
           </ul>
         </div>
         <div>
-          <h3>White</h3>
+          <h3>{UI.headingWhite}</h3>
           <ul className="player-list">
             {players.whitePlayers.map((p) => renderPlayerEntry(p, "white"))}
           </ul>
         </div>
         <div>
-          <h3>Black</h3>
+          <h3>{UI.headingBlack}</h3>
           <ul className="player-list">
             {players.blackPlayers.map((p) => renderPlayerEntry(p, "black"))}
           </ul>

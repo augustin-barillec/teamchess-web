@@ -4,11 +4,8 @@ import type { InternalVoteState, VoteType, PlayerSide } from "../types.js";
 import { EndReason } from "../shared_types.js";
 import { TEAM_VOTE_DURATION_MS } from "../constants.js";
 import { sendSystemMessage, sendTeamMessage } from "../utils/messaging.js";
-import {
-  checkVotePrerequisites,
-  createVoteState,
-  formatVoteType,
-} from "../core/voteLogic.js";
+import { checkVotePrerequisites, createVoteState } from "../core/voteLogic.js";
+import { MSG } from "../shared_messages.js";
 
 // Callback for ending the game (set by gameLogic to avoid circular dependency)
 let endGameCallback: ((reason: string, winner: string | null) => void) | null =
@@ -134,18 +131,18 @@ export function startTeamVoteLogic(
   if (prereqResult.shouldAutoExecute) {
     if (type === "resign") {
       const winner = side === "white" ? "black" : "white";
-      sendSystemMessage(`${initiatorName} resigns.`, ctx);
+      sendSystemMessage(MSG.playerResigns(initiatorName), ctx);
       if (endGameCallback) endGameCallback(EndReason.Resignation, winner);
     } else if (type === "offer_draw") {
       gameState.drawOffer = side;
       io.emit("draw_offer_update", { side });
-      sendSystemMessage(`${initiatorName} offers a draw.`, ctx);
+      sendSystemMessage(MSG.playerOffersDraw(initiatorName), ctx);
 
       // Trigger vote for other side
       const otherSide = side === "white" ? "black" : "white";
       startTeamVoteLogic(otherSide, "accept_draw", "system", "System", ctx);
     } else if (type === "accept_draw") {
-      sendSystemMessage(`${initiatorName} accepts the draw.`, ctx);
+      sendSystemMessage(MSG.playerAcceptsDraw(initiatorName), ctx);
       if (endGameCallback) endGameCallback(EndReason.DrawAgreement, null);
     }
     return;
@@ -164,11 +161,7 @@ export function startTeamVoteLogic(
     ...pureVoteState,
     endTime,
     timer: setTimeout(() => {
-      sendTeamMessage(
-        side,
-        `❌ Vote to ${formatVoteType(type)} failed: Time expired.`,
-        ctx
-      );
+      sendTeamMessage(side, MSG.teamVoteExpired(type), ctx);
       if (side === "white") gameState.whiteVote = undefined;
       else gameState.blackVote = undefined;
       broadcastTeamVote(side, ctx);
@@ -177,7 +170,7 @@ export function startTeamVoteLogic(
       if (type === "accept_draw") {
         gameState.drawOffer = undefined;
         io.emit("draw_offer_update", { side: null });
-        sendSystemMessage("Draw offer rejected (timeout).", ctx);
+        sendSystemMessage(MSG.drawOfferRejectedTimeout, ctx);
       }
     }, TEAM_VOTE_DURATION_MS),
   };
@@ -186,13 +179,9 @@ export function startTeamVoteLogic(
   else gameState.blackVote = voteState;
 
   if (isSystemTriggered) {
-    sendTeamMessage(side, `🗳️ Draw offered! Vote to accept draw.`, ctx);
+    sendTeamMessage(side, MSG.drawOfferedVote, ctx);
   } else {
-    sendTeamMessage(
-      side,
-      `🗳️ ${initiatorName} started a vote to ${formatVoteType(type)}.`,
-      ctx
-    );
+    sendTeamMessage(side, MSG.teamVoteStarted(initiatorName, type), ctx);
   }
   broadcastTeamVote(side, ctx);
 }

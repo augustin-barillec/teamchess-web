@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { GameStatus, TeamVoteState, ResetVoteState, VoteType } from "../types";
+import { UI } from "../messages";
 
 interface ControlsPanelProps {
   gameStatus: GameStatus;
@@ -52,9 +53,9 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
     if (!teamVote.isActive || !teamVote.type) return null;
 
     const titleMap = {
-      resign: "Resign",
-      offer_draw: "Offer Draw",
-      accept_draw: "Accept Draw",
+      resign: UI.voteTypeResign,
+      offer_draw: UI.voteTypeOfferDraw,
+      accept_draw: UI.voteTypeAcceptDraw,
     };
 
     return (
@@ -134,7 +135,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
           }}
         >
           <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
-            🗳️ Vote: Reset Game
+            {UI.voteResetGame}
           </div>
           <div
             style={{
@@ -188,7 +189,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
         (resetVote.isActive ? (
           renderResetVoteUI()
         ) : (
-          <button onClick={resetGame}>🔄 Reset Game</button>
+          <button onClick={resetGame}>{UI.btnResetGame}</button>
         ))}
 
       {/* 1. Join/Switch Buttons (Always Visible) */}
@@ -196,19 +197,23 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
         <>
           {side === "spectator" && (
             <>
-              <button onClick={autoAssign}>🎲 Auto Assign</button>
-              <button onClick={() => joinSide("white")}>♔ Join White</button>
-              <button onClick={() => joinSide("black")}>♚ Join Black</button>
+              <button onClick={autoAssign}>{UI.btnAutoAssign}</button>
+              <button onClick={() => joinSide("white")}>
+                {UI.btnJoinWhite}
+              </button>
+              <button onClick={() => joinSide("black")}>
+                {UI.btnJoinBlack}
+              </button>
             </>
           )}
           {(side === "white" || side === "black") && (
             <>
-              <button onClick={joinSpectator}>👁️ Join Spectators</button>
+              <button onClick={joinSpectator}>{UI.btnJoinSpectators}</button>
               {gameStatus === GameStatus.Lobby && (
                 <button
                   onClick={() => joinSide(side === "white" ? "black" : "white")}
                 >
-                  🔁 Switch to {side === "white" ? "Black" : "White"}
+                  {UI.btnSwitchTo(side === "white" ? "Black" : "White")}
                 </button>
               )}
             </>
@@ -233,19 +238,19 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
                         disabled
                         style={{ opacity: 0.6, cursor: "default" }}
                       >
-                        ⏳ Draw Offered...
+                        {UI.btnDrawOffered}
                       </button>
                     ) : drawOffer && drawOffer !== side ? (
                       <span style={{ fontStyle: "italic", fontSize: "0.9em" }}>
-                        Voting on Draw...
+                        {UI.votingOnDraw}
                       </span>
                     ) : (
                       <>
                         <button onClick={() => onStartTeamVote("resign")}>
-                          🏳️ Resign
+                          {UI.btnResign}
                         </button>
                         <button onClick={() => onStartTeamVote("offer_draw")}>
-                          🤝 Offer Draw
+                          {UI.btnOfferDraw}
                         </button>
                       </>
                     )}
@@ -257,11 +262,11 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
       )}
 
       {gameStatus === GameStatus.Over && pgn && (
-        <button onClick={copyPgn}>📋 Copy PGN</button>
+        <button onClick={copyPgn}>{UI.btnCopyPgn}</button>
       )}
 
       <button onClick={toggleMute}>
-        {isMuted ? "🔊 Unmute Sounds" : "🔇 Mute Sounds"}
+        {isMuted ? UI.btnUnmuteSounds : UI.btnMuteSounds}
       </button>
     </>
   );

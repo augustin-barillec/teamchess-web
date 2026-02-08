@@ -1,5 +1,6 @@
 import { RefObject } from "react";
 import { Turn } from "../types";
+import { UI } from "../messages";
 
 interface MovesPanelProps {
   activeTab: string;
@@ -20,7 +21,7 @@ export const MovesPanel: React.FC<MovesPanelProps> = ({
         "tab-panel moves-panel " + (activeTab === "moves" ? "active" : "")
       }
     >
-      <h3>Moves</h3>
+      <h3>{UI.headingMoves}</h3>
       {turns.some((t) => t.selection) ? (
         <div ref={movesRef} className="moves-list">
           {" "}
@@ -59,9 +60,7 @@ export const MovesPanel: React.FC<MovesPanelProps> = ({
             ))}{" "}
         </div>
       ) : (
-        <p style={{ padding: "10px", fontStyle: "italic" }}>
-          No moves played yet.
-        </p>
+        <p style={{ padding: "10px", fontStyle: "italic" }}>{UI.noMovesYet}</p>
       )}
     </div>
   );

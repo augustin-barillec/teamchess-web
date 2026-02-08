@@ -7,6 +7,7 @@ import {
   checkResetVotePrerequisites,
   createResetVoteState,
 } from "../core/resetVoteLogic.js";
+import { MSG } from "../shared_messages.js";
 
 /**
  * Gets reset vote data formatted for a specific client.
@@ -129,7 +130,7 @@ export function startResetVoteLogic(
     initiatorName,
     endTime,
     timer: setTimeout(() => {
-      sendSystemMessage(`❌ Vote to reset the game failed: Time expired.`, ctx);
+      sendSystemMessage(MSG.resetVoteExpired, ctx);
       gameState.resetVote = undefined;
       broadcastResetVote(ctx);
     }, RESET_VOTE_DURATION_MS),
@@ -137,10 +138,7 @@ export function startResetVoteLogic(
 
   gameState.resetVote = voteState;
 
-  sendSystemMessage(
-    `🗳️ ${initiatorName} started a vote to reset the game.`,
-    ctx
-  );
+  sendSystemMessage(MSG.resetVoteStarted(initiatorName), ctx);
   broadcastResetVote(ctx);
 
   return {};
