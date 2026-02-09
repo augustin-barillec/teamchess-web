@@ -229,6 +229,7 @@ export function useSocket({
       setLastMoveSquares(null);
       setDrawOffer(null);
       prevClocks.current = { whiteTime: 600, blackTime: 600 };
+      sounds.play("reset");
     });
 
     socket.on("clock_update", ({ whiteTime, blackTime }) => {

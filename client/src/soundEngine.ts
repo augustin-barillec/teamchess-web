@@ -1,4 +1,11 @@
-type SoundType = "move" | "capture" | "check" | "lowtime" | "start" | "end";
+type SoundType =
+  | "move"
+  | "capture"
+  | "check"
+  | "lowtime"
+  | "start"
+  | "end"
+  | "reset";
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -53,6 +60,12 @@ class SoundEngine {
     } else if (type === "end") {
       // Descending chord
       this.chord(t, [500, 400, 300], "sine", 1.2);
+    } else if (type === "reset") {
+      // The Wooden Clatter
+      this.tone(t, 200, "triangle", 0.05, 0.4);
+      this.tone(t + 0.06, 180, "triangle", 0.05, 0.3);
+      this.tone(t + 0.12, 240, "triangle", 0.04, 0.3);
+      this.tone(t + 0.2, 150, "triangle", 0.1, 0.5);
     }
   }
 
