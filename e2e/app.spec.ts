@@ -286,6 +286,85 @@ test("forfeit_by_joining_spectators", async ({ browser }) => {
   }
 });
 
+test("kick_vote_and_blacklist", async ({ browser }) => {
+  const context1 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+  const context2 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+  const context3 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+
+  const player1 = await context1.newPage();
+  const player2 = await context2.newPage();
+  const player3 = await context3.newPage();
+
+  try {
+    await player1.goto("/");
+    await player2.goto("/");
+    await player3.goto("/");
+
+    await player1.waitForSelector(".app-container");
+    await player2.waitForSelector(".app-container");
+    await player3.waitForSelector(".app-container");
+
+    // Wait for all 3 players to appear in player 1's spectators list
+    const kickButtons = player1.locator(
+      '.players-panel button:has-text("Kick")'
+    );
+    await expect(kickButtons).toHaveCount(2, { timeout: 5000 });
+
+    // Player 1 clicks "Kick" on the last player (player 3)
+    await kickButtons.nth(1).click();
+    await player1.waitForTimeout(500);
+
+    // Player 2 clicks "Yes" to vote kick player 3
+    await player2.click('button:has-text("Yes")');
+    await player2.waitForTimeout(1000);
+
+    // Assert: Player 3 sees the offline banner (disconnected after kick)
+    await expect(player3.locator(".offline-banner")).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Assert: Chat shows the kick system message
+    await expect(player1.locator(".chat-messages")).toContainText(
+      "has been kicked"
+    );
+
+    // Player 3 tries to reconnect by navigating to the website
+    await player3.goto("/");
+    await player3.waitForSelector(".app-container");
+    await player3.waitForTimeout(1000);
+
+    // Assert: Player 3 is still disconnected (blacklisted — server rejects immediately)
+    await expect(player3.locator(".offline-banner")).toBeVisible({
+      timeout: 5000,
+    });
+  } finally {
+    try {
+      await saveVideo(player1, "kick_vote", "player1");
+    } catch {
+      /* page may be closed */
+    }
+    try {
+      await saveVideo(player2, "kick_vote", "player2");
+    } catch {
+      /* page may be closed */
+    }
+    try {
+      await saveVideo(player3, "kick_vote", "player3");
+    } catch {
+      /* page may be closed */
+    }
+    await context1.close();
+    await context2.close();
+    await context3.close();
+  }
+});
+
 test("forfeit_by_disconnect", async ({ browser }) => {
   test.setTimeout(60000);
   const context1 = await browser.newContext({
