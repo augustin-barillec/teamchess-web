@@ -31,7 +31,7 @@ export const UI = {
   promotionTitle: "Promote to:",
 
   // Buttons
-  btnResetGame: "🔄 Reset Game",
+  btnResetGame: "⏮️ Reset Game",
   btnAutoAssign: "🎲 Auto Assign",
   btnJoinWhite: "♔ Join White",
   btnJoinBlack: "♚ Join Black",
