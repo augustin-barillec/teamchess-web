@@ -33,8 +33,8 @@ export const UI = {
   // Buttons
   btnResetGame: "⏮️ Reset Game",
   btnAutoAssign: "🎲 Auto Assign",
-  btnJoinWhite: "♔ Join White",
-  btnJoinBlack: "♚ Join Black",
+  btnJoinWhite: "⚪ Join White",
+  btnJoinBlack: "⚫ Join Black",
   btnJoinSpectators: "👁️ Join Spectators",
   btnSwitchTo: (otherSide: string) => `🔁 Switch to ${otherSide}`,
   btnResign: "🏳️ Resign",
@@ -45,8 +45,8 @@ export const UI = {
   btnUnmuteSounds: "🔊 Unmute Sounds",
   btnKick: "Kick",
   btnClose: "Close",
-  btnLightMode: "Light Mode",
-  btnDarkMode: "Dark Mode",
+  btnLightMode: "🌕 Light Mode",
+  btnDarkMode: "🌑 Dark Mode",
 
   // Vote UI
   voteTypeResign: "Resign",

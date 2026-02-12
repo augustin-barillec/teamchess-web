@@ -25,7 +25,7 @@ export function useTheme() {
     const stored = localStorage.getItem(STORAGE_KEYS.theme);
     if (stored === "light" || stored === "dark" || stored === "system")
       return stored;
-    return "system";
+    return "dark";
   });
 
   useEffect(() => {
