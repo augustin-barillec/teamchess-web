@@ -15,7 +15,7 @@
   border-radius: 6px;
   color: var(--color-text-on-accent);
   text-align: center;
-  background: var(--color-text-primary);
+  background: var(--color-clock-inactive);
   font-weight: normal;
   font-family: monospace;
   font-size: 2rem;
@@ -38,6 +38,7 @@
   align-items: center;
   gap: 0.5rem;
   flex-grow: 1;
+  color: var(--color-material-piece);
 }
 .material-adv-label {
   display: inline-block;

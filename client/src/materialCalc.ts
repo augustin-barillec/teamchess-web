@@ -1,4 +1,4 @@
-import { pieceToFigurineWhite, pieceToFigurineBlack } from "./constants";
+import { pieceToFigurine } from "./constants";
 
 type Piece = { type: string; color: "w" | "b" } | null;
 
@@ -93,12 +93,10 @@ export function calculateMaterial(board: Piece[][]): MaterialResult {
   for (const type of PIECE_ORDER) {
     const diff = wCounts[type] - bCounts[type];
     const absDiff = Math.abs(diff);
-    const figurineW = pieceToFigurineWhite[type.toUpperCase()];
-    const figurineB = pieceToFigurineBlack[type.toUpperCase()];
+    const figurine = pieceToFigurine[type.toUpperCase()];
 
     if (diff !== 0) {
       const targetList = diff > 0 ? whiteDiff : blackDiff;
-      const figurine = diff > 0 ? figurineW : figurineB;
 
       for (let i = 0; i < absDiff; i++) {
         targetList.push({ type, figurine });

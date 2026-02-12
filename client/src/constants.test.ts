@@ -3,6 +3,7 @@ import {
   STORAGE_KEYS,
   pieceToFigurineWhite,
   pieceToFigurineBlack,
+  pieceToFigurine,
 } from "./constants.js";
 import { reasonMessages } from "./messages.js";
 import { EndReason } from "../../server/shared_types.js";
@@ -105,6 +106,21 @@ describe("constants", () => {
 
     it("has entries for all 6 piece types", () => {
       expect(Object.keys(pieceToFigurineBlack)).toHaveLength(6);
+    });
+  });
+
+  describe("pieceToFigurine (neutral)", () => {
+    it("uses filled glyphs for all pieces", () => {
+      expect(pieceToFigurine["K"]).toBe("\u265A");
+      expect(pieceToFigurine["Q"]).toBe("\u265B");
+      expect(pieceToFigurine["R"]).toBe("\u265C");
+      expect(pieceToFigurine["B"]).toBe("\u265D");
+      expect(pieceToFigurine["N"]).toBe("\u265E");
+      expect(pieceToFigurine["P"]).toBe("\u265F");
+    });
+
+    it("has entries for all 6 piece types", () => {
+      expect(Object.keys(pieceToFigurine)).toHaveLength(6);
     });
   });
 });

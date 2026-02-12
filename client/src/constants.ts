@@ -22,3 +22,13 @@ export const pieceToFigurineBlack: Record<string, string> = {
   N: "♞",
   P: "♟",
 };
+
+/** Neutral filled glyphs for material display (theme-independent) */
+export const pieceToFigurine: Record<string, string> = {
+  K: "♚",
+  Q: "♛",
+  R: "♜",
+  B: "♝",
+  N: "♞",
+  P: "♟",
+};

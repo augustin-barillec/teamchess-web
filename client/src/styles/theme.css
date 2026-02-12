@@ -55,8 +55,12 @@
   --color-overlay-hover: rgba(0, 0, 0, 0.1);
   --color-overlay-hover-subtle: rgba(0, 0, 0, 0.05);
 
+  /* Clock */
+  --color-clock-inactive: #333333;
+
   /* Misc */
   --color-icon-fill: #000000;
+  --color-material-piece: #888888;
 }
 
 /* ===== Dark Theme ===== */
@@ -80,7 +84,7 @@
   --color-border-secondary: #1e1e3a;
 
   /* Accents */
-  --color-accent-green: #4caf50;
+  --color-accent-green: #256b29;
   --color-accent-red: #ef5350;
   --color-accent-red-muted: #7b3535;
   --color-accent-blue: #64b5f6;
@@ -116,8 +120,12 @@
   --color-overlay-hover: rgba(255, 255, 255, 0.1);
   --color-overlay-hover-subtle: rgba(255, 255, 255, 0.05);
 
+  /* Clock */
+  --color-clock-inactive: #3a3a5a;
+
   /* Misc */
   --color-icon-fill: #e0e0e0;
+  --color-material-piece: #999999;
 }
 
 /* ===== System preference fallback (when no explicit data-theme is set) ===== */
@@ -138,7 +146,7 @@
     --color-border-primary: #2a2a4a;
     --color-border-secondary: #1e1e3a;
 
-    --color-accent-green: #4caf50;
+    --color-accent-green: #256b29;
     --color-accent-red: #ef5350;
     --color-accent-red-muted: #7b3535;
     --color-accent-blue: #64b5f6;
@@ -170,6 +178,8 @@
     --color-overlay-hover: rgba(255, 255, 255, 0.1);
     --color-overlay-hover-subtle: rgba(255, 255, 255, 0.05);
 
+    --color-clock-inactive: #3a3a5a;
     --color-icon-fill: #e0e0e0;
+    --color-material-piece: #999999;
   }
 }

@@ -116,7 +116,7 @@ describe("materialCalc", () => {
 
       const result = calculateMaterial(board);
       expect(result.materialBalance).toBe(9); // Queen = 9
-      expect(result.whiteMaterialDiff).toEqual(["♕"]);
+      expect(result.whiteMaterialDiff).toEqual(["♛"]);
       expect(result.blackMaterialDiff).toEqual([]);
     });
 
@@ -154,7 +154,7 @@ describe("materialCalc", () => {
       // White has: Q(9) + N(3) + P(1) = 13
       expect(result.materialBalance).toBe(13);
       // Order should be: q, r, b, n, p (but only pieces with diff shown)
-      expect(result.whiteMaterialDiff).toEqual(["♕", "♘", "♙"]);
+      expect(result.whiteMaterialDiff).toEqual(["♛", "♞", "♟"]);
     });
 
     it("handles complex material imbalance", () => {
@@ -175,7 +175,7 @@ describe("materialCalc", () => {
       const result = calculateMaterial(board);
       expect(result.materialBalance).toBe(2);
       // White has extra Q and R
-      expect(result.whiteMaterialDiff).toEqual(["♕", "♖"]);
+      expect(result.whiteMaterialDiff).toEqual(["♛", "♜"]);
       // Black has extra 2 bishops and 2 knights
       expect(result.blackMaterialDiff).toEqual(["♝x2", "♞x2"]);
     });
@@ -212,7 +212,7 @@ describe("materialCalc", () => {
 
       const result = calculateMaterial(board);
       expect(result.materialBalance).toBe(2); // 3 - 1 = 2 pawns
-      expect(result.whiteMaterialDiff).toEqual(["♙x2"]);
+      expect(result.whiteMaterialDiff).toEqual(["♟x2"]);
       expect(result.blackMaterialDiff).toEqual([]);
     });
   });
