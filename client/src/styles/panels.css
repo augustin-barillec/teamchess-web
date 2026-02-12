@@ -38,12 +38,13 @@
 
 .unread-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
-  background-color: var(--color-accent-blue);
+  width: 9px;
+  height: 9px;
+  background-color: var(--color-notification-dot);
   border-radius: 50%;
   margin-left: 5px;
   vertical-align: middle;
+  box-shadow: 0 0 4px var(--color-notification-dot);
 }
 
 .info-tabs-content .tab-panel {

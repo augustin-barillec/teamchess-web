@@ -61,6 +61,7 @@
   /* Misc */
   --color-icon-fill: #000000;
   --color-material-piece: #888888;
+  --color-notification-dot: #1976d2;
 }
 
 /* ===== Dark Theme ===== */
@@ -126,6 +127,7 @@
   /* Misc */
   --color-icon-fill: #e0e0e0;
   --color-material-piece: #999999;
+  --color-notification-dot: #ffa726;
 }
 
 /* ===== System preference fallback (when no explicit data-theme is set) ===== */
@@ -181,5 +183,6 @@
     --color-clock-inactive: #3a3a5a;
     --color-icon-fill: #e0e0e0;
     --color-material-piece: #999999;
+    --color-notification-dot: #ffa726;
   }
 }
