@@ -1398,3 +1398,198 @@ test("team_offer_draw_accepted", async ({ browser }) => {
     await context3.close();
   }
 });
+
+test("black_team_checkmates_white", async ({ browser }) => {
+  const context1 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+  const context2 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+  const context3 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+
+  const player1 = await context1.newPage();
+  const player2 = await context2.newPage();
+  const player3 = await context3.newPage();
+
+  try {
+    await player1.goto("/");
+    await player2.goto("/");
+    await player3.goto("/");
+
+    await player1.waitForSelector(".app-container");
+    await player2.waitForSelector(".app-container");
+    await player3.waitForSelector(".app-container");
+
+    // Player 1 joins White
+    await player1.click('button:has-text("Join White")');
+    await player1.waitForTimeout(500);
+
+    // Player 2 joins Black
+    await player2.click('button:has-text("Join Black")');
+    await player2.waitForTimeout(500);
+
+    // Player 3 joins Black
+    await player3.click('button:has-text("Join Black")');
+    await player3.waitForTimeout(500);
+
+    // === Fool's Mate: 1. f3 e5 2. g4 Qh4# ===
+
+    // Move 1: White plays f2-f3
+    await makeMove(player1, "f2", "f3");
+    await player1.waitForTimeout(1000);
+
+    // Move 2: Both black players propose e7-e5
+    await makeMove(player2, "e7", "e5");
+    await player2.waitForTimeout(500);
+    await makeMove(player3, "e7", "e5");
+    await player3.waitForTimeout(3000);
+
+    // Assert: e5 has a black pawn
+    await expect(
+      player1.locator('[data-square="e5"] [data-piece="bP"]')
+    ).toBeVisible();
+
+    // Move 3: White plays g2-g4
+    await makeMove(player1, "g2", "g4");
+    await player1.waitForTimeout(1000);
+
+    // Move 4: Both black players propose Qd8-h4 (checkmate)
+    await makeMove(player2, "d8", "h4");
+    await player2.waitForTimeout(500);
+    await makeMove(player3, "d8", "h4");
+    await player3.waitForTimeout(3000);
+
+    // Assert: Game is over — "Copy PGN" button appears
+    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Assert: Chat shows checkmate and Black wins
+    await expect(player1.locator(".chat-messages")).toContainText("Checkmate");
+    await expect(player1.locator(".chat-messages")).toContainText("Black wins");
+  } finally {
+    try {
+      await saveVideo(player1, "black_team_checkmates_white", "player1_white");
+    } catch {
+      /* page may be closed */
+    }
+    try {
+      await saveVideo(player2, "black_team_checkmates_white", "player2_black");
+    } catch {
+      /* page may be closed */
+    }
+    try {
+      await saveVideo(player3, "black_team_checkmates_white", "player3_black");
+    } catch {
+      /* page may be closed */
+    }
+    await context1.close();
+    await context2.close();
+    await context3.close();
+  }
+});
+
+test("threefold_repetition_draw", async ({ browser }) => {
+  const context1 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+  const context2 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+  const context3 = await browser.newContext({
+    recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+  });
+
+  const player1 = await context1.newPage();
+  const player2 = await context2.newPage();
+  const player3 = await context3.newPage();
+
+  try {
+    await player1.goto("/");
+    await player2.goto("/");
+    await player3.goto("/");
+
+    await player1.waitForSelector(".app-container");
+    await player2.waitForSelector(".app-container");
+    await player3.waitForSelector(".app-container");
+
+    // Player 1 joins White
+    await player1.click('button:has-text("Join White")');
+    await player1.waitForTimeout(500);
+
+    // Player 2 joins Black
+    await player2.click('button:has-text("Join Black")');
+    await player2.waitForTimeout(500);
+
+    // Player 3 joins Black
+    await player3.click('button:has-text("Join Black")');
+    await player3.waitForTimeout(500);
+
+    // === Threefold repetition: Nf3 Nf6 Ng1 Ng8 (x2) ===
+    // Starting position occurs 3 times: initial, after round 1, after round 2
+
+    // Round 1: 1. Nf3 Nf6
+    await makeMove(player1, "g1", "f3");
+    await player1.waitForTimeout(1000);
+    await makeMove(player2, "g8", "f6");
+    await player2.waitForTimeout(500);
+    await makeMove(player3, "g8", "f6");
+    await player3.waitForTimeout(3000);
+
+    // 2. Ng1 Ng8
+    await makeMove(player1, "f3", "g1");
+    await player1.waitForTimeout(1000);
+    await makeMove(player2, "f6", "g8");
+    await player2.waitForTimeout(500);
+    await makeMove(player3, "f6", "g8");
+    await player3.waitForTimeout(3000);
+
+    // Round 2: 3. Nf3 Nf6
+    await makeMove(player1, "g1", "f3");
+    await player1.waitForTimeout(1000);
+    await makeMove(player2, "g8", "f6");
+    await player2.waitForTimeout(500);
+    await makeMove(player3, "g8", "f6");
+    await player3.waitForTimeout(3000);
+
+    // 4. Ng1 Ng8 — position repeats for the 3rd time
+    await makeMove(player1, "f3", "g1");
+    await player1.waitForTimeout(1000);
+    await makeMove(player2, "f6", "g8");
+    await player2.waitForTimeout(500);
+    await makeMove(player3, "f6", "g8");
+    await player3.waitForTimeout(3000);
+
+    // Assert: Game is over — "Copy PGN" button appears
+    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Assert: Chat shows threefold repetition draw
+    await expect(player1.locator(".chat-messages")).toContainText(
+      "threefold repetition"
+    );
+  } finally {
+    try {
+      await saveVideo(player1, "threefold_repetition_draw", "player1_white");
+    } catch {
+      /* page may be closed */
+    }
+    try {
+      await saveVideo(player2, "threefold_repetition_draw", "player2_black");
+    } catch {
+      /* page may be closed */
+    }
+    try {
+      await saveVideo(player3, "threefold_repetition_draw", "player3_black");
+    } catch {
+      /* page may be closed */
+    }
+    await context1.close();
+    await context2.close();
+    await context3.close();
+  }
+});
