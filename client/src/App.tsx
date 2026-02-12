@@ -517,9 +517,10 @@ export default function App() {
                 }}
               >
                 {UI.tabPlayers}
-                {kickVote.isActive && activeTab !== "players" && (
-                  <span className="unread-dot"></span>
-                )}
+                {kickVote.isActive &&
+                  (kickVote.amTarget || activeTab !== "players") && (
+                    <span className="unread-dot"></span>
+                  )}
               </button>
               <button
                 className={activeTab === "moves" ? "active" : ""}
