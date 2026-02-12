@@ -26,6 +26,7 @@ import { PlayersPanel } from "./components/PlayersPanel";
 import { MovesPanel } from "./components/MovesPanel";
 import { ChatPanel } from "./components/ChatPanel";
 import { sounds } from "./soundEngine";
+import { useTheme } from "./hooks/useTheme";
 
 export default function App() {
   const [chess] = useState(new Chess());
@@ -79,6 +80,7 @@ export default function App() {
   const orientation: "white" | "black" = side === "black" ? "black" : "white";
   const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
   const [isMuted, setIsMuted] = useState(sounds.getMuted());
+  const { effectiveTheme, toggleTheme } = useTheme();
 
   const toggleMute = () => {
     const next = !isMuted;
@@ -420,6 +422,8 @@ export default function App() {
             onSendTeamVote={sendTeamVote}
             resetVote={resetVote}
             onSendResetVote={sendResetVote}
+            effectiveTheme={effectiveTheme}
+            toggleTheme={toggleTheme}
           />
         </div>
       </div>
@@ -428,7 +432,15 @@ export default function App() {
 
   return (
     <>
-      <Toaster position="top-center" />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          style: {
+            background: "var(--color-bg-surface)",
+            color: "var(--color-text-primary)",
+          },
+        }}
+      />
       <NameChangeModal
         isOpen={isNameModalOpen}
         onClose={closeNameModal}

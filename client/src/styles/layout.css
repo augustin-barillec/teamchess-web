@@ -6,8 +6,8 @@
 
 .offline-banner {
   padding: 6px 10px;
-  background: #ffe3e3;
-  border: 1px solid #ffb3b3;
+  background: var(--color-banner-bg);
+  border: 1px solid var(--color-banner-border);
   border-radius: 6;
   margin-bottom: 8px;
 }

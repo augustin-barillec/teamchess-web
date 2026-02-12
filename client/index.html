@@ -6,6 +6,17 @@
     <meta name="theme-color" content="#333333" />
     <title>TeamChess</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      (function() {
+        var theme = localStorage.getItem('tc:theme');
+        var isDark = theme === 'dark' ||
+          (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (theme === 'dark' || theme === 'light') {
+          document.documentElement.setAttribute('data-theme', theme);
+        }
+        document.querySelector('meta[name="theme-color"]').content = isDark ? '#1a1a2e' : '#333333';
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

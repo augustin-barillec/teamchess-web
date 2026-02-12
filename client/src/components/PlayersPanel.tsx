@@ -40,10 +40,10 @@ function KickVoteBox({
     <div style={{ marginTop: "6px", marginBottom: "6px" }}>
       <div
         style={{
-          background: "#ebf8ff",
+          background: "var(--color-vote-bg)",
           padding: "10px",
           borderRadius: "6px",
-          border: "1px solid #bee3f8",
+          border: "1px solid var(--color-vote-border)",
         }}
       >
         <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
@@ -52,7 +52,7 @@ function KickVoteBox({
         <div
           style={{
             fontSize: "0.85em",
-            color: "#666",
+            color: "var(--color-text-tertiary)",
             marginBottom: "10px",
             fontStyle: "italic",
           }}
@@ -68,22 +68,22 @@ function KickVoteBox({
               flex: 1,
               background:
                 kickVote.myCurrentVote === "yes"
-                  ? "#b2f5ea"
+                  ? "var(--color-vote-yes-bg-active)"
                   : canVoteYes
-                    ? "#e6fffa"
-                    : "#eee",
+                    ? "var(--color-vote-yes-bg)"
+                    : "var(--color-vote-disabled-bg)",
               borderColor:
                 kickVote.myCurrentVote === "yes"
-                  ? "#38b2ac"
+                  ? "var(--color-vote-yes-border)"
                   : canVoteYes
-                    ? "#38b2ac"
-                    : "#ccc",
+                    ? "var(--color-vote-yes-border)"
+                    : "var(--color-vote-disabled-border)",
               color:
                 kickVote.myCurrentVote === "yes"
-                  ? "#234e52"
+                  ? "var(--color-vote-yes-text)"
                   : canVoteYes
-                    ? "#234e52"
-                    : "#999",
+                    ? "var(--color-vote-yes-text)"
+                    : "var(--color-vote-disabled-text)",
               fontWeight: "bold",
               cursor: canVoteYes ? "pointer" : "default",
               opacity: canVoteYes || kickVote.myCurrentVote === "yes" ? 1 : 0.6,
@@ -98,22 +98,22 @@ function KickVoteBox({
               flex: 1,
               background:
                 kickVote.myCurrentVote === "no"
-                  ? "#fed7d7"
+                  ? "var(--color-vote-no-bg-active)"
                   : canVoteNo
-                    ? "#fff5f5"
-                    : "#eee",
+                    ? "var(--color-vote-no-bg)"
+                    : "var(--color-vote-disabled-bg)",
               borderColor:
                 kickVote.myCurrentVote === "no"
-                  ? "#fc8181"
+                  ? "var(--color-vote-no-border)"
                   : canVoteNo
-                    ? "#fc8181"
-                    : "#ccc",
+                    ? "var(--color-vote-no-border)"
+                    : "var(--color-vote-disabled-border)",
               color:
                 kickVote.myCurrentVote === "no"
-                  ? "#742a2a"
+                  ? "var(--color-vote-no-text)"
                   : canVoteNo
-                    ? "#742a2a"
-                    : "#999",
+                    ? "var(--color-vote-no-text)"
+                    : "var(--color-vote-disabled-text)",
               fontWeight: "bold",
               cursor: canVoteNo ? "pointer" : "default",
               opacity: canVoteNo || kickVote.myCurrentVote === "no" ? 1 : 0.6,
@@ -124,14 +124,22 @@ function KickVoteBox({
         </div>
         {kickVote.yesVotes.length > 0 && (
           <div
-            style={{ fontSize: "0.8em", marginTop: "6px", color: "#2c7a7b" }}
+            style={{
+              fontSize: "0.8em",
+              marginTop: "6px",
+              color: "var(--color-vote-yes-label)",
+            }}
           >
             Yes: {kickVote.yesVotes.join(", ")}
           </div>
         )}
         {kickVote.noVotes.length > 0 && (
           <div
-            style={{ fontSize: "0.8em", marginTop: "2px", color: "#c53030" }}
+            style={{
+              fontSize: "0.8em",
+              marginTop: "2px",
+              color: "var(--color-vote-no-label)",
+            }}
           >
             No: {kickVote.noVotes.join(", ")}
           </div>
@@ -141,7 +149,7 @@ function KickVoteBox({
             style={{
               fontSize: "0.8em",
               marginTop: "8px",
-              color: "#555",
+              color: "var(--color-text-secondary)",
               fontStyle: "italic",
             }}
           >
@@ -195,11 +203,11 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
               style={{
                 marginLeft: "auto",
                 background: "none",
-                border: "1px solid #ccc",
+                border: "1px solid var(--color-border-primary)",
                 borderRadius: "4px",
                 padding: "2px 6px",
                 fontSize: "0.75em",
-                color: "#999",
+                color: "var(--color-vote-disabled-text)",
                 cursor: "pointer",
                 lineHeight: 1,
               }}

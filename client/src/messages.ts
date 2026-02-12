@@ -45,6 +45,8 @@ export const UI = {
   btnUnmuteSounds: "🔊 Unmute Sounds",
   btnKick: "Kick",
   btnClose: "Close",
+  btnLightMode: "Light Mode",
+  btnDarkMode: "Dark Mode",
 
   // Vote UI
   voteTypeResign: "Resign",

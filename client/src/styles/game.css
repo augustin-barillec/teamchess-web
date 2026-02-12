@@ -4,7 +4,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 8px;
-  background: #eee;
+  background: var(--color-bg-elevated);
   border-radius: 6px;
   width: 100%;
   max-width: 1000px;
@@ -13,24 +13,24 @@
 .clock-box {
   padding: 6px 12px;
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-text-on-accent);
   text-align: center;
-  background: #333;
+  background: var(--color-text-primary);
   font-weight: normal;
   font-family: monospace;
   font-size: 2rem;
   min-width: 140px;
 }
 .clock-box.active {
-  background: #3a5f0b;
+  background: var(--color-accent-green);
   font-weight: bold;
 }
 .clock-box.low-time {
-  background-color: #5c2b2b;
-  color: #fff;
+  background-color: var(--color-accent-red-muted);
+  color: var(--color-text-on-accent);
 }
 .clock-box.active.low-time {
-  background-color: #d32f2f;
+  background-color: var(--color-accent-red);
 }
 .material-display {
   font-size: 2rem;

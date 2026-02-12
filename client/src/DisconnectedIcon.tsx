@@ -5,7 +5,7 @@ export const DisconnectedIcon = () => (
     style={{
       width: "16px",
       height: "16px",
-      fill: "#000000",
+      fill: "var(--color-icon-fill)",
       verticalAlign: "middle",
     }}
   >

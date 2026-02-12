@@ -19,6 +19,8 @@ interface ControlsPanelProps {
   onSendTeamVote: (vote: "yes" | "no") => void;
   resetVote: ResetVoteState;
   onSendResetVote: (vote: "yes" | "no") => void;
+  effectiveTheme: "light" | "dark";
+  toggleTheme: () => void;
 }
 
 export const ControlsPanel: React.FC<ControlsPanelProps> = ({
@@ -38,6 +40,8 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
   onSendTeamVote,
   resetVote,
   onSendResetVote,
+  effectiveTheme,
+  toggleTheme,
 }) => {
   const [now, setNow] = useState(() => Date.now());
 
@@ -62,10 +66,10 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
       <div className="poll-container" style={{ marginBottom: "10px" }}>
         <div
           style={{
-            background: "#ebf8ff",
+            background: "var(--color-vote-bg)",
             padding: "10px",
             borderRadius: "6px",
-            border: "1px solid #bee3f8",
+            border: "1px solid var(--color-vote-border)",
           }}
         >
           <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
@@ -74,7 +78,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
           <div
             style={{
               fontSize: "0.85em",
-              color: "#666",
+              color: "var(--color-text-tertiary)",
               marginBottom: "10px",
               fontStyle: "italic",
             }}
@@ -87,9 +91,9 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
               onClick={() => onSendTeamVote("yes")}
               style={{
                 flex: 1,
-                background: "#e6fffa",
-                borderColor: "#38b2ac",
-                color: "#234e52",
+                background: "var(--color-vote-yes-bg)",
+                borderColor: "var(--color-vote-yes-border)",
+                color: "var(--color-vote-yes-text)",
                 fontWeight: "bold",
               }}
             >
@@ -99,16 +103,22 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
               onClick={() => onSendTeamVote("no")}
               style={{
                 flex: 1,
-                background: "#fff5f5",
-                borderColor: "#fc8181",
-                color: "#742a2a",
+                background: "var(--color-vote-no-bg)",
+                borderColor: "var(--color-vote-no-border)",
+                color: "var(--color-vote-no-text)",
                 fontWeight: "bold",
               }}
             >
               No
             </button>
           </div>
-          <div style={{ fontSize: "0.8em", marginTop: "8px", color: "#555" }}>
+          <div
+            style={{
+              fontSize: "0.8em",
+              marginTop: "8px",
+              color: "var(--color-text-secondary)",
+            }}
+          >
             Voters: {teamVote.yesVotes.join(", ")}
           </div>
         </div>
@@ -128,10 +138,10 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
       <div className="poll-container" style={{ marginBottom: "10px" }}>
         <div
           style={{
-            background: "#ebf8ff",
+            background: "var(--color-vote-bg)",
             padding: "10px",
             borderRadius: "6px",
-            border: "1px solid #bee3f8",
+            border: "1px solid var(--color-vote-border)",
           }}
         >
           <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
@@ -140,7 +150,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
           <div
             style={{
               fontSize: "0.85em",
-              color: "#666",
+              color: "var(--color-text-tertiary)",
               marginBottom: "10px",
               fontStyle: "italic",
             }}
@@ -154,9 +164,9 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
               onClick={() => onSendResetVote("yes")}
               style={{
                 flex: 1,
-                background: "#e6fffa",
-                borderColor: "#38b2ac",
-                color: "#234e52",
+                background: "var(--color-vote-yes-bg)",
+                borderColor: "var(--color-vote-yes-border)",
+                color: "var(--color-vote-yes-text)",
                 fontWeight: "bold",
               }}
             >
@@ -166,16 +176,22 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
               onClick={() => onSendResetVote("no")}
               style={{
                 flex: 1,
-                background: "#fff5f5",
-                borderColor: "#fc8181",
-                color: "#742a2a",
+                background: "var(--color-vote-no-bg)",
+                borderColor: "var(--color-vote-no-border)",
+                color: "var(--color-vote-no-text)",
                 fontWeight: "bold",
               }}
             >
               No
             </button>
           </div>
-          <div style={{ fontSize: "0.8em", marginTop: "8px", color: "#555" }}>
+          <div
+            style={{
+              fontSize: "0.8em",
+              marginTop: "8px",
+              color: "var(--color-text-secondary)",
+            }}
+          >
             Voters: {resetVote.yesVotes.join(", ")}
           </div>
         </div>
@@ -267,6 +283,10 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
       <button onClick={toggleMute}>
         {isMuted ? UI.btnUnmuteSounds : UI.btnMuteSounds}
+      </button>
+
+      <button onClick={toggleTheme}>
+        {effectiveTheme === "dark" ? UI.btnLightMode : UI.btnDarkMode}
       </button>
     </>
   );
