@@ -307,6 +307,160 @@ test.describe("Lobby and Social", () => {
       await context3.close();
     }
   });
+
+  test("spectator_cannot_move", async ({ browser }) => {
+    const context1 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context2 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context3 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+
+    const player1 = await context1.newPage();
+    const player2 = await context2.newPage();
+    const spectator = await context3.newPage();
+
+    try {
+      await player1.goto("/");
+      await player2.goto("/");
+      await spectator.goto("/");
+
+      await player1.waitForSelector(".app-container");
+      await player2.waitForSelector(".app-container");
+      await spectator.waitForSelector(".app-container");
+
+      // Player 1 joins White
+      await player1.click('button:has-text("Join White")');
+      await player1.waitForTimeout(500);
+
+      // Player 2 joins Black
+      await player2.click('button:has-text("Join Black")');
+      await player2.waitForTimeout(500);
+
+      // Spectator stays as spectator (default)
+
+      // Player 1 (White) plays e2-e4 to start the game
+      await makeMove(player1, "e2", "e4");
+      await player1.waitForTimeout(1000);
+
+      // Spectator tries to drag e7-e5 — should be rejected client-side
+      await makeMove(spectator, "e7", "e5");
+      await spectator.waitForTimeout(500);
+
+      // Assert: Board unchanged for spectator — e7 still has a black pawn
+      await expect(
+        spectator.locator('[data-square="e7"] [data-piece="bP"]')
+      ).toBeVisible();
+
+      // Assert: e5 is empty (move was blocked)
+      await expect(
+        spectator.locator('[data-square="e5"] [data-piece]')
+      ).not.toBeVisible();
+    } finally {
+      try {
+        await saveVideo(player1, "spectator_cannot_move", "player1_white");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player2, "spectator_cannot_move", "player2_black");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(spectator, "spectator_cannot_move", "spectator");
+      } catch {
+        /* page may be closed */
+      }
+      await context1.close();
+      await context2.close();
+      await context3.close();
+    }
+  });
+
+  test("kick_vote_rejected", async ({ browser }) => {
+    test.setTimeout(60000);
+
+    const context1 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context2 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context3 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context4 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+
+    const player1 = await context1.newPage();
+    const player2 = await context2.newPage();
+    const player3 = await context3.newPage();
+    const player4 = await context4.newPage();
+
+    try {
+      await player1.goto("/");
+      await player2.goto("/");
+      await player3.goto("/");
+      await player4.goto("/");
+
+      await player1.waitForSelector(".app-container");
+      await player2.waitForSelector(".app-container");
+      await player3.waitForSelector(".app-container");
+      await player4.waitForSelector(".app-container");
+
+      // Wait for all 4 players to appear — P1 sees 3 kick buttons
+      const kickButtons = player1.locator(
+        '.players-panel button:has-text("Kick")'
+      );
+      await expect(kickButtons).toHaveCount(3, { timeout: 5000 });
+
+      // Player 1 clicks "Kick" on the last player (player 4)
+      await kickButtons.nth(2).click();
+      await player1.waitForTimeout(500);
+
+      // Player 2 votes No — vote fails immediately (not enough yes votes possible)
+      await player2.click('button:has-text("No")');
+      await player2.waitForTimeout(1000);
+
+      // Assert: Chat shows kick vote failure
+      await expect(player1.locator(".chat-messages")).toContainText(
+        "Not enough votes possible"
+      );
+
+      // Assert: Player 4 is still connected (no offline banner)
+      await expect(player4.locator(".offline-banner")).not.toBeVisible();
+    } finally {
+      try {
+        await saveVideo(player1, "kick_vote_rejected", "player1");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player2, "kick_vote_rejected", "player2");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player3, "kick_vote_rejected", "player3");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player4, "kick_vote_rejected", "player4");
+      } catch {
+        /* page may be closed */
+      }
+      await context1.close();
+      await context2.close();
+      await context3.close();
+      await context4.close();
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -603,6 +757,273 @@ test.describe("Gameplay Mechanics", () => {
       }
       try {
         await saveVideo(player2, "pawn_promotion", "player2_black");
+      } catch {
+        /* page may be closed */
+      }
+      await context1.close();
+      await context2.close();
+    }
+  });
+
+  test("pawn_promotion_to_knight", async ({ browser }) => {
+    const context1 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context2 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+
+    const player1 = await context1.newPage();
+    const player2 = await context2.newPage();
+
+    try {
+      await player1.goto("/");
+      await player2.goto("/");
+
+      await player1.waitForSelector(".app-container");
+      await player2.waitForSelector(".app-container");
+
+      // Player 1 joins White team
+      await player1.click('button:has-text("Join White")');
+      await player1.waitForTimeout(500);
+
+      // Player 2 joins Black team
+      await player2.click('button:has-text("Join Black")');
+      await player2.waitForTimeout(500);
+
+      // Same sequence as pawn_promotion_to_queen:
+      // 1. g2-g4  2. h7-h5  3. g4xh5  4. g7-g6
+      // 5. h5xg6  6. Ng8-f6  7. g6-g7  8. a7-a6
+      // 9. g7xh8 → promotion dialog
+
+      await makeMove(player1, "g2", "g4");
+      await player1.waitForTimeout(1000);
+
+      await makeMove(player2, "h7", "h5");
+      await player2.waitForTimeout(1000);
+
+      await makeMove(player1, "g4", "h5");
+      await player1.waitForTimeout(1000);
+
+      await makeMove(player2, "g7", "g6");
+      await player2.waitForTimeout(1000);
+
+      await makeMove(player1, "h5", "g6");
+      await player1.waitForTimeout(1000);
+
+      await makeMove(player2, "g8", "f6");
+      await player2.waitForTimeout(1000);
+
+      await makeMove(player1, "g6", "g7");
+      await player1.waitForTimeout(1000);
+
+      await makeMove(player2, "a7", "a6");
+      await player2.waitForTimeout(1000);
+
+      // Move 9: g7xh8 (triggers promotion)
+      await makeMove(player1, "g7", "h8");
+      await player1.waitForTimeout(500);
+
+      // Select Knight in promotion dialog (4th button: Q, R, B, N)
+      await player1.click(".promotion-choices button:nth-child(4)");
+      await player1.waitForTimeout(1000);
+
+      // Assert: There is a white knight on h8 (not a queen)
+      await expect(
+        player1.locator('[data-square="h8"] [data-piece="wN"]')
+      ).toBeVisible();
+    } finally {
+      try {
+        await saveVideo(player1, "pawn_promotion_knight", "player1_white");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player2, "pawn_promotion_knight", "player2_black");
+      } catch {
+        /* page may be closed */
+      }
+      await context1.close();
+      await context2.close();
+    }
+  });
+
+  test("illegal_move_rejected", async ({ browser }) => {
+    const context1 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context2 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+
+    const player1 = await context1.newPage();
+    const player2 = await context2.newPage();
+
+    try {
+      await player1.goto("/");
+      await player2.goto("/");
+
+      await player1.waitForSelector(".app-container");
+      await player2.waitForSelector(".app-container");
+
+      // Player 1 joins White
+      await player1.click('button:has-text("Join White")');
+      await player1.waitForTimeout(500);
+
+      // Player 2 joins Black
+      await player2.click('button:has-text("Join Black")');
+      await player2.waitForTimeout(500);
+
+      // Player 1 (White) plays e2-e4 — starts game, now it's Black's turn
+      await makeMove(player1, "e2", "e4");
+      await player1.waitForTimeout(1000);
+
+      // Player 1 tries to play d2-d4 (not their turn) — client-side rejection
+      await makeMove(player1, "d2", "d4");
+      await player1.waitForTimeout(500);
+
+      // Assert: d2 still has a white pawn (move was blocked)
+      await expect(
+        player1.locator('[data-square="d2"] [data-piece="wP"]')
+      ).toBeVisible();
+
+      // Assert: d4 is empty
+      await expect(
+        player1.locator('[data-square="d4"] [data-piece]')
+      ).not.toBeVisible();
+    } finally {
+      try {
+        await saveVideo(player1, "illegal_move_rejected", "player1_white");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player2, "illegal_move_rejected", "player2_black");
+      } catch {
+        /* page may be closed */
+      }
+      await context1.close();
+      await context2.close();
+    }
+  });
+
+  test("multiple_move_rejection", async ({ browser }) => {
+    const context1 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context2 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context3 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+
+    const player1 = await context1.newPage();
+    const player2 = await context2.newPage();
+    const player3 = await context3.newPage();
+
+    try {
+      await player1.goto("/");
+      await player2.goto("/");
+      await player3.goto("/");
+
+      await player1.waitForSelector(".app-container");
+      await player2.waitForSelector(".app-container");
+      await player3.waitForSelector(".app-container");
+
+      // Player 1 joins White
+      await player1.click('button:has-text("Join White")');
+      await player1.waitForTimeout(500);
+
+      // Player 2 and Player 3 join Black
+      await player2.click('button:has-text("Join Black")');
+      await player2.waitForTimeout(500);
+      await player3.click('button:has-text("Join Black")');
+      await player3.waitForTimeout(500);
+
+      // Player 1 (White) plays e2-e4 — starts game, Black's turn
+      await makeMove(player1, "e2", "e4");
+      await player1.waitForTimeout(1000);
+
+      // Player 2 proposes e7-e5 (valid first move)
+      await makeMove(player2, "e7", "e5");
+      await player2.waitForTimeout(500);
+
+      // Player 2 tries to submit a second move d7-d5 — server should reject
+      await makeMove(player2, "d7", "d5");
+      await player2.waitForTimeout(500);
+
+      // Assert: Toast shows "Already moved." error
+      await expect(player2.getByText("Already moved")).toBeVisible();
+    } finally {
+      try {
+        await saveVideo(player1, "multiple_move_rejection", "player1_white");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player2, "multiple_move_rejection", "player2_black");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player3, "multiple_move_rejection", "player3_black");
+      } catch {
+        /* page may be closed */
+      }
+      await context1.close();
+      await context2.close();
+      await context3.close();
+    }
+  });
+
+  test("black_tries_to_start_game", async ({ browser }) => {
+    const context1 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context2 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+
+    const player1 = await context1.newPage();
+    const player2 = await context2.newPage();
+
+    try {
+      await player1.goto("/");
+      await player2.goto("/");
+
+      await player1.waitForSelector(".app-container");
+      await player2.waitForSelector(".app-container");
+
+      // Player 1 joins White
+      await player1.click('button:has-text("Join White")');
+      await player1.waitForTimeout(500);
+
+      // Player 2 joins Black
+      await player2.click('button:has-text("Join Black")');
+      await player2.waitForTimeout(500);
+
+      // Player 2 (Black) tries to play e7-e5 — should be blocked (only White can start)
+      await makeMove(player2, "e7", "e5");
+      await player2.waitForTimeout(500);
+
+      // Assert: e7 still has a black pawn (move was rejected client-side)
+      await expect(
+        player2.locator('[data-square="e7"] [data-piece="bP"]')
+      ).toBeVisible();
+
+      // Assert: e5 is empty
+      await expect(
+        player2.locator('[data-square="e5"] [data-piece]')
+      ).not.toBeVisible();
+    } finally {
+      try {
+        await saveVideo(player1, "black_tries_to_start_game", "player1_white");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player2, "black_tries_to_start_game", "player2_black");
       } catch {
         /* page may be closed */
       }
@@ -946,6 +1367,237 @@ test.describe("Game End Conditions", () => {
       } catch {
         /* page may be closed */
       }
+      await context1.close();
+      await context2.close();
+    }
+  });
+
+  test("stalemate_draw", async ({ browser }) => {
+    test.setTimeout(90000);
+
+    const context1 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context2 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context3 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+
+    const player1 = await context1.newPage();
+    const player2 = await context2.newPage();
+    const player3 = await context3.newPage();
+
+    try {
+      await player1.goto("/");
+      await player2.goto("/");
+      await player3.goto("/");
+
+      await player1.waitForSelector(".app-container");
+      await player2.waitForSelector(".app-container");
+      await player3.waitForSelector(".app-container");
+
+      // Player 1 joins White
+      await player1.click('button:has-text("Join White")');
+      await player1.waitForTimeout(500);
+
+      // Player 2 joins Black
+      await player2.click('button:has-text("Join Black")');
+      await player2.waitForTimeout(500);
+
+      // Player 3 joins Black
+      await player3.click('button:has-text("Join Black")');
+      await player3.waitForTimeout(500);
+
+      // === Sam Loyd's shortest stalemate (10 moves) ===
+      // 1. c4 h5  2. h4 a5  3. Qa4 Ra6  4. Qxa5 Rah6
+      // 5. Qxc7 f6  6. Qxd7+ Kf7  7. Qxb7 Qd3  8. Qxb8 Qh7
+      // 9. Qxc8 Kg6  10. Qe6 (stalemate)
+
+      // Move 1: c2-c4
+      await makeMove(player1, "c2", "c4");
+      await player1.waitForTimeout(1000);
+
+      // Move 1b: h7-h5
+      await makeMove(player2, "h7", "h5");
+      await player2.waitForTimeout(500);
+      await makeMove(player3, "h7", "h5");
+      await player3.waitForTimeout(3000);
+
+      // Move 2: h2-h4
+      await makeMove(player1, "h2", "h4");
+      await player1.waitForTimeout(1000);
+
+      // Move 2b: a7-a5
+      await makeMove(player2, "a7", "a5");
+      await player2.waitForTimeout(500);
+      await makeMove(player3, "a7", "a5");
+      await player3.waitForTimeout(3000);
+
+      // Move 3: Qa4 (d1-a4)
+      await makeMove(player1, "d1", "a4");
+      await player1.waitForTimeout(1000);
+
+      // Move 3b: Ra6 (a8-a6)
+      await makeMove(player2, "a8", "a6");
+      await player2.waitForTimeout(500);
+      await makeMove(player3, "a8", "a6");
+      await player3.waitForTimeout(3000);
+
+      // Move 4: Qxa5 (a4-a5)
+      await makeMove(player1, "a4", "a5");
+      await player1.waitForTimeout(1000);
+
+      // Move 4b: Rah6 (a6-h6)
+      await makeMove(player2, "a6", "h6");
+      await player2.waitForTimeout(500);
+      await makeMove(player3, "a6", "h6");
+      await player3.waitForTimeout(3000);
+
+      // Move 5: Qxc7 (a5-c7)
+      await makeMove(player1, "a5", "c7");
+      await player1.waitForTimeout(1000);
+
+      // Move 5b: f7-f6
+      await makeMove(player2, "f7", "f6");
+      await player2.waitForTimeout(500);
+      await makeMove(player3, "f7", "f6");
+      await player3.waitForTimeout(3000);
+
+      // Move 6: Qxd7+ (c7-d7)
+      await makeMove(player1, "c7", "d7");
+      await player1.waitForTimeout(1000);
+
+      // Move 6b: Kf7 (e8-f7)
+      await makeMove(player2, "e8", "f7");
+      await player2.waitForTimeout(500);
+      await makeMove(player3, "e8", "f7");
+      await player3.waitForTimeout(3000);
+
+      // Move 7: Qxb7 (d7-b7)
+      await makeMove(player1, "d7", "b7");
+      await player1.waitForTimeout(1000);
+
+      // Move 7b: Qd3 (d8-d3)
+      await makeMove(player2, "d8", "d3");
+      await player2.waitForTimeout(500);
+      await makeMove(player3, "d8", "d3");
+      await player3.waitForTimeout(3000);
+
+      // Move 8: Qxb8 (b7-b8)
+      await makeMove(player1, "b7", "b8");
+      await player1.waitForTimeout(1000);
+
+      // Move 8b: Qh7 (d3-h7)
+      await makeMove(player2, "d3", "h7");
+      await player2.waitForTimeout(500);
+      await makeMove(player3, "d3", "h7");
+      await player3.waitForTimeout(3000);
+
+      // Move 9: Qxc8 (b8-c8)
+      await makeMove(player1, "b8", "c8");
+      await player1.waitForTimeout(1000);
+
+      // Move 9b: Kg6 (f7-g6)
+      await makeMove(player2, "f7", "g6");
+      await player2.waitForTimeout(500);
+      await makeMove(player3, "f7", "g6");
+      await player3.waitForTimeout(3000);
+
+      // Move 10: Qe6 (c8-e6) — STALEMATE!
+      await makeMove(player1, "c8", "e6");
+      await player1.waitForTimeout(2000);
+
+      // Assert: Game is over — "Copy PGN" button appears
+      await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+        timeout: 5000,
+      });
+
+      // Assert: Chat shows stalemate draw
+      await expect(player1.locator(".chat-messages")).toContainText(
+        "stalemate"
+      );
+    } finally {
+      try {
+        await saveVideo(player1, "stalemate_draw", "player1_white");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player2, "stalemate_draw", "player2_black");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player3, "stalemate_draw", "player3_black");
+      } catch {
+        /* page may be closed */
+      }
+      await context1.close();
+      await context2.close();
+      await context3.close();
+    }
+  });
+
+  test("reconnect_during_grace_period", async ({ browser }) => {
+    const context1 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context2 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+
+    const player1 = await context1.newPage();
+    const player2 = await context2.newPage();
+
+    try {
+      await player1.goto("/");
+      await player2.goto("/");
+
+      await player1.waitForSelector(".app-container");
+      await player2.waitForSelector(".app-container");
+
+      // Player 1 joins White
+      await player1.click('button:has-text("Join White")');
+      await player1.waitForTimeout(500);
+
+      // Player 2 joins Black
+      await player2.click('button:has-text("Join Black")');
+      await player2.waitForTimeout(500);
+
+      // Player 1 plays e2-e4 (starts the game)
+      await makeMove(player1, "e2", "e4");
+      await player1.waitForTimeout(1000);
+
+      // Player 2 disconnects (close page)
+      await player2.close();
+
+      // Wait 5 seconds — well within the 20s grace period
+      await player1.waitForTimeout(5000);
+
+      // Player 2 reconnects — open new page in same context (preserves localStorage/PID)
+      const player2Reconnected = await context2.newPage();
+      await player2Reconnected.goto("/");
+      await player2Reconnected.waitForSelector(".app-container");
+      await player2Reconnected.waitForTimeout(2000);
+
+      // Assert: Player 2 is reconnected — no offline banner
+      await expect(
+        player2Reconnected.locator(".offline-banner")
+      ).not.toBeVisible();
+
+      // Assert: Game is NOT over — no "Copy PGN" button (no forfeit happened)
+      await expect(
+        player1.locator('button:has-text("Copy PGN")')
+      ).not.toBeVisible();
+    } finally {
+      try {
+        await saveVideo(player1, "reconnect_grace_period", "player1_white");
+      } catch {
+        /* page may be closed */
+      }
+      // player2 was closed, skip its video
       await context1.close();
       await context2.close();
     }
@@ -1311,6 +1963,143 @@ test.describe("Voting", () => {
       await context3.close();
     }
   });
+
+  test("single_player_resign", async ({ browser }) => {
+    const context1 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context2 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+
+    const player1 = await context1.newPage();
+    const player2 = await context2.newPage();
+
+    try {
+      await player1.goto("/");
+      await player2.goto("/");
+
+      await player1.waitForSelector(".app-container");
+      await player2.waitForSelector(".app-container");
+
+      // Player 1 joins White (solo)
+      await player1.click('button:has-text("Join White")');
+      await player1.waitForTimeout(500);
+
+      // Player 2 joins Black (solo)
+      await player2.click('button:has-text("Join Black")');
+      await player2.waitForTimeout(500);
+
+      // Player 1 (White) plays e2-e4 to start the game
+      await makeMove(player1, "e2", "e4");
+      await player1.waitForTimeout(1000);
+
+      // Player 1 clicks Resign — solo player gets confirm dialog → accept
+      player1.on("dialog", (dialog) => dialog.accept());
+      await player1.click('button:has-text("Resign")');
+      await player1.waitForTimeout(1000);
+
+      // Assert: Game is over — "Copy PGN" button appears
+      await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+        timeout: 5000,
+      });
+
+      // Assert: Chat shows resignation message
+      await expect(player1.locator(".chat-messages")).toContainText("resigns");
+    } finally {
+      try {
+        await saveVideo(player1, "single_player_resign", "player1_white");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player2, "single_player_resign", "player2_black");
+      } catch {
+        /* page may be closed */
+      }
+      await context1.close();
+      await context2.close();
+    }
+  });
+
+  test("reset_vote_expired", async ({ browser }) => {
+    test.setTimeout(60000);
+    const context1 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context2 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context3 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+
+    const player1 = await context1.newPage();
+    const player2 = await context2.newPage();
+    const player3 = await context3.newPage();
+
+    try {
+      await player1.goto("/");
+      await player2.goto("/");
+      await player3.goto("/");
+
+      await player1.waitForSelector(".app-container");
+      await player2.waitForSelector(".app-container");
+      await player3.waitForSelector(".app-container");
+
+      // Player 1 joins White
+      await player1.click('button:has-text("Join White")');
+      await player1.waitForTimeout(500);
+
+      // Player 2 joins Black
+      await player2.click('button:has-text("Join Black")');
+      await player2.waitForTimeout(500);
+
+      // Player 3 joins Black
+      await player3.click('button:has-text("Join Black")');
+      await player3.waitForTimeout(500);
+
+      // Player 1 (White) plays e2-e4 to start the game
+      await makeMove(player1, "e2", "e4");
+      await player1.waitForTimeout(1000);
+
+      // Player 2 starts a reset game vote (auto-votes yes)
+      await player2.click('button:has-text("Reset Game")');
+      await player2.waitForTimeout(500);
+
+      // Nobody else votes — wait for the vote to expire (20s + buffer)
+      await player1.waitForTimeout(22000);
+
+      // Assert: Chat shows vote expiration message
+      await expect(player1.locator(".chat-messages")).toContainText(
+        "Time expired"
+      );
+
+      // Assert: Game is NOT reset — white pawn still on e4
+      await expect(
+        player1.locator('[data-square="e4"] [data-piece="wP"]')
+      ).toBeVisible();
+    } finally {
+      try {
+        await saveVideo(player1, "reset_vote_expired", "player1_white");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player2, "reset_vote_expired", "player2_black");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player3, "reset_vote_expired", "player3_black");
+      } catch {
+        /* page may be closed */
+      }
+      await context1.close();
+      await context2.close();
+      await context3.close();
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1638,6 +2427,88 @@ test.describe("Draw Offers", () => {
       }
       try {
         await saveVideo(player3, "team_draw_accepted", "player3_black");
+      } catch {
+        /* page may be closed */
+      }
+      await context1.close();
+      await context2.close();
+      await context3.close();
+    }
+  });
+
+  test("draw_offer_expired", async ({ browser }) => {
+    test.setTimeout(60000);
+
+    const context1 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context2 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+    const context3 = await browser.newContext({
+      recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
+    });
+
+    const player1 = await context1.newPage();
+    const player2 = await context2.newPage();
+    const player3 = await context3.newPage();
+
+    try {
+      // Navigate all players
+      await player1.goto("/");
+      await player2.goto("/");
+      await player3.goto("/");
+      await player1.waitForSelector(".app-container");
+      await player2.waitForSelector(".app-container");
+      await player3.waitForSelector(".app-container");
+
+      // Player 1 joins White (solo)
+      await player1.click('button:has-text("Join White")');
+      await player1.waitForTimeout(300);
+
+      // Player 2 joins Black
+      await player2.click('button:has-text("Join Black")');
+      await player2.waitForTimeout(300);
+
+      // Player 3 joins Black
+      await player3.click('button:has-text("Join Black")');
+      await player3.waitForTimeout(500);
+
+      // Player 1 (White, solo) plays e2-e4 to start the game
+      await makeMove(player1, "e2", "e4");
+      await player1.waitForTimeout(1000);
+
+      // Player 1 offers a draw (solo white — passes immediately via confirm dialog)
+      player1.on("dialog", (dialog) => dialog.accept());
+      await player1.click('button:has-text("Offer Draw")');
+      await player1.waitForTimeout(1000);
+
+      // Draw offered to black team → accept_draw vote starts for black
+      // Nobody votes — wait for vote to expire (20s timeout + buffer)
+      await player1.waitForTimeout(22000);
+
+      // Assert: Chat shows draw offer expired
+      await expect(player1.locator(".chat-messages")).toContainText(
+        "Draw offer expired"
+      );
+
+      // Assert: Game is NOT over — no "Copy PGN" button
+      await expect(
+        player1.locator('button:has-text("Copy PGN")')
+      ).not.toBeVisible();
+    } finally {
+      try {
+        await saveVideo(player1, "draw_offer_expired", "player1_white");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player2, "draw_offer_expired", "player2_black");
+      } catch {
+        /* page may be closed */
+      }
+      try {
+        await saveVideo(player3, "draw_offer_expired", "player3_black");
       } catch {
         /* page may be closed */
       }
