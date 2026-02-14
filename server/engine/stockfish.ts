@@ -1,18 +1,6 @@
-import path from "path";
-import { fileURLToPath } from "url";
 import { Engine } from "../types.js";
 import { stockfishPath, STOCKFISH_SEARCH_DEPTH } from "../constants.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const engineLoaderPath = path.resolve(__dirname, "../load_engine.cjs");
-
-let loadEngine: (path: string) => Engine;
-
-export async function initEngineLoader(): Promise<void> {
-  const module = await import(engineLoaderPath);
-  loadEngine = module.default;
-}
+import { loadEngine } from "./engine-loader.js";
 
 export function createEngine(): Engine {
   const engine = loadEngine(stockfishPath);

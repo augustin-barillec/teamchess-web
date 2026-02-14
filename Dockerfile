@@ -34,10 +34,6 @@ COPY --from=builder /usr/src/app/dist ./dist
 # This matches the path expected by server/index.ts ("../client/dist")
 COPY --from=builder /usr/src/app/client/dist ./client/dist
 
-# Copy the stockfish loader
-# (We copy this explicitly to ensure it exists in the final image)
-COPY --from=builder /usr/src/app/server/load_engine.cjs ./dist/load_engine.cjs
-
 # Expose the port the server will run on
 EXPOSE 3001
 

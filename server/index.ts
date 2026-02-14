@@ -7,7 +7,7 @@ import { Chess } from "chess.js";
 import { setIO, setGameState } from "./state.js";
 import { GameStatus } from "./types.js";
 import { DEFAULT_TIME } from "./constants.js";
-import { initEngineLoader, createEngine } from "./engine/stockfish.js";
+import { createEngine } from "./engine/stockfish.js";
 import { setupConnectionHandler } from "./socket/connectionHandler.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,9 +15,6 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   console.log("Starting TeamChess server...");
-  // Initialize engine loader (async import)
-  await initEngineLoader();
-
   // Create Express app and HTTP server
   const app = express();
   const server = http.createServer(app);

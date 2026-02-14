@@ -8,7 +8,7 @@
     "dev": "tsx server/index.ts",
     "client": "vite client",
     "build:client": "vite build client",
-    "build:server": "tsc -p tsconfig.json && cp server/load_engine.cjs dist/",
+    "build:server": "tsc -p tsconfig.json",
     "build": "npm run build:client && npm run build:server",
     "lint": "eslint .",
     "format": "prettier --write .",
