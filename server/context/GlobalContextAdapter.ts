@@ -1,10 +1,11 @@
 import { Socket } from "socket.io";
-import { Chess } from "chess.js";
 import { sessions, getGameState, setGameState, getIO } from "../state.js";
-import type { IGameContext } from "./GameContext.js";
+import {
+  type IGameContext,
+  clearGameStateTimers,
+  createInitialGameState,
+} from "./GameContext.js";
 import type { GameState, Engine, PlayerSide, Session } from "../types.js";
-import { DEFAULT_TIME } from "../constants.js";
-import { GameStatus } from "../shared_types.js";
 
 /**
  * Adapter that wraps the existing global state to implement IGameContext.
@@ -33,31 +34,11 @@ export class GlobalContextAdapter implements IGameContext {
 
   resetGame(engine: Engine): void {
     const current = getGameState();
-    if (current.timerInterval) clearInterval(current.timerInterval);
-    if (current.resetVote?.timer) clearTimeout(current.resetVote.timer);
-
+    clearGameStateTimers(current);
     const blacklist = current.blacklist;
-    setGameState({
-      whiteIds: new Set(),
-      blackIds: new Set(),
-      moveNumber: 1,
-      side: "white",
-      proposals: new Map(),
-      whiteTime: DEFAULT_TIME,
-      blackTime: DEFAULT_TIME,
-      timerInterval: undefined,
-      engine,
-      chess: new Chess(),
-      status: GameStatus.Lobby,
-      endReason: undefined,
-      endWinner: undefined,
-      drawOffer: undefined,
-      whiteVote: undefined,
-      blackVote: undefined,
-      kickVote: undefined,
-      resetVote: undefined,
-      blacklist,
-    });
+    const newState = createInitialGameState(engine);
+    newState.blacklist = blacklist;
+    setGameState(newState);
   }
 
   getOnlinePids(): Set<string> {

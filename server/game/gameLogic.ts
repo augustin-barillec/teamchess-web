@@ -97,13 +97,15 @@ export function tryFinalizeTurn(ctx: IGameContext = globalContext): void {
 
   const currentFen = gameState.chess.fen();
 
-  chooseBestMove(gameState.engine, currentFen, candidatesStr).then((selLan) => {
-    try {
+  chooseBestMove(gameState.engine, currentFen, candidatesStr)
+    .then((selLan) => {
       const from = selLan.slice(0, 2);
       const to = selLan.slice(2, 4);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const params: any = { from, to };
+      const params: { from: string; to: string; promotion?: string } = {
+        from,
+        to,
+      };
       if (selLan.length === 5) params.promotion = selLan[4];
 
       const move = gameState.chess.move(params);
@@ -161,17 +163,17 @@ export function tryFinalizeTurn(ctx: IGameContext = globalContext): void {
         io.emit("position_update", { fen });
         startClock(ctx);
       }
-    } catch (e) {
+    })
+    .catch((e) => {
       console.error(
-        `CRITICAL: Error on move. FEN: ${currentFen}, Move: ${selLan}`,
+        `CRITICAL: Engine error. FEN: ${currentFen}, Candidates: ${candidatesStr}`,
         e
       );
       gameState.status = GameStatus.AwaitingProposals;
       gameState.proposals.clear();
       io.emit("game_status_update", { status: gameState.status });
       sendSystemMessage(MSG.systemError, ctx);
-    }
-  });
+    });
 }
 
 /**

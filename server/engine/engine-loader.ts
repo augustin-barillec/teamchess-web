@@ -12,7 +12,7 @@ export function loadEngine(path: string): Engine {
   const proc = spawn(path, args, { stdio: "pipe" });
 
   proc.on("error", (err) => {
-    throw err;
+    console.error("Stockfish engine process error:", err);
   });
 
   let pendingCallback: ((output: string) => void) | undefined;

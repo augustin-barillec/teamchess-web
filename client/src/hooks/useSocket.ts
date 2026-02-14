@@ -83,8 +83,6 @@ export function useSocket({
     blackPlayers: [],
   });
   const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Lobby);
-  const [_winner, setWinner] = useState<"white" | "black" | null>(null);
-  const [_endReason, setEndReason] = useState<string | null>(null);
   const [pgn, setPgn] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -204,8 +202,6 @@ export function useSocket({
         proposals,
       }: GameInfo & { proposals: Proposal[] }) => {
         setGameStatus(GameStatus.AwaitingProposals);
-        setWinner(null);
-        setEndReason(null);
         setPgn("");
         setTurns([{ moveNumber, side, proposals: proposals || [] }]);
         setLastMoveSquares(null);
@@ -219,8 +215,6 @@ export function useSocket({
 
     socket.on("game_reset", () => {
       setGameStatus(GameStatus.Lobby);
-      setWinner(null);
-      setEndReason(null);
       setPgn("");
       setTurns([]);
       chess.reset();
@@ -310,8 +304,6 @@ export function useSocket({
         pgn: string;
       }) => {
         setGameStatus(GameStatus.Over);
-        setWinner(winner);
-        setEndReason(reason);
         setPgn(newPgn);
         setDrawOffer(null);
 

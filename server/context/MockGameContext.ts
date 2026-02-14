@@ -1,7 +1,13 @@
 import { Chess } from "chess.js";
 import type { Session, GameState, Engine, PlayerSide } from "../types.js";
 import { GameStatus } from "../shared_types.js";
-import type { IGameContext, ISocket, IIO } from "./GameContext.js";
+import {
+  type IGameContext,
+  type ISocket,
+  type IIO,
+  clearGameStateTimers,
+  createInitialGameState,
+} from "./GameContext.js";
 
 /**
  * Mock socket for testing - tracks emitted events.
@@ -173,34 +179,10 @@ export class MockGameContext implements IGameContext {
   }
 
   resetGame(engine: Engine): void {
-    if (this.gameState.timerInterval) {
-      clearInterval(this.gameState.timerInterval);
-    }
-    if (this.gameState.resetVote?.timer) {
-      clearTimeout(this.gameState.resetVote.timer);
-    }
+    clearGameStateTimers(this.gameState);
     const blacklist = this.gameState.blacklist;
-    this.gameState = {
-      whiteIds: new Set(),
-      blackIds: new Set(),
-      moveNumber: 1,
-      side: "white",
-      proposals: new Map(),
-      whiteTime: 600,
-      blackTime: 600,
-      timerInterval: undefined,
-      engine,
-      chess: new Chess(),
-      status: GameStatus.Lobby,
-      endReason: undefined,
-      endWinner: undefined,
-      drawOffer: undefined,
-      whiteVote: undefined,
-      blackVote: undefined,
-      kickVote: undefined,
-      resetVote: undefined,
-      blacklist,
-    };
+    this.gameState = createInitialGameState(engine);
+    this.gameState.blacklist = blacklist;
   }
 
   getOnlinePids(): Set<string> {

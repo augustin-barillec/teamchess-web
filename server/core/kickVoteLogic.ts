@@ -1,4 +1,5 @@
 import { VOTE_REASONS } from "../shared_messages.js";
+import { processMajorityVote, type MajorityVoteResult } from "./voteLogic.js";
 
 export interface KickVoteState {
   targetId: string;
@@ -69,88 +70,16 @@ export function createKickVoteState(
   };
 }
 
-export interface KickVoteProcessResult {
-  passed: boolean;
-  failed: boolean;
-  reason?: string;
-  updatedYesVoters?: Set<string>;
-  updatedNoVoters?: Set<string>;
-}
+export type KickVoteProcessResult = MajorityVoteResult;
 
 /**
  * Processes a kick vote from a player.
- * Pure function - returns result without modifying input.
- *
- * Voters can change their mind (switch yes<->no).
- * Passes immediately when yesVoters >= required.
- * Fails immediately when too many no votes make passing impossible.
+ * Delegates to shared majority vote logic.
  */
 export function processKickVote(
   vote: KickVoteState,
   voterId: string,
   voteChoice: "yes" | "no"
 ): KickVoteProcessResult {
-  if (!vote.eligibleVoters.has(voterId)) {
-    return {
-      passed: false,
-      failed: false,
-      reason: VOTE_REASONS.notEligibleToVote,
-    };
-  }
-
-  const newYesVoters = new Set(vote.yesVoters);
-  const newNoVoters = new Set(vote.noVoters);
-
-  if (voteChoice === "yes") {
-    if (newYesVoters.has(voterId)) {
-      return {
-        passed: false,
-        failed: false,
-        reason: VOTE_REASONS.alreadyVotedYes,
-      };
-    }
-    // Switch from no if needed
-    newNoVoters.delete(voterId);
-    newYesVoters.add(voterId);
-
-    // Check pass
-    if (newYesVoters.size >= vote.required) {
-      return {
-        passed: true,
-        failed: false,
-        updatedYesVoters: newYesVoters,
-        updatedNoVoters: newNoVoters,
-      };
-    }
-  } else {
-    if (newNoVoters.has(voterId)) {
-      return {
-        passed: false,
-        failed: false,
-        reason: VOTE_REASONS.alreadyVotedNo,
-      };
-    }
-    // Switch from yes if needed
-    newYesVoters.delete(voterId);
-    newNoVoters.add(voterId);
-
-    // Check if passing is still possible
-    // Max possible yes = eligible voters who haven't voted no
-    const maxPossibleYes = vote.eligibleVoters.size - newNoVoters.size;
-    if (maxPossibleYes < vote.required) {
-      return {
-        passed: false,
-        failed: true,
-        updatedYesVoters: newYesVoters,
-        updatedNoVoters: newNoVoters,
-      };
-    }
-  }
-
-  return {
-    passed: false,
-    failed: false,
-    updatedYesVoters: newYesVoters,
-    updatedNoVoters: newNoVoters,
-  };
+  return processMajorityVote(vote, voterId, voteChoice);
 }

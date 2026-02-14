@@ -3,11 +3,9 @@ import express from "express";
 import { Server } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
-import { Chess } from "chess.js";
-import { setIO, setGameState } from "./state.js";
-import { GameStatus } from "./types.js";
-import { DEFAULT_TIME } from "./constants.js";
+import { setIO, setGameState, getGameState } from "./state.js";
 import { createEngine } from "./engine/stockfish.js";
+import { createInitialGameState } from "./context/GameContext.js";
 import { setupConnectionHandler } from "./socket/connectionHandler.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -30,19 +28,8 @@ async function startServer() {
 
   // Initialize game state
   const engine = createEngine();
-  setGameState({
-    whiteIds: new Set(),
-    blackIds: new Set(),
-    moveNumber: 1,
-    side: "white",
-    proposals: new Map(),
-    whiteTime: DEFAULT_TIME,
-    blackTime: DEFAULT_TIME,
-    engine,
-    chess: new Chess(),
-    status: GameStatus.Lobby,
-    blacklist: new Set(),
-  });
+  setGameState(createInitialGameState(engine));
+
   // Setup socket connection handler
   setupConnectionHandler();
 
@@ -52,11 +39,21 @@ async function startServer() {
   app.get(/.*/, (req, res) => {
     res.sendFile(path.join(publicPath, "index.html"));
   });
+
   // Start server
   const PORT = process.env.PORT || 3001;
   server.listen(PORT, () => {
     console.log(`🚀 Server listening on port ${PORT}`);
   });
+
+  // Graceful shutdown
+  const shutdown = () => {
+    console.log("Shutting down...");
+    getGameState().engine.quit();
+    server.close();
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 }
 
 startServer();

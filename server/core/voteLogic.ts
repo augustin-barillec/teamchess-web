@@ -106,6 +106,91 @@ export function processVote(
   return { passed: false, failed: false, updatedYesVoters: newYesVoters };
 }
 
+export interface MajorityVoteInput {
+  yesVoters: Set<string>;
+  noVoters: Set<string>;
+  eligibleVoters: Set<string>;
+  required: number;
+}
+
+export interface MajorityVoteResult {
+  passed: boolean;
+  failed: boolean;
+  reason?: string;
+  updatedYesVoters?: Set<string>;
+  updatedNoVoters?: Set<string>;
+}
+
+/**
+ * Processes a majority vote with yes/no switching.
+ * Used by kick votes and reset votes.
+ * Pure function - returns result without modifying input.
+ */
+export function processMajorityVote(
+  vote: MajorityVoteInput,
+  voterId: string,
+  voteChoice: "yes" | "no"
+): MajorityVoteResult {
+  if (!vote.eligibleVoters.has(voterId)) {
+    return {
+      passed: false,
+      failed: false,
+      reason: VOTE_REASONS.notEligibleToVote,
+    };
+  }
+
+  const newYesVoters = new Set(vote.yesVoters);
+  const newNoVoters = new Set(vote.noVoters);
+
+  if (voteChoice === "yes") {
+    if (newYesVoters.has(voterId)) {
+      return {
+        passed: false,
+        failed: false,
+        reason: VOTE_REASONS.alreadyVotedYes,
+      };
+    }
+    newNoVoters.delete(voterId);
+    newYesVoters.add(voterId);
+
+    if (newYesVoters.size >= vote.required) {
+      return {
+        passed: true,
+        failed: false,
+        updatedYesVoters: newYesVoters,
+        updatedNoVoters: newNoVoters,
+      };
+    }
+  } else {
+    if (newNoVoters.has(voterId)) {
+      return {
+        passed: false,
+        failed: false,
+        reason: VOTE_REASONS.alreadyVotedNo,
+      };
+    }
+    newYesVoters.delete(voterId);
+    newNoVoters.add(voterId);
+
+    const maxPossibleYes = vote.eligibleVoters.size - newNoVoters.size;
+    if (maxPossibleYes < vote.required) {
+      return {
+        passed: false,
+        failed: true,
+        updatedYesVoters: newYesVoters,
+        updatedNoVoters: newNoVoters,
+      };
+    }
+  }
+
+  return {
+    passed: false,
+    failed: false,
+    updatedYesVoters: newYesVoters,
+    updatedNoVoters: newNoVoters,
+  };
+}
+
 /**
  * Creates a new vote state.
  * Pure function - returns new state object.

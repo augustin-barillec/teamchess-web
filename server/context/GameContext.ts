@@ -21,7 +21,7 @@ export interface IIO {
   sockets: {
     sockets: Map<string, ISocket>;
   };
-  // Using any for the socket parameter to allow both real Socket.io sockets and ISocket
+  // Handler parameter is broad to accept both real Socket.IO sockets and ISocket in tests
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   on: (event: string, handler: (socket: any) => void) => void;
 }
@@ -75,34 +75,10 @@ export class GameContext implements IGameContext {
   }
 
   resetGame(engine: Engine): void {
-    if (this._gameState.timerInterval) {
-      clearInterval(this._gameState.timerInterval);
-    }
-    if (this._gameState.resetVote?.timer) {
-      clearTimeout(this._gameState.resetVote.timer);
-    }
+    clearGameStateTimers(this._gameState);
     const blacklist = this._gameState.blacklist;
-    this._gameState = {
-      whiteIds: new Set(),
-      blackIds: new Set(),
-      moveNumber: 1,
-      side: "white",
-      proposals: new Map(),
-      whiteTime: DEFAULT_TIME,
-      blackTime: DEFAULT_TIME,
-      timerInterval: undefined,
-      engine,
-      chess: new Chess(),
-      status: GameStatus.Lobby,
-      endReason: undefined,
-      endWinner: undefined,
-      drawOffer: undefined,
-      whiteVote: undefined,
-      blackVote: undefined,
-      kickVote: undefined,
-      resetVote: undefined,
-      blacklist,
-    };
+    this._gameState = createInitialGameState(engine);
+    this._gameState.blacklist = blacklist;
   }
 
   getOnlinePids(): Set<string> {
@@ -129,6 +105,17 @@ export class GameContext implements IGameContext {
   getAllSockets(): ISocket[] {
     return [...this._io.sockets.sockets.values()] as unknown as ISocket[];
   }
+}
+
+/**
+ * Clears all active timers on a game state to prevent leaked callbacks.
+ */
+export function clearGameStateTimers(state: GameState): void {
+  if (state.timerInterval) clearInterval(state.timerInterval);
+  if (state.whiteVote?.timer) clearTimeout(state.whiteVote.timer);
+  if (state.blackVote?.timer) clearTimeout(state.blackVote.timer);
+  if (state.kickVote?.timer) clearTimeout(state.kickVote.timer);
+  if (state.resetVote?.timer) clearTimeout(state.resetVote.timer);
 }
 
 /**

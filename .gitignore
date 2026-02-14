@@ -20,7 +20,8 @@ Thumbs.db
 .idea/
 .claude/
 
-# Playwright
+# Test
+/coverage/
 /test-results/
 /playwright-report/
 /blob-report/
