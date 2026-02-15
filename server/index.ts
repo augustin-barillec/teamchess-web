@@ -50,7 +50,9 @@ async function startServer() {
   const shutdown = () => {
     console.log("Shutting down...");
     getGameState().engine.quit();
-    server.close();
+    server.close(() => process.exit(0));
+    // Force exit if close hangs (e.g. open WebSocket connections)
+    setTimeout(() => process.exit(0), 1000);
   };
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
