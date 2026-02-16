@@ -19,8 +19,6 @@ interface ControlsPanelProps {
   onSendTeamVote: (vote: "yes" | "no") => void;
   resetVote: ResetVoteState;
   onSendResetVote: (vote: "yes" | "no") => void;
-  effectiveTheme: "light" | "dark";
-  toggleTheme: () => void;
 }
 
 export const ControlsPanel: React.FC<ControlsPanelProps> = ({
@@ -40,8 +38,6 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
   onSendTeamVote,
   resetVote,
   onSendResetVote,
-  effectiveTheme,
-  toggleTheme,
 }) => {
   const [now, setNow] = useState(() => Date.now());
 
@@ -283,10 +279,6 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
       <button onClick={toggleMute}>
         {isMuted ? UI.btnUnmuteSounds : UI.btnMuteSounds}
-      </button>
-
-      <button onClick={toggleTheme}>
-        {effectiveTheme === "dark" ? UI.btnLightMode : UI.btnDarkMode}
       </button>
     </>
   );

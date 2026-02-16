@@ -2,7 +2,6 @@ export const STORAGE_KEYS = {
   pid: "tc:pid",
   name: "tc:name",
   side: "tc:side",
-  theme: "tc:theme",
 } as const;
 
 export const pieceToFigurineWhite: Record<string, string> = {
