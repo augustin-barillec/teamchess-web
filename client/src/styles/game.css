@@ -16,6 +16,7 @@
   color: var(--color-text-on-accent);
   text-align: center;
   background: var(--color-clock-inactive);
+  border: 1px solid var(--color-text-secondary);
   font-weight: normal;
   font-family: monospace;
   font-size: 2rem;
