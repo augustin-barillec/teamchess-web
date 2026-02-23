@@ -1,50 +1,50 @@
 /* ===== Dark Theme (only) ===== */
 :root {
   /* Surfaces */
-  --color-bg-page: #161512;
-  --color-bg-surface: #262421;
-  --color-bg-surface-alt: #1e1c1a;
-  --color-bg-elevated: #3d3a37;
-  --color-bg-inset: #1e1c1a;
-  --color-bg-hover: #363330;
+  --color-bg-page: #222;
+  --color-bg-surface: #252525;
+  --color-bg-surface-alt: #252525;
+  --color-bg-elevated: #333;
+  --color-bg-inset: #252525;
+  --color-bg-hover: #444;
 
   /* Text */
-  --color-text-primary: #e0e0e0;
-  --color-text-secondary: #a0a0a0;
-  --color-text-tertiary: #808080;
+  --color-text-primary: #eee;
+  --color-text-secondary: #aaa;
+  --color-text-tertiary: #999;
   --color-text-on-accent: #ffffff;
 
   /* Borders */
-  --color-border-primary: #3a3735;
-  --color-border-secondary: #2d2b29;
+  --color-border-primary: #444;
+  --color-border-secondary: #444;
 
   /* Accents */
-  --color-accent-green: #256b29;
-  --color-accent-red: #ef5350;
-  --color-accent-red-muted: #7b3535;
+  --color-accent-green: #3a5f0b;
+  --color-accent-red: #d32f2f;
+  --color-accent-red-muted: #5c2b2b;
   --color-accent-blue: #64b5f6;
-  --color-selected-move: #66bb6a;
+  --color-selected-move: #4caf50;
 
   /* Banner */
   --color-banner-bg: #4a1c1c;
-  --color-banner-border: #7b3535;
+  --color-banner-border: #5c2b2b;
 
   /* Chat */
-  --color-chat-own-bg: #2a3030;
+  --color-chat-own-bg: #004c8c;
 
   /* Vote box */
   --color-vote-bg: #262421;
-  --color-vote-border: #363330;
-  --color-vote-yes-bg: #1a3a3a;
-  --color-vote-yes-bg-active: #2a5a5a;
-  --color-vote-yes-border: #38b2ac;
-  --color-vote-yes-text: #81e6d9;
-  --color-vote-yes-label: #4fd1c5;
-  --color-vote-no-bg: #3a1a1a;
-  --color-vote-no-bg-active: #5a2a2a;
-  --color-vote-no-border: #fc8181;
-  --color-vote-no-text: #feb2b2;
-  --color-vote-no-label: #fc8181;
+  --color-vote-border: #555;
+  --color-vote-yes-bg: #2a5a2a;
+  --color-vote-yes-bg-active: #3a7a3a;
+  --color-vote-yes-border: #4a8a4a;
+  --color-vote-yes-text: #88ff88;
+  --color-vote-yes-label: #66cc66;
+  --color-vote-no-bg: #5a2a2a;
+  --color-vote-no-bg-active: #7a3a3a;
+  --color-vote-no-border: #8a4a4a;
+  --color-vote-no-text: #ff8888;
+  --color-vote-no-label: #ee6666;
   --color-vote-disabled-bg: #2a2a2a;
   --color-vote-disabled-border: #3a3a3a;
   --color-vote-disabled-text: #606060;
@@ -56,10 +56,10 @@
   --color-overlay-hover-subtle: rgba(255, 255, 255, 0.05);
 
   /* Clock */
-  --color-clock-inactive: #3a3a3a;
+  --color-clock-inactive: #111;
 
   /* Misc */
-  --color-icon-fill: #e0e0e0;
+  --color-icon-fill: #eee;
   --color-material-piece: #999999;
   --color-notification-dot: #ffa726;
 }
