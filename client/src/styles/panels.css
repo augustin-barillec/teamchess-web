@@ -134,6 +134,12 @@
   display: block;
   text-align: center;
 }
+.move-turn-header ul {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+  text-align: center;
+}
 
 .player-lists-container {
   display: flex;

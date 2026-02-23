@@ -34,8 +34,11 @@ export const MovesPanel: React.FC<MovesPanelProps> = ({
                 style={{ marginBottom: "1rem" }}
               >
                 {" "}
-                <strong>{t.moveNumber}</strong>{" "}
-                <ul style={{ margin: 4, paddingLeft: "1.2rem" }}>
+                <strong>
+                  {Math.ceil(t.moveNumber / 2)}.{" "}
+                  {t.side === "white" ? "White" : "Black"}
+                </strong>{" "}
+                <ul>
                   {" "}
                   {t.proposals.map((p) => {
                     const isSel = t.selection!.lan === p.lan;
