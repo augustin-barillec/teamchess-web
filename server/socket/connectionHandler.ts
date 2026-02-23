@@ -4,7 +4,10 @@ import type { IGameContext } from "../context/GameContext.js";
 import { globalContext } from "../context/GlobalContextAdapter.js";
 import { GameStatus, VoteType } from "../types.js";
 import { getCleanPgn } from "../utils/pgn.js";
-import { broadcastPlayers } from "../utils/messaging.js";
+import {
+  broadcastPlayers,
+  sendPrivateSystemMessage,
+} from "../utils/messaging.js";
 import { MSG, DEFAULT_PLAYER_NAME } from "../shared_messages.js";
 import { tryFinalizeTurn } from "../game/gameLogic.js";
 import { getTeamVoteClientData } from "../voting/teamVote.js";
@@ -45,6 +48,7 @@ export function setupConnectionHandler(
       return;
     }
 
+    const isNewPlayer = !(providedPid && sessions.has(providedPid));
     const pid =
       providedPid && sessions.has(providedPid) ? providedPid : nanoid();
     let sess = sessions.get(pid);
@@ -122,6 +126,10 @@ export function setupConnectionHandler(
     // Send kick vote state (late joiners see it with myVoteEligible: false)
     socket.emit("kick_vote_update", getKickVoteClientData(pid, ctx));
     socket.emit("reset_vote_update", getResetVoteClientData(pid, ctx));
+
+    if (isNewPlayer) {
+      sendPrivateSystemMessage(socket, MSG.welcomeMessage);
+    }
 
     broadcastPlayers(ctx);
     tryFinalizeTurn(ctx);

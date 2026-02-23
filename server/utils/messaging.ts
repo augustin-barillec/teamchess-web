@@ -1,3 +1,4 @@
+import type { Socket } from "socket.io";
 import type { Player, PlayerSide } from "../types.js";
 import type { IGameContext } from "../context/GameContext.js";
 import { globalContext } from "../context/GlobalContextAdapter.js";
@@ -37,6 +38,21 @@ export function sendSystemMessage(
   ctx: IGameContext = globalContext
 ): void {
   ctx.io.emit("chat_message", {
+    sender: SENDER_SYSTEM,
+    senderId: "system",
+    message,
+    system: true,
+  });
+}
+
+/**
+ * Sends a system message to a single socket (private, only visible to that client).
+ */
+export function sendPrivateSystemMessage(
+  socket: Socket,
+  message: string
+): void {
+  socket.emit("chat_message", {
     sender: SENDER_SYSTEM,
     senderId: "system",
     message,

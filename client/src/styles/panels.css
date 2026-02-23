@@ -93,6 +93,7 @@
   background: none;
   border: none;
   align-self: center;
+  white-space: pre-line;
 }
 .chat-message-item.own {
   align-self: flex-end;
