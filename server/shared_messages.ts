@@ -119,7 +119,7 @@ export const MSG = {
   playerResetGame: (name: string) => `${name} has reset the game.`,
 
   // Welcome message for new players
-  welcomeMessage: `👋 Welcome to TeamChess!\n\nHow it works:\n• Each player on a team proposes a move\n• Stockfish (~2500 ELO) picks the strongest candidate\n\nTime control:\n• 10 min per side\n• +10s added at the end of each turn when under 1 min\n\nJoin White or Black from the Controls panel to play!`,
+  welcomeMessage: `👋 Welcome to TeamChess!\n\nHow it works:\n• Each player on a team proposes a move\n• Stockfish 16 (depth 15, ~3000 ELO) picks the strongest candidate\n\nTime control:\n• 10 min per side\n• +10s added at the end of each turn when under 1 min\n\nJoin White or Black from the Controls panel to play!`,
 
   // Game flow
   gameStarted: (name: string) => `${name} played the first move.`,

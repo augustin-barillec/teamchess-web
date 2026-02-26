@@ -5,8 +5,6 @@ import { loadEngine } from "./engine-loader.js";
 export function createEngine(): Engine {
   const engine = loadEngine(stockfishPath);
   engine.send("uci");
-  engine.send("setoption name UCI_LimitStrength value true");
-  engine.send("setoption name UCI_Elo value 2500");
   return engine;
 }
 
