@@ -3,30 +3,41 @@ import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
 
-const videoDir = "test-results/multiplayer-videos";
+const BASE_PORT = 8080;
+function workerPort(workerIndex: number) {
+  return BASE_PORT + workerIndex;
+}
+function workerProject(workerIndex: number) {
+  return `teamchess-test-${workerIndex}`;
+}
+function workerVideoDir(workerIndex: number) {
+  return `test-results/multiplayer-videos/${workerIndex}`;
+}
 
 // Start Docker container before each test
-test.beforeEach(async () => {
-  // Stop any existing container first
-  execSync("docker compose down", { stdio: "ignore" });
-
-  // Start fresh container
-  execSync("docker compose up -d", { stdio: "ignore" });
-
-  // Wait for server to be ready
+test.beforeEach(async (_, testInfo) => {
+  const port = workerPort(testInfo.workerIndex);
+  const project = workerProject(testInfo.workerIndex);
+  execSync(`docker compose -p ${project} down`, { stdio: "ignore" });
+  execSync(`docker compose -p ${project} up -d`, {
+    stdio: "ignore",
+    env: { ...process.env, HOST_PORT: String(port) },
+  });
   await new Promise((resolve) => setTimeout(resolve, 2000));
 });
 
 // Stop Docker container after each test
-test.afterEach(async () => {
-  execSync("docker compose down", { stdio: "ignore" });
+test.afterEach(async (_, testInfo) => {
+  const project = workerProject(testInfo.workerIndex);
+  execSync(`docker compose -p ${project} down`, { stdio: "ignore" });
 });
 
 // Helper to rename video file after page closes
 async function saveVideo(
   page: import("@playwright/test").Page,
   testName: string,
-  playerName: string
+  playerName: string,
+  videoDir: string
 ) {
   const video = page.video();
   if (video) {
@@ -71,11 +82,15 @@ async function makeMove(
 // ---------------------------------------------------------------------------
 
 test.describe("Lobby and Social", () => {
-  test("auto_assign_balances_teams", async ({ browser }) => {
+  test("auto_assign_balances_teams", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -110,12 +125,12 @@ test.describe("Lobby and Social", () => {
       await expect(whitePlayers).toHaveCount(1);
     } finally {
       try {
-        await saveVideo(player1, "auto_assign", "player1_white");
+        await saveVideo(player1, "auto_assign", "player1_white", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "auto_assign", "player2_black");
+        await saveVideo(player2, "auto_assign", "player2_black", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -124,11 +139,15 @@ test.describe("Lobby and Social", () => {
     }
   });
 
-  test("name_change", async ({ browser }) => {
+  test("name_change", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -168,12 +187,12 @@ test.describe("Lobby and Social", () => {
       await expect(player2.locator(".players-panel")).toContainText("toto1");
     } finally {
       try {
-        await saveVideo(player1, "name_change", "player1");
+        await saveVideo(player1, "name_change", "player1", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "name_change", "player2");
+        await saveVideo(player2, "name_change", "player2", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -182,11 +201,15 @@ test.describe("Lobby and Social", () => {
     }
   });
 
-  test("chat_message", async ({ browser }) => {
+  test("chat_message", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -215,12 +238,12 @@ test.describe("Lobby and Social", () => {
       await expect(player2.locator(".chat-messages")).toContainText("hello1");
     } finally {
       try {
-        await saveVideo(player1, "chat_message", "player1");
+        await saveVideo(player1, "chat_message", "player1", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "chat_message", "player2");
+        await saveVideo(player2, "chat_message", "player2", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -229,14 +252,19 @@ test.describe("Lobby and Social", () => {
     }
   });
 
-  test("kick_vote_and_blacklist", async ({ browser }) => {
+  test("kick_vote_and_blacklist", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -288,17 +316,17 @@ test.describe("Lobby and Social", () => {
       });
     } finally {
       try {
-        await saveVideo(player1, "kick_vote", "player1");
+        await saveVideo(player1, "kick_vote", "player1", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "kick_vote", "player2");
+        await saveVideo(player2, "kick_vote", "player2", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "kick_vote", "player3");
+        await saveVideo(player3, "kick_vote", "player3", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -308,14 +336,19 @@ test.describe("Lobby and Social", () => {
     }
   });
 
-  test("spectator_cannot_move", async ({ browser }) => {
+  test("spectator_cannot_move", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -361,17 +394,32 @@ test.describe("Lobby and Social", () => {
       ).not.toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "spectator_cannot_move", "player1_white");
+        await saveVideo(
+          player1,
+          "spectator_cannot_move",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "spectator_cannot_move", "player2_black");
+        await saveVideo(
+          player2,
+          "spectator_cannot_move",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(spectator, "spectator_cannot_move", "spectator");
+        await saveVideo(
+          spectator,
+          "spectator_cannot_move",
+          "spectator",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -381,19 +429,25 @@ test.describe("Lobby and Social", () => {
     }
   });
 
-  test("kick_vote_rejected", async ({ browser }) => {
+  test("kick_vote_rejected", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     test.setTimeout(60000);
 
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context4 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -436,22 +490,22 @@ test.describe("Lobby and Social", () => {
       await expect(player4.locator(".offline-banner")).not.toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "kick_vote_rejected", "player1");
+        await saveVideo(player1, "kick_vote_rejected", "player1", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "kick_vote_rejected", "player2");
+        await saveVideo(player2, "kick_vote_rejected", "player2", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "kick_vote_rejected", "player3");
+        await saveVideo(player3, "kick_vote_rejected", "player3", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player4, "kick_vote_rejected", "player4");
+        await saveVideo(player4, "kick_vote_rejected", "player4", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -468,14 +522,19 @@ test.describe("Lobby and Social", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Gameplay Mechanics", () => {
-  test("three_players_stockfish", async ({ browser }) => {
+  test("three_players_stockfish", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -539,17 +598,32 @@ test.describe("Gameplay Mechanics", () => {
       ).not.toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "three_players_stockfish", "player1_white");
+        await saveVideo(
+          player1,
+          "three_players_stockfish",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "three_players_stockfish", "player2_black");
+        await saveVideo(
+          player2,
+          "three_players_stockfish",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "three_players_stockfish", "player3_black");
+        await saveVideo(
+          player3,
+          "three_players_stockfish",
+          "player3_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -559,17 +633,23 @@ test.describe("Gameplay Mechanics", () => {
     }
   });
 
-  test("late_joiner_best_move_wins", async ({ browser }) => {
+  test("late_joiner_best_move_wins", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context4 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -640,22 +720,23 @@ test.describe("Gameplay Mechanics", () => {
       ).not.toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "late_joiner", "player1_white");
+        await saveVideo(player1, "late_joiner", "player1_white", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "late_joiner", "player2_black");
+        await saveVideo(player2, "late_joiner", "player2_black", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "late_joiner", "player3_black");
+        await saveVideo(player3, "late_joiner", "player3_black", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        if (player4) await saveVideo(player4, "late_joiner", "player4_black");
+        if (player4)
+          await saveVideo(player4, "late_joiner", "player4_black", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -666,11 +747,15 @@ test.describe("Gameplay Mechanics", () => {
     }
   });
 
-  test("pawn_promotion_to_queen", async ({ browser }) => {
+  test("pawn_promotion_to_queen", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -751,12 +836,12 @@ test.describe("Gameplay Mechanics", () => {
       ).toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "pawn_promotion", "player1_white");
+        await saveVideo(player1, "pawn_promotion", "player1_white", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "pawn_promotion", "player2_black");
+        await saveVideo(player2, "pawn_promotion", "player2_black", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -765,11 +850,15 @@ test.describe("Gameplay Mechanics", () => {
     }
   });
 
-  test("pawn_promotion_to_knight", async ({ browser }) => {
+  test("pawn_promotion_to_knight", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -834,12 +923,22 @@ test.describe("Gameplay Mechanics", () => {
       ).toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "pawn_promotion_knight", "player1_white");
+        await saveVideo(
+          player1,
+          "pawn_promotion_knight",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "pawn_promotion_knight", "player2_black");
+        await saveVideo(
+          player2,
+          "pawn_promotion_knight",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -848,11 +947,15 @@ test.describe("Gameplay Mechanics", () => {
     }
   });
 
-  test("illegal_move_rejected", async ({ browser }) => {
+  test("illegal_move_rejected", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -893,12 +996,22 @@ test.describe("Gameplay Mechanics", () => {
       ).not.toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "illegal_move_rejected", "player1_white");
+        await saveVideo(
+          player1,
+          "illegal_move_rejected",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "illegal_move_rejected", "player2_black");
+        await saveVideo(
+          player2,
+          "illegal_move_rejected",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -907,14 +1020,19 @@ test.describe("Gameplay Mechanics", () => {
     }
   });
 
-  test("multiple_move_rejection", async ({ browser }) => {
+  test("multiple_move_rejection", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -957,17 +1075,32 @@ test.describe("Gameplay Mechanics", () => {
       await expect(player2.getByText("Already moved")).toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "multiple_move_rejection", "player1_white");
+        await saveVideo(
+          player1,
+          "multiple_move_rejection",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "multiple_move_rejection", "player2_black");
+        await saveVideo(
+          player2,
+          "multiple_move_rejection",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "multiple_move_rejection", "player3_black");
+        await saveVideo(
+          player3,
+          "multiple_move_rejection",
+          "player3_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -977,11 +1110,15 @@ test.describe("Gameplay Mechanics", () => {
     }
   });
 
-  test("black_tries_to_start_game", async ({ browser }) => {
+  test("black_tries_to_start_game", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -1018,12 +1155,22 @@ test.describe("Gameplay Mechanics", () => {
       ).not.toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "black_tries_to_start_game", "player1_white");
+        await saveVideo(
+          player1,
+          "black_tries_to_start_game",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "black_tries_to_start_game", "player2_black");
+        await saveVideo(
+          player2,
+          "black_tries_to_start_game",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -1038,14 +1185,19 @@ test.describe("Gameplay Mechanics", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Game End Conditions", () => {
-  test("black_team_checkmates_white", async ({ browser }) => {
+  test("black_team_checkmates_white", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -1118,7 +1270,8 @@ test.describe("Game End Conditions", () => {
         await saveVideo(
           player1,
           "black_team_checkmates_white",
-          "player1_white"
+          "player1_white",
+          videoDir
         );
       } catch {
         /* page may be closed */
@@ -1127,7 +1280,8 @@ test.describe("Game End Conditions", () => {
         await saveVideo(
           player2,
           "black_team_checkmates_white",
-          "player2_black"
+          "player2_black",
+          videoDir
         );
       } catch {
         /* page may be closed */
@@ -1136,7 +1290,8 @@ test.describe("Game End Conditions", () => {
         await saveVideo(
           player3,
           "black_team_checkmates_white",
-          "player3_black"
+          "player3_black",
+          videoDir
         );
       } catch {
         /* page may be closed */
@@ -1147,14 +1302,20 @@ test.describe("Game End Conditions", () => {
     }
   });
 
-  test("threefold_repetition_draw", async ({ browser }) => {
+  test("threefold_repetition_draw", async ({ browser }, testInfo) => {
+    test.setTimeout(60000);
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -1229,17 +1390,32 @@ test.describe("Game End Conditions", () => {
       );
     } finally {
       try {
-        await saveVideo(player1, "threefold_repetition_draw", "player1_white");
+        await saveVideo(
+          player1,
+          "threefold_repetition_draw",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "threefold_repetition_draw", "player2_black");
+        await saveVideo(
+          player2,
+          "threefold_repetition_draw",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "threefold_repetition_draw", "player3_black");
+        await saveVideo(
+          player3,
+          "threefold_repetition_draw",
+          "player3_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -1249,11 +1425,15 @@ test.describe("Game End Conditions", () => {
     }
   });
 
-  test("forfeit_by_joining_spectators", async ({ browser }) => {
+  test("forfeit_by_joining_spectators", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -1295,12 +1475,22 @@ test.describe("Game End Conditions", () => {
       );
     } finally {
       try {
-        await saveVideo(player1, "forfeit_spectator", "player1_white");
+        await saveVideo(
+          player1,
+          "forfeit_spectator",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "forfeit_spectator", "player2_spectator");
+        await saveVideo(
+          player2,
+          "forfeit_spectator",
+          "player2_spectator",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -1309,12 +1499,16 @@ test.describe("Game End Conditions", () => {
     }
   });
 
-  test("forfeit_by_disconnect", async ({ browser }) => {
+  test("forfeit_by_disconnect", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     test.setTimeout(60000);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -1358,12 +1552,22 @@ test.describe("Game End Conditions", () => {
       );
     } finally {
       try {
-        await saveVideo(player2, "forfeit_disconnect", "player2_black");
+        await saveVideo(
+          player2,
+          "forfeit_disconnect",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player1, "forfeit_disconnect", "player1_white");
+        await saveVideo(
+          player1,
+          "forfeit_disconnect",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -1372,16 +1576,21 @@ test.describe("Game End Conditions", () => {
     }
   });
 
-  test("stalemate_draw", async ({ browser }) => {
+  test("stalemate_draw", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     test.setTimeout(90000);
 
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -1520,17 +1729,17 @@ test.describe("Game End Conditions", () => {
       );
     } finally {
       try {
-        await saveVideo(player1, "stalemate_draw", "player1_white");
+        await saveVideo(player1, "stalemate_draw", "player1_white", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "stalemate_draw", "player2_black");
+        await saveVideo(player2, "stalemate_draw", "player2_black", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "stalemate_draw", "player3_black");
+        await saveVideo(player3, "stalemate_draw", "player3_black", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -1540,11 +1749,15 @@ test.describe("Game End Conditions", () => {
     }
   });
 
-  test("reconnect_during_grace_period", async ({ browser }) => {
+  test("reconnect_during_grace_period", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -1593,7 +1806,12 @@ test.describe("Game End Conditions", () => {
       ).not.toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "reconnect_grace_period", "player1_white");
+        await saveVideo(
+          player1,
+          "reconnect_grace_period",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -1609,17 +1827,23 @@ test.describe("Game End Conditions", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Voting", () => {
-  test("resign_vote_rejected", async ({ browser }) => {
+  test("resign_vote_rejected", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context4 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -1674,22 +1898,22 @@ test.describe("Voting", () => {
       ).toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "resign_rejected", "player1_white");
+        await saveVideo(player1, "resign_rejected", "player1_white", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "resign_rejected", "player2_black");
+        await saveVideo(player2, "resign_rejected", "player2_black", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "resign_rejected", "player3_black");
+        await saveVideo(player3, "resign_rejected", "player3_black", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player4, "resign_rejected", "player4_black");
+        await saveVideo(player4, "resign_rejected", "player4_black", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -1700,17 +1924,23 @@ test.describe("Voting", () => {
     }
   });
 
-  test("resign_vote_accepted", async ({ browser }) => {
+  test("resign_vote_accepted", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context4 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -1769,22 +1999,22 @@ test.describe("Voting", () => {
       );
     } finally {
       try {
-        await saveVideo(player1, "resign_accepted", "player1_white");
+        await saveVideo(player1, "resign_accepted", "player1_white", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "resign_accepted", "player2_black");
+        await saveVideo(player2, "resign_accepted", "player2_black", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "resign_accepted", "player3_black");
+        await saveVideo(player3, "resign_accepted", "player3_black", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player4, "resign_accepted", "player4_black");
+        await saveVideo(player4, "resign_accepted", "player4_black", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -1795,14 +2025,19 @@ test.describe("Voting", () => {
     }
   });
 
-  test("reset_vote_accepted", async ({ browser }) => {
+  test("reset_vote_accepted", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -1861,17 +2096,17 @@ test.describe("Voting", () => {
       );
     } finally {
       try {
-        await saveVideo(player1, "reset_accepted", "player1_white");
+        await saveVideo(player1, "reset_accepted", "player1_white", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "reset_accepted", "player2_black");
+        await saveVideo(player2, "reset_accepted", "player2_black", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "reset_accepted", "player3_black");
+        await saveVideo(player3, "reset_accepted", "player3_black", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -1881,14 +2116,19 @@ test.describe("Voting", () => {
     }
   });
 
-  test("reset_vote_rejected", async ({ browser }) => {
+  test("reset_vote_rejected", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -1944,17 +2184,17 @@ test.describe("Voting", () => {
       );
     } finally {
       try {
-        await saveVideo(player1, "reset_rejected", "player1_white");
+        await saveVideo(player1, "reset_rejected", "player1_white", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "reset_rejected", "player2_black");
+        await saveVideo(player2, "reset_rejected", "player2_black", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "reset_rejected", "player3_black");
+        await saveVideo(player3, "reset_rejected", "player3_black", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -1964,11 +2204,15 @@ test.describe("Voting", () => {
     }
   });
 
-  test("single_player_resign", async ({ browser }) => {
+  test("single_player_resign", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -2008,12 +2252,22 @@ test.describe("Voting", () => {
       await expect(player1.locator(".chat-messages")).toContainText("resigns");
     } finally {
       try {
-        await saveVideo(player1, "single_player_resign", "player1_white");
+        await saveVideo(
+          player1,
+          "single_player_resign",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "single_player_resign", "player2_black");
+        await saveVideo(
+          player2,
+          "single_player_resign",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -2022,15 +2276,20 @@ test.describe("Voting", () => {
     }
   });
 
-  test("reset_vote_expired", async ({ browser }) => {
+  test("reset_vote_expired", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     test.setTimeout(60000);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -2081,17 +2340,32 @@ test.describe("Voting", () => {
       ).toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "reset_vote_expired", "player1_white");
+        await saveVideo(
+          player1,
+          "reset_vote_expired",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "reset_vote_expired", "player2_black");
+        await saveVideo(
+          player2,
+          "reset_vote_expired",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "reset_vote_expired", "player3_black");
+        await saveVideo(
+          player3,
+          "reset_vote_expired",
+          "player3_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -2107,14 +2381,19 @@ test.describe("Voting", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Draw Offers", () => {
-  test("draw_by_agreement", async ({ browser }) => {
+  test("draw_by_agreement", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -2169,17 +2448,17 @@ test.describe("Draw Offers", () => {
       );
     } finally {
       try {
-        await saveVideo(player1, "draw_agreement", "player1_white");
+        await saveVideo(player1, "draw_agreement", "player1_white", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "draw_agreement", "player2_black");
+        await saveVideo(player2, "draw_agreement", "player2_black", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "draw_agreement", "player3_black");
+        await saveVideo(player3, "draw_agreement", "player3_black", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -2189,14 +2468,19 @@ test.describe("Draw Offers", () => {
     }
   });
 
-  test("draw_offer_rejected", async ({ browser }) => {
+  test("draw_offer_rejected", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -2253,17 +2537,17 @@ test.describe("Draw Offers", () => {
       );
     } finally {
       try {
-        await saveVideo(player1, "draw_rejected", "player1_white");
+        await saveVideo(player1, "draw_rejected", "player1_white", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "draw_rejected", "player2_black");
+        await saveVideo(player2, "draw_rejected", "player2_black", videoDir);
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "draw_rejected", "player3_black");
+        await saveVideo(player3, "draw_rejected", "player3_black", videoDir);
       } catch {
         /* page may be closed */
       }
@@ -2273,14 +2557,19 @@ test.describe("Draw Offers", () => {
     }
   });
 
-  test("team_offer_draw_rejected", async ({ browser }) => {
+  test("team_offer_draw_rejected", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -2332,17 +2621,32 @@ test.describe("Draw Offers", () => {
       );
     } finally {
       try {
-        await saveVideo(player1, "team_draw_rejected", "player1_white");
+        await saveVideo(
+          player1,
+          "team_draw_rejected",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "team_draw_rejected", "player2_black");
+        await saveVideo(
+          player2,
+          "team_draw_rejected",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "team_draw_rejected", "player3_black");
+        await saveVideo(
+          player3,
+          "team_draw_rejected",
+          "player3_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -2352,14 +2656,19 @@ test.describe("Draw Offers", () => {
     }
   });
 
-  test("team_offer_draw_accepted", async ({ browser }) => {
+  test("team_offer_draw_accepted", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -2416,17 +2725,32 @@ test.describe("Draw Offers", () => {
       );
     } finally {
       try {
-        await saveVideo(player1, "team_draw_accepted", "player1_white");
+        await saveVideo(
+          player1,
+          "team_draw_accepted",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "team_draw_accepted", "player2_black");
+        await saveVideo(
+          player2,
+          "team_draw_accepted",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "team_draw_accepted", "player3_black");
+        await saveVideo(
+          player3,
+          "team_draw_accepted",
+          "player3_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
@@ -2436,16 +2760,21 @@ test.describe("Draw Offers", () => {
     }
   });
 
-  test("draw_offer_expired", async ({ browser }) => {
+  test("draw_offer_expired", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const videoDir = workerVideoDir(testInfo.workerIndex);
     test.setTimeout(60000);
 
     const context1 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context2 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
     const context3 = await browser.newContext({
+      baseURL,
       recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } },
     });
 
@@ -2498,17 +2827,32 @@ test.describe("Draw Offers", () => {
       ).not.toBeVisible();
     } finally {
       try {
-        await saveVideo(player1, "draw_offer_expired", "player1_white");
+        await saveVideo(
+          player1,
+          "draw_offer_expired",
+          "player1_white",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player2, "draw_offer_expired", "player2_black");
+        await saveVideo(
+          player2,
+          "draw_offer_expired",
+          "player2_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
       try {
-        await saveVideo(player3, "draw_offer_expired", "player3_black");
+        await saveVideo(
+          player3,
+          "draw_offer_expired",
+          "player3_black",
+          videoDir
+        );
       } catch {
         /* page may be closed */
       }
