@@ -65,7 +65,7 @@ _Best for simulating the exact production environment (Linux/Alpine)._
 1.  **Build & Run:**
     ```sh
     docker compose build --no-cache
-    docker compose up -d
+    docker compose up
     ```
 
 👉 **Access:** Open `http://localhost` (Port 80 maps to container port 3001)
