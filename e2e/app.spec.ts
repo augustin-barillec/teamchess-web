@@ -15,9 +15,10 @@ function workerVideoDir(workerIndex: number) {
 }
 
 // Start Docker container before each test
-test.beforeEach(async (_, testInfo) => {
-  const port = workerPort(testInfo.workerIndex);
-  const project = workerProject(testInfo.workerIndex);
+test.beforeEach(async () => {
+  const { workerIndex } = test.info();
+  const port = workerPort(workerIndex);
+  const project = workerProject(workerIndex);
   execSync(`docker compose -p ${project} down`, { stdio: "ignore" });
   execSync(`docker compose -p ${project} up -d`, {
     stdio: "ignore",
@@ -27,8 +28,9 @@ test.beforeEach(async (_, testInfo) => {
 });
 
 // Stop Docker container after each test
-test.afterEach(async (_, testInfo) => {
-  const project = workerProject(testInfo.workerIndex);
+test.afterEach(async () => {
+  const { workerIndex } = test.info();
+  const project = workerProject(workerIndex);
   execSync(`docker compose -p ${project} down`, { stdio: "ignore" });
 });
 
