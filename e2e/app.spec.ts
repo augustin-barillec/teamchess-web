@@ -43,7 +43,8 @@ test.beforeEach(async () => {
 });
 
 // Save videos and stop Docker container after each test
-test.afterEach(async (_, testInfo) => {
+// eslint-disable-next-line no-empty-pattern
+test.afterEach(async ({}, testInfo) => {
   const safeName = testInfo.title
     .replace(/\s+/g, "_")
     .replace(/[^a-zA-Z0-9_]/g, "");
