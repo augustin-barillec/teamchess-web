@@ -805,6 +805,67 @@ test.describe("Game End Conditions", () => {
     await expect(player1.locator(".chat-messages")).toContainText("Black wins");
   });
 
+  test("copy_pgn_paste_chat", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const player1 = await createPlayer(browser, baseURL);
+    const player2 = await createPlayer(browser, baseURL);
+
+    await player1
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"]);
+
+    await player1.goto("/");
+    await player2.goto("/");
+
+    await player1.waitForSelector(".app-container");
+    await player2.waitForSelector(".app-container");
+
+    // Player 1 joins White, Player 2 joins Black (1 per team — single proposal wins immediately)
+    await player1.click('button:has-text("Join White")');
+    await player1.waitForTimeout(500);
+    await player2.click('button:has-text("Join Black")');
+    await player2.waitForTimeout(500);
+
+    // === Fool's Mate: 1. f3 e5 2. g4 Qh4# 0-1 ===
+
+    // 1. f2-f3
+    await makeMove(player1, "f2", "f3");
+    await player1.waitForTimeout(1000);
+
+    // 1... e7-e5
+    await makeMove(player2, "e7", "e5");
+    await player2.waitForTimeout(1000);
+
+    // 2. g2-g4
+    await makeMove(player1, "g2", "g4");
+    await player1.waitForTimeout(1000);
+
+    // 2... Qd8-h4# (checkmate)
+    await makeMove(player2, "d8", "h4");
+    await player2.waitForTimeout(1000);
+
+    // Wait for game over — "Copy PGN" button appears
+    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Click "Copy PGN" and verify toast
+    await player1.click('button:has-text("Copy PGN")');
+    await expect(player1.locator("text=PGN copied!")).toBeVisible();
+
+    // Read clipboard
+    const pgn = await player1.evaluate(() => navigator.clipboard.readText());
+
+    // Paste PGN into chat and assert round-trip
+    const chatInput = player1.locator('.chat-panel input[type="text"]');
+    await chatInput.fill(pgn);
+    await chatInput.press("Enter");
+
+    await expect(player1.locator(".chat-messages")).toContainText(
+      "1. f3 e5 2. g4 Qh4# *"
+    );
+  });
+
   test("threefold_repetition_draw", async ({ browser }, testInfo) => {
     test.setTimeout(60000);
     const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
