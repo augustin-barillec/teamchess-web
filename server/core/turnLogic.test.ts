@@ -13,7 +13,7 @@ describe("turnLogic", () => {
   describe("shouldFinalizeTurn", () => {
     it("returns false when status is not AwaitingProposals", () => {
       const state = {
-        status: GameStatus.Lobby,
+        status: GameStatus.Setup,
         side: "white" as const,
         moveNumber: 1,
         whiteTime: 600,

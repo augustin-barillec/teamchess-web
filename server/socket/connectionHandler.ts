@@ -81,7 +81,7 @@ export function setupConnectionHandler(
       blackTime: gameState.blackTime,
     });
 
-    if (gameState.status !== GameStatus.Lobby) {
+    if (gameState.status !== GameStatus.Setup) {
       const currentProposals = Array.from(gameState.proposals.entries()).map(
         ([pid, proposal]) => ({
           id: pid,

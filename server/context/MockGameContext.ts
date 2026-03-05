@@ -73,7 +73,7 @@ export class MockGameContext implements IGameContext {
       timerInterval: undefined,
       engine: createMockEngine(),
       chess: new Chess(),
-      status: GameStatus.Lobby,
+      status: GameStatus.Setup,
       endReason: undefined,
       endWinner: undefined,
       drawOffer: undefined,

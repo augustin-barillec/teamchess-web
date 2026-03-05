@@ -184,7 +184,7 @@ export function endIfOneSided(ctx: IGameContext = globalContext): void {
   const { gameState } = ctx;
 
   if (
-    gameState.status === GameStatus.Lobby ||
+    gameState.status === GameStatus.Setup ||
     gameState.status === GameStatus.Over
   )
     return;

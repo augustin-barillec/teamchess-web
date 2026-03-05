@@ -121,10 +121,10 @@ async function makeMove(
 }
 
 // ---------------------------------------------------------------------------
-// 1. Lobby and Social
+// 1. Game and Social
 // ---------------------------------------------------------------------------
 
-test.describe("Lobby and Social", () => {
+test.describe("Game and Social", () => {
   test("auto_assign_balances_teams", async ({ browser }, testInfo) => {
     const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
     const player1 = await createPlayer(browser, baseURL);

@@ -133,7 +133,7 @@ export function createInitialGameState(engine: Engine): GameState {
     timerInterval: undefined,
     engine,
     chess: new Chess(),
-    status: GameStatus.Lobby,
+    status: GameStatus.Setup,
     endReason: undefined,
     endWinner: undefined,
     drawOffer: undefined,

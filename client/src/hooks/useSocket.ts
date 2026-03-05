@@ -82,7 +82,7 @@ export function useSocket({
     whitePlayers: [],
     blackPlayers: [],
   });
-  const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Lobby);
+  const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Setup);
   const [pgn, setPgn] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -214,7 +214,7 @@ export function useSocket({
     );
 
     socket.on("game_reset", () => {
-      setGameStatus(GameStatus.Lobby);
+      setGameStatus(GameStatus.Setup);
       setPgn("");
       setTurns([]);
       chess.reset();

@@ -197,7 +197,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
   return (
     <>
-      {gameStatus !== GameStatus.Lobby &&
+      {gameStatus !== GameStatus.Setup &&
         (resetVote.isActive ? (
           renderResetVoteUI()
         ) : (
@@ -221,7 +221,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
           {(side === "white" || side === "black") && (
             <>
               <button onClick={joinSpectator}>{UI.btnJoinSpectators}</button>
-              {gameStatus === GameStatus.Lobby && (
+              {gameStatus === GameStatus.Setup && (
                 <button
                   onClick={() => joinSide(side === "white" ? "black" : "white")}
                 >

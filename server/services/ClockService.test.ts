@@ -22,7 +22,7 @@ describe("ClockService", () => {
 
   describe("start", () => {
     it("does not start when status is not AwaitingProposals", () => {
-      context.gameState.status = GameStatus.Lobby;
+      context.gameState.status = GameStatus.Setup;
 
       clockService.start();
 

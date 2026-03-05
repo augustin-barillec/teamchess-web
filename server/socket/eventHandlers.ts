@@ -67,7 +67,7 @@ export function handleJoinSide(
   currentSess.side = side;
   socket.data.side = side;
 
-  if (gameState.status !== GameStatus.Lobby) {
+  if (gameState.status !== GameStatus.Setup) {
     if (prevSide === "white") gameState.whiteIds.delete(pid);
     else if (prevSide === "black") gameState.blackIds.delete(pid);
 
@@ -192,7 +192,7 @@ export function handlePlayMove(
   const pid = socket.data.pid;
   const { gameState, io, sessions } = ctx;
 
-  if (gameState.status === GameStatus.Lobby) {
+  if (gameState.status === GameStatus.Setup) {
     if (socket.data.side !== "white") {
       return cb?.({ error: MSG.errorOnlyWhiteStart });
     }

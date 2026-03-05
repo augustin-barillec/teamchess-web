@@ -48,7 +48,7 @@ export interface TeamVoteState {
 }
 
 export enum GameStatus {
-  Lobby = "Lobby",
+  Setup = "Setup",
   AwaitingProposals = "AwaitingProposals",
   FinalizingTurn = "FinalizingTurn",
   Over = "Over",

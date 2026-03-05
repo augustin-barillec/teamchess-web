@@ -331,7 +331,7 @@ export default function App() {
       const to = targetSquare;
 
       if (!from || !to) return false;
-      if (gameStatus === GameStatus.Lobby) {
+      if (gameStatus === GameStatus.Setup) {
         if (side !== "white") {
           toast.error(UI.toastOnlyWhiteStart);
           return false;
@@ -469,7 +469,7 @@ export default function App() {
                 orientation === "white" ? -materialBalance : materialBalance
               }
               isActive={
-                gameStatus !== GameStatus.Lobby &&
+                gameStatus !== GameStatus.Setup &&
                 gameStatus !== GameStatus.Over &&
                 current?.side === (orientation === "white" ? "black" : "white")
               }
@@ -494,7 +494,7 @@ export default function App() {
                 orientation === "white" ? materialBalance : -materialBalance
               }
               isActive={
-                gameStatus !== GameStatus.Lobby &&
+                gameStatus !== GameStatus.Setup &&
                 gameStatus !== GameStatus.Over &&
                 current?.side === (orientation === "white" ? "white" : "black")
               }
