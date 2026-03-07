@@ -17,6 +17,10 @@ import { GameStatus, VoteType } from "./types";
 import { STORAGE_KEYS } from "./constants";
 import { UI } from "./messages";
 import { calculateMaterial } from "./materialCalc";
+import {
+  shouldConfirmTeamAction,
+  shouldConfirmResetGame,
+} from "./confirmUtils";
 import { useSocket } from "./hooks/useSocket";
 import { NameChangeModal } from "./components/NameChangeModal";
 import { ControlsPanel } from "./components/ControlsPanel";
@@ -166,7 +170,7 @@ export default function App() {
     if (side === "white" || side === "black") {
       const myTeamArray =
         side === "white" ? players.whitePlayers : players.blackPlayers;
-      if (myTeamArray.filter((p) => p.connected).length === 1) {
+      if (shouldConfirmTeamAction(myTeamArray)) {
         let msg = "";
         if (type === "resign") msg = UI.confirmResign;
         else if (type === "offer_draw") msg = UI.confirmOfferDraw;
@@ -191,12 +195,16 @@ export default function App() {
   };
 
   const resetGame = () => {
-    const connectedPlayers = [
+    const allPlayers = [
       ...players.whitePlayers,
       ...players.blackPlayers,
       ...players.spectators,
-    ].filter((p) => p.connected).length;
-    if (connectedPlayers === 1 && !window.confirm(UI.confirmResetGame)) return;
+    ];
+    if (
+      shouldConfirmResetGame(allPlayers) &&
+      !window.confirm(UI.confirmResetGame)
+    )
+      return;
     socket?.emit("reset_game", (res: { success: boolean; error?: string }) => {
       if (res.error) return toast.error(res.error);
     });

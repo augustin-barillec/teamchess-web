@@ -1514,6 +1514,201 @@ test.describe("Voting", () => {
       player1.locator('[data-square="e4"] [data-piece="wP"]')
     ).toBeVisible();
   });
+
+  test("resign_with_disconnected_teammate", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const player1 = await createPlayer(browser, baseURL);
+    const player2 = await createPlayer(browser, baseURL);
+    const player3 = await createPlayer(browser, baseURL);
+
+    await player1.goto("/");
+    await player2.goto("/");
+    await player3.goto("/");
+
+    await player1.waitForSelector(".app-container");
+    await player2.waitForSelector(".app-container");
+    await player3.waitForSelector(".app-container");
+
+    // Player 1 + Player 2 join White, Player 3 joins Black
+    await player1.click('button:has-text("Join White")');
+    await player1.waitForTimeout(500);
+    await player2.click('button:has-text("Join White")');
+    await player2.waitForTimeout(500);
+    await player3.click('button:has-text("Join Black")');
+    await player3.waitForTimeout(500);
+
+    // Player 1 plays e2-e4 to start the game
+    await makeMove(player1, "e2", "e4");
+    await player1.waitForTimeout(1000);
+
+    // Player 2 disconnects — server marks connected: false
+    await player2.context().close();
+
+    // Wait for Player 1 to see the disconnected icon in the players panel
+    await expect(player1.locator(".players-panel svg")).toBeVisible({
+      timeout: 10000,
+    });
+
+    // Register dialog handler on Player 1 (track that dialog appeared)
+    let dialogTriggered = false;
+    player1.on("dialog", async (dialog) => {
+      dialogTriggered = true;
+      await dialog.accept();
+    });
+
+    // Player 1 clicks Resign — gets confirm dialog (1 connected on team)
+    await player1.click('button:has-text("Resign")');
+    await player1.waitForTimeout(1000);
+
+    // Assert: dialog was triggered
+    expect(dialogTriggered).toBe(true);
+
+    // Assert: game over — "Copy PGN" visible
+    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Assert: chat shows resignation message
+    await expect(player1.locator(".chat-messages")).toContainText("resigns");
+  });
+
+  test("reset_game_when_alone_connected", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const player1 = await createPlayer(browser, baseURL);
+    const player2 = await createPlayer(browser, baseURL);
+
+    await player1.goto("/");
+    await player2.goto("/");
+
+    await player1.waitForSelector(".app-container");
+    await player2.waitForSelector(".app-container");
+
+    // Player 1 joins White, Player 2 joins Black
+    await player1.click('button:has-text("Join White")');
+    await player1.waitForTimeout(500);
+    await player2.click('button:has-text("Join Black")');
+    await player2.waitForTimeout(500);
+
+    // Player 1 plays e2-e4 to start the game
+    await makeMove(player1, "e2", "e4");
+    await player1.waitForTimeout(1000);
+
+    // Player 2 disconnects
+    await player2.context().close();
+
+    // Wait for Player 1 to see the disconnected icon in the players panel
+    await expect(player1.locator(".players-panel svg")).toBeVisible({
+      timeout: 10000,
+    });
+
+    // Register dialog handler on Player 1
+    let dialogTriggered = false;
+    player1.on("dialog", async (dialog) => {
+      dialogTriggered = true;
+      await dialog.accept();
+    });
+
+    // Player 1 clicks Reset Game — gets confirm dialog (alone connected)
+    await player1.click('button:has-text("Reset Game")');
+    await player1.waitForTimeout(1000);
+
+    // Assert: dialog was triggered
+    expect(dialogTriggered).toBe(true);
+
+    // Assert: game resets — pawn back on e2, not on e4
+    await expect(
+      player1.locator('[data-square="e2"] [data-piece="wP"]')
+    ).toBeVisible({ timeout: 5000 });
+    await expect(
+      player1.locator('[data-square="e4"] [data-piece]')
+    ).not.toBeVisible();
+  });
+
+  test("reset_vote_shows_voter_labels", async ({ browser }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const player1 = await createPlayer(browser, baseURL);
+    const player2 = await createPlayer(browser, baseURL);
+    const player3 = await createPlayer(browser, baseURL);
+
+    await player1.goto("/");
+    await player2.goto("/");
+    await player3.goto("/");
+
+    await player1.waitForSelector(".app-container");
+    await player2.waitForSelector(".app-container");
+    await player3.waitForSelector(".app-container");
+
+    // Set distinct names for each player
+    // Player 1 → Alice
+    await player1.click("button.clickable-name");
+    await player1.waitForSelector(".name-modal-dialog");
+    const name1 = player1.locator('.name-modal-dialog input[type="text"]');
+    await name1.clear();
+    await name1.fill("Alice");
+    await player1.click('.name-modal-dialog button:has-text("Save")');
+    await player1.waitForTimeout(500);
+
+    // Player 2 → Bob
+    await player2.click("button.clickable-name");
+    await player2.waitForSelector(".name-modal-dialog");
+    const name2 = player2.locator('.name-modal-dialog input[type="text"]');
+    await name2.clear();
+    await name2.fill("Bob");
+    await player2.click('.name-modal-dialog button:has-text("Save")');
+    await player2.waitForTimeout(500);
+
+    // Player 3 → Charlie
+    await player3.click("button.clickable-name");
+    await player3.waitForSelector(".name-modal-dialog");
+    const name3 = player3.locator('.name-modal-dialog input[type="text"]');
+    await name3.clear();
+    await name3.fill("Charlie");
+    await player3.click('.name-modal-dialog button:has-text("Save")');
+    await player3.waitForTimeout(500);
+
+    // Alice → White, Bob + Charlie → Black
+    await player1.click('button:has-text("Join White")');
+    await player1.waitForTimeout(500);
+    await player2.click('button:has-text("Join Black")');
+    await player2.waitForTimeout(500);
+    await player3.click('button:has-text("Join Black")');
+    await player3.waitForTimeout(500);
+
+    // Alice plays e2-e4 to start the game
+    await makeMove(player1, "e2", "e4");
+    await player1.waitForTimeout(1000);
+
+    // Bob clicks "Reset Game" (auto-votes yes)
+    await player2.click('button:has-text("Reset Game")');
+    await player2.waitForTimeout(1000);
+
+    // Assert on Alice's view: "Yes (1)" button visible, "Yes: Bob" label visible
+    await expect(player1.locator('button:has-text("Yes (1)")')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(player1.getByText("Yes: Bob")).toBeVisible();
+
+    // Alice clicks "No"
+    await player1.click('button:has-text("No")');
+    await player1.waitForTimeout(1000);
+
+    // Assert: "No (1)" button visible, "No: Alice" label visible, "Yes: Bob" still visible
+    await expect(player1.locator('button:has-text("No (1)")')).toBeVisible();
+    await expect(player1.getByText("No: Alice")).toBeVisible();
+    await expect(player1.getByText("Yes: Bob")).toBeVisible();
+
+    // Charlie clicks "Yes" — vote passes (2/3 majority)
+    await player3.click('button:has-text("Yes")');
+    await player3.waitForTimeout(1000);
+
+    // Assert: game resets — pawn back on e2
+    await expect(
+      player1.locator('[data-square="e2"] [data-piece="wP"]')
+    ).toBeVisible({ timeout: 5000 });
+    await expect(
+      player1.locator('[data-square="e4"] [data-piece]')
+    ).not.toBeVisible();
+  });
 });
 
 // ---------------------------------------------------------------------------
