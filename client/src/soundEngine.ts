@@ -18,11 +18,7 @@ class SoundEngine {
 
   private getContext(): AudioContext {
     if (!this.ctx) {
-      const AudioContextClass =
-        window.AudioContext ||
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).webkitAudioContext;
-      this.ctx = new AudioContextClass();
+      this.ctx = new AudioContext();
     }
     if (this.ctx.state === "suspended") {
       this.ctx.resume();
@@ -76,10 +72,9 @@ class SoundEngine {
     dur: number,
     vol: number
   ) {
-    if (!this.ctx) return;
-
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
+    const ctx = this.ctx!;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
 
     osc.type = type;
     osc.frequency.setValueAtTime(freq, t);
@@ -89,7 +84,7 @@ class SoundEngine {
     gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(ctx.destination);
     osc.start(t);
     osc.stop(t + dur + 0.1);
   }

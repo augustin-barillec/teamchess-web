@@ -63,9 +63,6 @@ export function validateAndApplyMove(chess: Chess, lan: string): MoveResult {
     if (lan.length === 5) params.promotion = lan[4];
 
     const move = chess.move(params);
-    if (!move) {
-      return { success: false, error: "Illegal move" };
-    }
     return { success: true, san: move.san, fen: chess.fen() };
   } catch {
     return { success: false, error: "Move error" };

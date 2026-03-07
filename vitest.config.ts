@@ -13,6 +13,7 @@ export default defineConfig({
         "server/services/**/*.ts",
         "client/src/**/*.ts",
       ],
+      exclude: ["client/src/hooks/**", "client/src/types.ts"],
     },
   },
 });

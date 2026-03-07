@@ -158,6 +158,12 @@ describe("SoundEngine", () => {
       expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(3);
     });
 
+    it("creates 4 oscillators for reset sound", async () => {
+      const { sounds } = await import("./soundEngine.js");
+      sounds.play("reset");
+      expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(4);
+    });
+
     it("resumes audio context when suspended", async () => {
       mockAudioContext.state = "suspended";
       const { sounds } = await import("./soundEngine.js");

@@ -179,6 +179,35 @@ describe("turnLogic", () => {
       expect(result.winner).toBeNull();
     });
 
+    it("detects threefold repetition", () => {
+      const chess = new Chess();
+      // Repeat moves: Nf3 Nf6 Ng1 Ng8 (x2) to reach initial position 3 times
+      chess.move("Nf3");
+      chess.move("Nf6");
+      chess.move("Ng1");
+      chess.move("Ng8");
+      chess.move("Nf3");
+      chess.move("Nf6");
+      chess.move("Ng1");
+      chess.move("Ng8");
+
+      const result = detectGameOver(chess, "white");
+
+      expect(result.isOver).toBe(true);
+      expect(result.reason).toBe("threefold repetition");
+      expect(result.winner).toBeNull();
+    });
+
+    it("detects 50-move draw rule", () => {
+      // Halfmove clock at 100 with sufficient material
+      const chess = new Chess("k7/8/8/8/8/8/1K5R/8 w - - 100 51");
+      const result = detectGameOver(chess, "white");
+
+      expect(result.isOver).toBe(true);
+      expect(result.reason).toBe("draw by rule");
+      expect(result.winner).toBeNull();
+    });
+
     it("detects insufficient material", () => {
       // King vs King
       const chess = new Chess("k7/8/8/8/8/8/8/K7 w - - 0 1");
