@@ -166,7 +166,7 @@ export default function App() {
     if (side === "white" || side === "black") {
       const myTeamArray =
         side === "white" ? players.whitePlayers : players.blackPlayers;
-      if (myTeamArray.length === 1) {
+      if (myTeamArray.filter((p) => p.connected).length === 1) {
         let msg = "";
         if (type === "resign") msg = UI.confirmResign;
         else if (type === "offer_draw") msg = UI.confirmOfferDraw;
@@ -191,6 +191,12 @@ export default function App() {
   };
 
   const resetGame = () => {
+    const connectedPlayers = [
+      ...players.whitePlayers,
+      ...players.blackPlayers,
+      ...players.spectators,
+    ].filter((p) => p.connected).length;
+    if (connectedPlayers === 1 && !window.confirm(UI.confirmResetGame)) return;
     socket?.emit("reset_game", (res: { success: boolean; error?: string }) => {
       if (res.error) return toast.error(res.error);
     });
