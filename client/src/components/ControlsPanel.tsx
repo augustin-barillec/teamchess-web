@@ -178,18 +178,31 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
                 fontWeight: "bold",
               }}
             >
-              No
+              No ({resetVote.noVotes.length})
             </button>
           </div>
-          <div
-            style={{
-              fontSize: "0.8em",
-              marginTop: "8px",
-              color: "var(--color-text-secondary)",
-            }}
-          >
-            Voters: {resetVote.yesVotes.join(", ")}
-          </div>
+          {resetVote.yesVotes.length > 0 && (
+            <div
+              style={{
+                fontSize: "0.8em",
+                marginTop: "6px",
+                color: "var(--color-vote-yes-label)",
+              }}
+            >
+              Yes: {resetVote.yesVotes.join(", ")}
+            </div>
+          )}
+          {resetVote.noVotes.length > 0 && (
+            <div
+              style={{
+                fontSize: "0.8em",
+                marginTop: "2px",
+                color: "var(--color-vote-no-label)",
+              }}
+            >
+              No: {resetVote.noVotes.join(", ")}
+            </div>
+          )}
         </div>
       </div>
     );
