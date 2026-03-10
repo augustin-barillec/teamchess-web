@@ -3,11 +3,7 @@ import { Chess } from "chess.js";
 import type { IGameContext } from "../context/GameContext.js";
 import { globalContext } from "../context/GlobalContextAdapter.js";
 import { GameStatus, VoteType, EndReason } from "../types.js";
-import {
-  broadcastPlayers,
-  sendSystemMessage,
-  sendTeamMessage,
-} from "../utils/messaging.js";
+import { broadcastPlayers, sendSystemMessage } from "../utils/messaging.js";
 import { tryFinalizeTurn, endIfOneSided, endGame } from "../game/gameLogic.js";
 import { startClock } from "../game/clock.js";
 import {
@@ -328,7 +324,7 @@ export function handleVoteTeam(
 
   if (voteResult.failed) {
     clearTeamVote(side, ctx);
-    sendTeamMessage(side, MSG.teamVoteFailed(currentVote.type), ctx);
+    sendSystemMessage(MSG.voteRejected(currentVote.type), ctx);
 
     // Explicitly reject draw if it was an accept_draw vote
     if (currentVote.type === "accept_draw") {
@@ -436,7 +432,6 @@ export function handleKickVote(
     const targetName = currentVote.targetName;
     const targetPid = currentVote.targetId;
     clearKickVote(ctx);
-    sendSystemMessage(MSG.kickVotePassed(targetName), ctx);
     executeKick(targetPid, targetName, ctx);
   } else if (voteResult.failed) {
     const targetName = currentVote.targetName;

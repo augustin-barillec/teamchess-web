@@ -31,7 +31,6 @@ export const gameOverFallback = (winner: string | null): string =>
 // ============================================================
 
 export const SENDER_SYSTEM = "System";
-export const SENDER_TEAM_SYSTEM = "Team System";
 export const DEFAULT_PLAYER_NAME = "Player";
 
 // ============================================================
@@ -76,19 +75,18 @@ export const MSG = {
   playerRejectedDraw: (name: string) => `${name} rejected the draw offer.`,
   drawOfferRejectedTimeout: "❌ Draw offer expired.",
 
-  // Team vote messages (sent to team)
-  teamVoteStarted: (name: string, type: VoteType) =>
+  // Team vote messages
+  voteStarted: (name: string, type: VoteType) =>
     `🗳️ ${name} started a vote to ${formatVoteType(type)}.`,
-  drawOfferedVote: "🗳️ Draw offered! Vote to accept draw.",
-  teamVoteFailed: (type: VoteType) =>
+  drawOfferedVote: "🗳️ The other team offered a draw. Vote to accept.",
+  voteRejected: (type: VoteType) =>
     `❌ Vote to ${formatVoteType(type)} failed: Unanimity not reached.`,
-  teamVoteExpired: (type: VoteType) =>
-    `❌ Vote to ${formatVoteType(type)} failed: Time expired.`,
+  voteExpired: (type: VoteType) =>
+    `❌ Vote to ${formatVoteType(type)} expired.`,
 
   // Kick vote messages
   kickVoteStarted: (initiator: string, target: string) =>
     `🗳️ ${initiator} started a vote to kick ${target}.`,
-  kickVotePassed: (target: string) => `✅ Vote passed! Kicking ${target}.`,
   kickVoteExpired: (target: string, yes: number, no: number) =>
     `❌ Vote to kick ${target} failed: Time expired. (${yes} Yes, ${no} No)`,
   kickVoteFailed: (target: string) =>

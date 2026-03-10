@@ -1,8 +1,8 @@
 import type { Socket } from "socket.io";
-import type { Player, PlayerSide } from "../types.js";
+import type { Player } from "../types.js";
 import type { IGameContext } from "../context/GameContext.js";
 import { globalContext } from "../context/GlobalContextAdapter.js";
-import { SENDER_SYSTEM, SENDER_TEAM_SYSTEM } from "../shared_messages.js";
+import { SENDER_SYSTEM } from "../shared_messages.js";
 
 /**
  * Broadcasts the current player list to all clients.
@@ -58,23 +58,4 @@ export function sendPrivateSystemMessage(
     message,
     system: true,
   });
-}
-
-/**
- * Sends a system message to a specific team.
- * @param ctx Optional context for dependency injection (defaults to global)
- */
-export function sendTeamMessage(
-  side: PlayerSide,
-  message: string,
-  ctx: IGameContext = globalContext
-): void {
-  for (const socket of ctx.getSocketsBySide(side)) {
-    socket.emit("chat_message", {
-      sender: SENDER_TEAM_SYSTEM,
-      senderId: "system",
-      message,
-      system: true,
-    });
-  }
 }

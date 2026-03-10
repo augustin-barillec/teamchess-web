@@ -3,7 +3,7 @@ import { globalContext } from "../context/GlobalContextAdapter.js";
 import type { InternalVoteState, VoteType, PlayerSide } from "../types.js";
 import { EndReason } from "../shared_types.js";
 import { TEAM_VOTE_DURATION_MS } from "../constants.js";
-import { sendSystemMessage, sendTeamMessage } from "../utils/messaging.js";
+import { sendSystemMessage } from "../utils/messaging.js";
 import { checkVotePrerequisites, createVoteState } from "../core/voteLogic.js";
 import { MSG } from "../shared_messages.js";
 
@@ -161,7 +161,7 @@ export function startTeamVoteLogic(
     ...pureVoteState,
     endTime,
     timer: setTimeout(() => {
-      sendTeamMessage(side, MSG.teamVoteExpired(type), ctx);
+      sendSystemMessage(MSG.voteExpired(type), ctx);
       if (side === "white") gameState.whiteVote = undefined;
       else gameState.blackVote = undefined;
       broadcastTeamVote(side, ctx);
@@ -179,9 +179,9 @@ export function startTeamVoteLogic(
   else gameState.blackVote = voteState;
 
   if (isSystemTriggered) {
-    sendTeamMessage(side, MSG.drawOfferedVote, ctx);
+    sendSystemMessage(MSG.drawOfferedVote, ctx);
   } else {
-    sendTeamMessage(side, MSG.teamVoteStarted(initiatorName, type), ctx);
+    sendSystemMessage(MSG.voteStarted(initiatorName, type), ctx);
   }
   broadcastTeamVote(side, ctx);
 }

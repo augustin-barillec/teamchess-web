@@ -343,7 +343,7 @@ test.describe("Game and Social", () => {
 
     // Assert: Chat shows kick vote failure
     await expect(player1.locator(".chat-messages")).toContainText(
-      "Not enough votes possible"
+      "Majority not reached"
     );
 
     // Assert: Player 4 is still connected (no offline banner)
