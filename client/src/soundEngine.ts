@@ -1,11 +1,4 @@
-type SoundType =
-  | "move"
-  | "capture"
-  | "check"
-  | "lowtime"
-  | "start"
-  | "end"
-  | "reset";
+type SoundType = "move" | "capture" | "check" | "start" | "end" | "reset";
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -48,8 +41,6 @@ class SoundEngine {
       this.tone(t, 500, "sine", 0.1, 0.3);
     } else if (type === "check") {
       this.tone(t, 400, "triangle", 0.2, 0.2);
-    } else if (type === "lowtime") {
-      this.tone(t, 800, "sine", 0.05, 0.1);
     } else if (type === "start") {
       // Gentle ascending chord
       this.chord(t, [300, 400, 500], "sine", 0.8);

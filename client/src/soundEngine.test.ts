@@ -138,12 +138,6 @@ describe("SoundEngine", () => {
       expect(mockAudioContext.createOscillator).toHaveBeenCalled();
     });
 
-    it("creates audio context and plays lowtime sound", async () => {
-      const { sounds } = await import("./soundEngine.js");
-      sounds.play("lowtime");
-      expect(mockAudioContext.createOscillator).toHaveBeenCalled();
-    });
-
     it("creates multiple oscillators for start sound (chord)", async () => {
       const { sounds } = await import("./soundEngine.js");
       sounds.play("start");

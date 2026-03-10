@@ -229,14 +229,6 @@ export function useSocket({
     socket.on("clock_update", ({ whiteTime, blackTime }) => {
       const prev = prevClocks.current;
 
-      if (prev.whiteTime > 60 && whiteTime <= 60 && whiteTime > 0) {
-        sounds.play("lowtime");
-      }
-
-      if (prev.blackTime > 60 && blackTime <= 60 && blackTime > 0) {
-        sounds.play("lowtime");
-      }
-
       prevClocks.current = { whiteTime, blackTime };
       setClocks({ whiteTime, blackTime });
     });
