@@ -93,8 +93,8 @@ export const MSG = {
   drawOfferedVote: "🗳️ Draw offered! Vote to accept draw.",
   teamVotePassed: (type: VoteType) =>
     `✅ Vote passed! ${formatVoteTypeAction(type)}.`,
-  teamVoteFailed: (type: VoteType, voterName: string) =>
-    `❌ Vote to ${formatVoteType(type)} failed: ${voterName} voted No.`,
+  teamVoteFailed: (type: VoteType) =>
+    `❌ Vote to ${formatVoteType(type)} failed: Unanimity not reached.`,
   teamVoteExpired: (type: VoteType) =>
     `❌ Vote to ${formatVoteType(type)} failed: Time expired.`,
 
@@ -104,8 +104,8 @@ export const MSG = {
   kickVotePassed: (target: string) => `✅ Vote passed! Kicking ${target}.`,
   kickVoteExpired: (target: string, yes: number, no: number) =>
     `❌ Vote to kick ${target} failed: Time expired. (${yes} Yes, ${no} No)`,
-  kickVoteFailed: (target: string, yes: number, no: number) =>
-    `❌ Vote to kick ${target} failed: Not enough votes possible. (${yes} Yes, ${no} No)`,
+  kickVoteFailed: (target: string) =>
+    `❌ Vote to kick ${target} failed: Majority not reached.`,
   playerKicked: (name: string) => `${name} has been kicked.`,
   youHaveBeenKicked: "You have been kicked by vote.",
 
@@ -113,8 +113,8 @@ export const MSG = {
   resetVoteStarted: (name: string) =>
     `🗳️ ${name} started a vote to reset the game.`,
   resetVotePassed: "✅ Vote passed! Resetting game.",
-  resetVoteFailed: (voterName: string) =>
-    `❌ Vote to reset the game failed: ${voterName} voted No.`,
+  resetVoteFailed: () =>
+    `❌ Vote to reset the game failed: Majority not reached.`,
   resetVoteExpired: "❌ Vote to reset the game failed: Time expired.",
   playerResetGame: (name: string) => `${name} has reset the game.`,
 

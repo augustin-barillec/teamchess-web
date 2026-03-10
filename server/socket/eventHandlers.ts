@@ -177,7 +177,7 @@ export function handleVoteReset(
     executeGameReset(ctx);
   } else if (voteResult.failed) {
     clearResetVote(ctx);
-    sendSystemMessage(MSG.resetVoteFailed(socket.data.name), ctx);
+    sendSystemMessage(MSG.resetVoteFailed(), ctx);
   } else {
     broadcastResetVote(ctx);
   }
@@ -328,11 +328,7 @@ export function handleVoteTeam(
 
   if (voteResult.failed) {
     clearTeamVote(side, ctx);
-    sendTeamMessage(
-      side,
-      MSG.teamVoteFailed(currentVote.type, socket.data.name),
-      ctx
-    );
+    sendTeamMessage(side, MSG.teamVoteFailed(currentVote.type), ctx);
 
     // Explicitly reject draw if it was an accept_draw vote
     if (currentVote.type === "accept_draw") {
@@ -445,10 +441,8 @@ export function handleKickVote(
     executeKick(targetPid, targetName, ctx);
   } else if (voteResult.failed) {
     const targetName = currentVote.targetName;
-    const yesCount = currentVote.yesVoters.size;
-    const noCount = currentVote.noVoters.size;
     clearKickVote(ctx);
-    sendSystemMessage(MSG.kickVoteFailed(targetName, yesCount, noCount), ctx);
+    sendSystemMessage(MSG.kickVoteFailed(targetName), ctx);
   } else {
     broadcastKickVote(ctx);
   }
