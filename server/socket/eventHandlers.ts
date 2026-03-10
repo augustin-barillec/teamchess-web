@@ -342,7 +342,6 @@ export function handleVoteTeam(
 
     if (voteResult.passed) {
       clearTeamVote(side, ctx);
-      sendTeamMessage(side, MSG.teamVotePassed(currentVote.type), ctx);
 
       if (currentVote.type === "resign") {
         const winner = side === "white" ? "black" : "white";

@@ -42,17 +42,6 @@ export function formatVoteType(type: VoteType): string {
   return type.replace("_", " ");
 }
 
-export function formatVoteTypeAction(type: VoteType): string {
-  switch (type) {
-    case "resign":
-      return "Resigning";
-    case "offer_draw":
-      return "Offering a draw";
-    case "accept_draw":
-      return "Accepting the draw";
-  }
-}
-
 // ============================================================
 // Vote Reason Strings (returned by pure logic)
 // ============================================================
@@ -91,8 +80,6 @@ export const MSG = {
   teamVoteStarted: (name: string, type: VoteType) =>
     `🗳️ ${name} started a vote to ${formatVoteType(type)}.`,
   drawOfferedVote: "🗳️ Draw offered! Vote to accept draw.",
-  teamVotePassed: (type: VoteType) =>
-    `✅ Vote passed! ${formatVoteTypeAction(type)}.`,
   teamVoteFailed: (type: VoteType) =>
     `❌ Vote to ${formatVoteType(type)} failed: Unanimity not reached.`,
   teamVoteExpired: (type: VoteType) =>
