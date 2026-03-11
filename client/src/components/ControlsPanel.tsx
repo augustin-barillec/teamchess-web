@@ -108,15 +108,17 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
               No
             </button>
           </div>
-          <div
-            style={{
-              fontSize: "0.8em",
-              marginTop: "8px",
-              color: "var(--color-text-secondary)",
-            }}
-          >
-            Voters: {teamVote.yesVotes.join(", ")}
-          </div>
+          {teamVote.yesVotes.length > 0 && (
+            <div
+              style={{
+                fontSize: "0.8em",
+                marginTop: "6px",
+                color: "var(--color-vote-yes-label)",
+              }}
+            >
+              Yes: {teamVote.yesVotes.join(", ")}
+            </div>
+          )}
         </div>
       </div>
     );

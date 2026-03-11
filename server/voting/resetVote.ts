@@ -130,15 +130,13 @@ export function startResetVoteLogic(
     initiatorName,
     endTime,
     timer: setTimeout(() => {
-      sendSystemMessage(MSG.resetVoteExpired, ctx);
+      sendSystemMessage(MSG.resetVoteFailed, ctx);
       gameState.resetVote = undefined;
       broadcastResetVote(ctx);
     }, RESET_VOTE_DURATION_MS),
   };
 
   gameState.resetVote = voteState;
-
-  sendSystemMessage(MSG.resetVoteStarted(initiatorName), ctx);
   broadcastResetVote(ctx);
 
   return {};

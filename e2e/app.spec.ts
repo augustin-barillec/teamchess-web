@@ -343,7 +343,7 @@ test.describe("Game and Social", () => {
 
     // Assert: Chat shows kick vote failure
     await expect(player1.locator(".chat-messages")).toContainText(
-      "Majority not reached"
+      "Vote to kick"
     );
 
     // Assert: Player 4 is still connected (no offline banner)
@@ -1316,7 +1316,7 @@ test.describe("Voting", () => {
 
     // Assert: Chat shows resignation message (system message visible to all)
     await expect(player1.locator(".chat-messages")).toContainText(
-      "team resigns"
+      "Resignation"
     );
   });
 
@@ -1372,7 +1372,7 @@ test.describe("Voting", () => {
 
     // Assert: Chat shows reset message
     await expect(player1.locator(".chat-messages")).toContainText(
-      "Resetting game"
+      "Game has been reset"
     );
   });
 
@@ -1463,7 +1463,9 @@ test.describe("Voting", () => {
     });
 
     // Assert: Chat shows resignation message
-    await expect(player1.locator(".chat-messages")).toContainText("resigns");
+    await expect(player1.locator(".chat-messages")).toContainText(
+      "Resignation"
+    );
   });
 
   test("reset_vote_expired", async ({ browser }, testInfo) => {
@@ -1504,9 +1506,9 @@ test.describe("Voting", () => {
     // Nobody else votes — wait for the vote to expire (20s + buffer)
     await player1.waitForTimeout(22000);
 
-    // Assert: Chat shows vote expiration message
+    // Assert: Chat shows vote failure message
     await expect(player1.locator(".chat-messages")).toContainText(
-      "Time expired"
+      "Vote to reset the game failed"
     );
 
     // Assert: Game is NOT reset — white pawn still on e4
@@ -1569,7 +1571,9 @@ test.describe("Voting", () => {
     });
 
     // Assert: chat shows resignation message
-    await expect(player1.locator(".chat-messages")).toContainText("resigns");
+    await expect(player1.locator(".chat-messages")).toContainText(
+      "Resignation"
+    );
   });
 
   test("reset_game_when_alone_connected", async ({ browser }, testInfo) => {
@@ -1818,7 +1822,7 @@ test.describe("Draw Offers", () => {
 
     // Assert: Chat shows the draw rejection message (system message visible to all)
     await expect(player1.locator(".chat-messages")).toContainText(
-      "rejected the draw offer"
+      "Vote to accept draw failed"
     );
   });
 
@@ -1966,9 +1970,9 @@ test.describe("Draw Offers", () => {
     // Nobody votes — wait for vote to expire (20s timeout + buffer)
     await player1.waitForTimeout(22000);
 
-    // Assert: Chat shows draw offer expired
+    // Assert: Chat shows draw vote failure
     await expect(player1.locator(".chat-messages")).toContainText(
-      "Draw offer expired"
+      "Vote to accept draw failed"
     );
 
     // Assert: Game is NOT over — no "Copy PGN" button

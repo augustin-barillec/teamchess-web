@@ -105,7 +105,6 @@ export function handleResetGame(
   }
 
   if (result.passedImmediately) {
-    sendSystemMessage(MSG.playerResetGame(socket.data.name), ctx);
     executeGameReset(ctx);
   }
 
@@ -120,6 +119,7 @@ export function executeGameReset(ctx: IGameContext = globalContext): void {
 
   ctx.resetGame(engine);
 
+  sendSystemMessage(MSG.gameReset, ctx);
   io.emit("game_reset");
   io.emit("clock_update", {
     whiteTime: DEFAULT_TIME,
@@ -169,11 +169,10 @@ export function handleVoteReset(
 
   if (voteResult.passed) {
     clearResetVote(ctx);
-    sendSystemMessage(MSG.resetVotePassed, ctx);
     executeGameReset(ctx);
   } else if (voteResult.failed) {
     clearResetVote(ctx);
-    sendSystemMessage(MSG.resetVoteFailed(), ctx);
+    sendSystemMessage(MSG.resetVoteFailed, ctx);
   } else {
     broadcastResetVote(ctx);
   }
@@ -215,7 +214,6 @@ export function handlePlayMove(
     });
     io.emit("position_update", { fen: gameState.chess.fen() });
     startClock(ctx);
-    sendSystemMessage(MSG.gameStarted(socket.data.name), ctx);
   } else if (gameState.status !== GameStatus.AwaitingProposals) {
     return cb?.({ error: MSG.errorNotAccepting });
   }
@@ -324,13 +322,12 @@ export function handleVoteTeam(
 
   if (voteResult.failed) {
     clearTeamVote(side, ctx);
-    sendSystemMessage(MSG.voteRejected(currentVote.type), ctx);
+    sendSystemMessage(MSG.teamVoteFailed(currentVote.type), ctx);
 
     // Explicitly reject draw if it was an accept_draw vote
     if (currentVote.type === "accept_draw") {
       gameState.drawOffer = undefined;
       io.emit("draw_offer_update", { side: null });
-      sendSystemMessage(MSG.playerRejectedDraw(socket.data.name), ctx);
     }
   } else if (voteResult.updatedYesVoters) {
     // Update the yes voters
@@ -341,18 +338,15 @@ export function handleVoteTeam(
 
       if (currentVote.type === "resign") {
         const winner = side === "white" ? "black" : "white";
-        sendSystemMessage(MSG.teamResigns(side), ctx);
         endGame(EndReason.Resignation, winner, ctx);
       } else if (currentVote.type === "offer_draw") {
         gameState.drawOffer = side;
         io.emit("draw_offer_update", { side });
-        sendSystemMessage(MSG.teamOffersDraw(side), ctx);
 
         // Trigger vote for other side
         const otherSide = side === "white" ? "black" : "white";
         startTeamVoteLogic(otherSide, "accept_draw", "system", "System", ctx);
       } else if (currentVote.type === "accept_draw") {
-        sendSystemMessage(MSG.teamAcceptsDraw(side), ctx);
         endGame(EndReason.DrawAgreement, null, ctx);
       }
     } else {

@@ -141,21 +141,13 @@ export function startKickVoteLogic(
     initiatorName,
     endTime,
     timer: setTimeout(() => {
-      // Vote expired — failed
-      const yesCount = gameState.kickVote?.yesVoters.size ?? 0;
-      const noCount = gameState.kickVote?.noVoters.size ?? 0;
-      sendSystemMessage(
-        MSG.kickVoteExpired(targetName, yesCount, noCount),
-        ctx
-      );
+      sendSystemMessage(MSG.kickVoteFailed(targetName), ctx);
       gameState.kickVote = undefined;
       broadcastKickVote(ctx);
     }, KICK_VOTE_DURATION_MS),
   };
 
   gameState.kickVote = voteState;
-
-  sendSystemMessage(MSG.kickVoteStarted(initiatorName, targetName), ctx);
   broadcastKickVote(ctx);
 
   return {};

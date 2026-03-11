@@ -131,18 +131,15 @@ export function startTeamVoteLogic(
   if (prereqResult.shouldAutoExecute) {
     if (type === "resign") {
       const winner = side === "white" ? "black" : "white";
-      sendSystemMessage(MSG.playerResigns(initiatorName), ctx);
       if (endGameCallback) endGameCallback(EndReason.Resignation, winner);
     } else if (type === "offer_draw") {
       gameState.drawOffer = side;
       io.emit("draw_offer_update", { side });
-      sendSystemMessage(MSG.playerOffersDraw(initiatorName), ctx);
 
       // Trigger vote for other side
       const otherSide = side === "white" ? "black" : "white";
       startTeamVoteLogic(otherSide, "accept_draw", "system", "System", ctx);
     } else if (type === "accept_draw") {
-      sendSystemMessage(MSG.playerAcceptsDraw(initiatorName), ctx);
       if (endGameCallback) endGameCallback(EndReason.DrawAgreement, null);
     }
     return;
@@ -161,7 +158,7 @@ export function startTeamVoteLogic(
     ...pureVoteState,
     endTime,
     timer: setTimeout(() => {
-      sendSystemMessage(MSG.voteExpired(type), ctx);
+      sendSystemMessage(MSG.teamVoteFailed(type), ctx);
       if (side === "white") gameState.whiteVote = undefined;
       else gameState.blackVote = undefined;
       broadcastTeamVote(side, ctx);
@@ -170,7 +167,6 @@ export function startTeamVoteLogic(
       if (type === "accept_draw") {
         gameState.drawOffer = undefined;
         io.emit("draw_offer_update", { side: null });
-        sendSystemMessage(MSG.drawOfferRejectedTimeout, ctx);
       }
     }, TEAM_VOTE_DURATION_MS),
   };
@@ -178,10 +174,5 @@ export function startTeamVoteLogic(
   if (side === "white") gameState.whiteVote = voteState;
   else gameState.blackVote = voteState;
 
-  if (isSystemTriggered) {
-    sendSystemMessage(MSG.drawOfferedVote, ctx);
-  } else {
-    sendSystemMessage(MSG.voteStarted(initiatorName, type), ctx);
-  }
   broadcastTeamVote(side, ctx);
 }
