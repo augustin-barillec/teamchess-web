@@ -39,6 +39,7 @@ export const NameChangeModal: React.FC<NameChangeModalProps> = ({
           onKeyDown={onKeyDown}
           placeholder={UI.nameModalPlaceholder}
           aria-label={UI.nameModalAriaLabel}
+          maxLength={30}
         />
 
         <div className="name-modal-buttons">
