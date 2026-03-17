@@ -23,6 +23,7 @@ export function setEndGameCallback(
  */
 export function getTeamVoteClientData(
   side: PlayerSide,
+  viewerPid: string,
   ctx: IGameContext = globalContext
 ) {
   const { gameState, sessions } = ctx;
@@ -35,6 +36,7 @@ export function getTeamVoteClientData(
       yesVotes: [],
       requiredVotes: 0,
       endTime: 0,
+      myVoteEligible: false,
     };
   }
 
@@ -49,6 +51,7 @@ export function getTeamVoteClientData(
     yesVotes: yesNames,
     requiredVotes: vote.required,
     endTime: vote.endTime,
+    myVoteEligible: vote.eligibleVoters.has(viewerPid),
   };
 }
 
@@ -60,8 +63,8 @@ export function broadcastTeamVote(
   side: PlayerSide,
   ctx: IGameContext = globalContext
 ): void {
-  const data = getTeamVoteClientData(side, ctx);
   for (const socket of ctx.getSocketsBySide(side)) {
+    const data = getTeamVoteClientData(side, socket.data.pid ?? "", ctx);
     socket.emit("team_vote_update", data);
   }
 }

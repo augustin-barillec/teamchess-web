@@ -100,6 +100,7 @@ export function useSocket({
     yesVotes: [],
     requiredVotes: 0,
     endTime: 0,
+    myVoteEligible: false,
   });
   const [kickVote, setKickVote] = useState<KickVoteState>({
     isActive: false,

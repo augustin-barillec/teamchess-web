@@ -79,30 +79,49 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
               fontStyle: "italic",
             }}
           >
-            Time left: {voteTimeLeft}s • Required: {teamVote.requiredVotes}
+            {teamVote.yesVotes.length}/{teamVote.requiredVotes} • {voteTimeLeft}
+            s
           </div>
 
           <div style={{ display: "flex", gap: "10px" }}>
             <button
               onClick={() => onSendTeamVote("yes")}
+              disabled={!teamVote.myVoteEligible}
               style={{
                 flex: 1,
-                background: "var(--color-vote-yes-bg)",
-                borderColor: "var(--color-vote-yes-border)",
-                color: "var(--color-vote-yes-text)",
+                background: teamVote.myVoteEligible
+                  ? "var(--color-vote-yes-bg)"
+                  : "var(--color-vote-disabled-bg)",
+                borderColor: teamVote.myVoteEligible
+                  ? "var(--color-vote-yes-border)"
+                  : "var(--color-vote-disabled-border)",
+                color: teamVote.myVoteEligible
+                  ? "var(--color-vote-yes-text)"
+                  : "var(--color-vote-disabled-text)",
                 fontWeight: "bold",
+                cursor: teamVote.myVoteEligible ? "pointer" : "default",
+                opacity: teamVote.myVoteEligible ? 1 : 0.6,
               }}
             >
               Yes ({teamVote.yesVotes.length})
             </button>
             <button
               onClick={() => onSendTeamVote("no")}
+              disabled={!teamVote.myVoteEligible}
               style={{
                 flex: 1,
-                background: "var(--color-vote-no-bg)",
-                borderColor: "var(--color-vote-no-border)",
-                color: "var(--color-vote-no-text)",
+                background: teamVote.myVoteEligible
+                  ? "var(--color-vote-no-bg)"
+                  : "var(--color-vote-disabled-bg)",
+                borderColor: teamVote.myVoteEligible
+                  ? "var(--color-vote-no-border)"
+                  : "var(--color-vote-disabled-border)",
+                color: teamVote.myVoteEligible
+                  ? "var(--color-vote-no-text)"
+                  : "var(--color-vote-disabled-text)",
                 fontWeight: "bold",
+                cursor: teamVote.myVoteEligible ? "pointer" : "default",
+                opacity: teamVote.myVoteEligible ? 1 : 0.6,
               }}
             >
               No
@@ -153,31 +172,49 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
               fontStyle: "italic",
             }}
           >
-            Time left: {resetVoteTimeLeft}s • Required:{" "}
-            {resetVote.requiredVotes}
+            {resetVote.yesVotes.length}/{resetVote.requiredVotes} •{" "}
+            {resetVoteTimeLeft}s
           </div>
 
           <div style={{ display: "flex", gap: "10px" }}>
             <button
               onClick={() => onSendResetVote("yes")}
+              disabled={!resetVote.myVoteEligible}
               style={{
                 flex: 1,
-                background: "var(--color-vote-yes-bg)",
-                borderColor: "var(--color-vote-yes-border)",
-                color: "var(--color-vote-yes-text)",
+                background: resetVote.myVoteEligible
+                  ? "var(--color-vote-yes-bg)"
+                  : "var(--color-vote-disabled-bg)",
+                borderColor: resetVote.myVoteEligible
+                  ? "var(--color-vote-yes-border)"
+                  : "var(--color-vote-disabled-border)",
+                color: resetVote.myVoteEligible
+                  ? "var(--color-vote-yes-text)"
+                  : "var(--color-vote-disabled-text)",
                 fontWeight: "bold",
+                cursor: resetVote.myVoteEligible ? "pointer" : "default",
+                opacity: resetVote.myVoteEligible ? 1 : 0.6,
               }}
             >
               Yes ({resetVote.yesVotes.length})
             </button>
             <button
               onClick={() => onSendResetVote("no")}
+              disabled={!resetVote.myVoteEligible}
               style={{
                 flex: 1,
-                background: "var(--color-vote-no-bg)",
-                borderColor: "var(--color-vote-no-border)",
-                color: "var(--color-vote-no-text)",
+                background: resetVote.myVoteEligible
+                  ? "var(--color-vote-no-bg)"
+                  : "var(--color-vote-disabled-bg)",
+                borderColor: resetVote.myVoteEligible
+                  ? "var(--color-vote-no-border)"
+                  : "var(--color-vote-disabled-border)",
+                color: resetVote.myVoteEligible
+                  ? "var(--color-vote-no-text)"
+                  : "var(--color-vote-disabled-text)",
                 fontWeight: "bold",
+                cursor: resetVote.myVoteEligible ? "pointer" : "default",
+                opacity: resetVote.myVoteEligible ? 1 : 0.6,
               }}
             >
               No ({resetVote.noVotes.length})

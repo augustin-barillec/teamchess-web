@@ -119,7 +119,7 @@ export function setupConnectionHandler(
     if (socket.data.side === "white" || socket.data.side === "black") {
       socket.emit(
         "team_vote_update",
-        getTeamVoteClientData(socket.data.side, ctx)
+        getTeamVoteClientData(socket.data.side, pid, ctx)
       );
     }
 

@@ -78,7 +78,7 @@ export function handleJoinSide(
 
   // UPDATE CLIENT VOTE UI
   if (side === "white" || side === "black") {
-    socket.emit("team_vote_update", getTeamVoteClientData(side, ctx));
+    socket.emit("team_vote_update", getTeamVoteClientData(side, pid, ctx));
   } else {
     socket.emit("team_vote_update", {
       isActive: false,
@@ -87,6 +87,7 @@ export function handleJoinSide(
       yesVotes: [],
       requiredVotes: 0,
       endTime: 0,
+      myVoteEligible: false,
     });
   }
 

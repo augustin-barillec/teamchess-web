@@ -57,7 +57,7 @@ function KickVoteBox({
             fontStyle: "italic",
           }}
         >
-          Time left: {timeLeft}s &bull; Required: {kickVote.requiredVotes}
+          {kickVote.yesVotes.length}/{kickVote.requiredVotes} &bull; {timeLeft}s
         </div>
 
         <div style={{ display: "flex", gap: "10px" }}>
@@ -142,18 +142,6 @@ function KickVoteBox({
             }}
           >
             No: {kickVote.noVotes.join(", ")}
-          </div>
-        )}
-        {!kickVote.myVoteEligible && !kickVote.amTarget && (
-          <div
-            style={{
-              fontSize: "0.8em",
-              marginTop: "8px",
-              color: "var(--color-text-secondary)",
-              fontStyle: "italic",
-            }}
-          >
-            {UI.voteInProgress}
           </div>
         )}
       </div>

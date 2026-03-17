@@ -45,6 +45,7 @@ export interface TeamVoteState {
   yesVotes: string[];
   requiredVotes: number;
   endTime: number;
+  myVoteEligible: boolean;
 }
 
 export enum GameStatus {
