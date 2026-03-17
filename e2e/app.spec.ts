@@ -1713,6 +1713,111 @@ test.describe("Voting", () => {
       player1.locator('[data-square="e4"] [data-piece]')
     ).not.toBeVisible();
   });
+
+  test("team_vote_buttons_disabled_for_late_joiner", async ({
+    browser,
+  }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const player1 = await createPlayer(browser, baseURL);
+    const player2 = await createPlayer(browser, baseURL);
+    const player3 = await createPlayer(browser, baseURL);
+
+    await player1.goto("/");
+    await player2.goto("/");
+    await player3.goto("/");
+
+    await player1.waitForSelector(".app-container");
+    await player2.waitForSelector(".app-container");
+    await player3.waitForSelector(".app-container");
+
+    // Player 1 → White, Player 2 + 3 → Black
+    await player1.click('button:has-text("Join White")');
+    await player1.waitForTimeout(500);
+    await player2.click('button:has-text("Join Black")');
+    await player2.waitForTimeout(500);
+    await player3.click('button:has-text("Join Black")');
+    await player3.waitForTimeout(500);
+
+    // Start game
+    await makeMove(player1, "e2", "e4");
+    await player1.waitForTimeout(1000);
+
+    // Player 2 starts resign vote
+    await player2.click('button:has-text("Resign")');
+    await player2.waitForTimeout(500);
+
+    // Player 4 joins late, goes to Black
+    const player4 = await createPlayer(browser, baseURL);
+    await player4.goto("/");
+    await player4.waitForSelector(".app-container");
+    await player4.click('button:has-text("Join Black")');
+    await player4.waitForTimeout(1000);
+
+    // Assert: P4 (late joiner) sees vote but Yes/No buttons are disabled
+    const p4Yes = player4.locator('button:has-text("Yes")');
+    const p4No = player4.locator('button:has-text("No")');
+    await expect(p4Yes).toBeVisible({ timeout: 5000 });
+    await expect(p4Yes).toBeDisabled();
+    await expect(p4No).toBeDisabled();
+
+    // Assert: P3 (eligible) has Yes/No buttons enabled
+    const p3Yes = player3.locator('button:has-text("Yes")');
+    const p3No = player3.locator('button:has-text("No")');
+    await expect(p3Yes).toBeEnabled();
+    await expect(p3No).toBeEnabled();
+  });
+
+  test("reset_vote_buttons_disabled_for_late_joiner", async ({
+    browser,
+  }, testInfo) => {
+    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
+    const player1 = await createPlayer(browser, baseURL);
+    const player2 = await createPlayer(browser, baseURL);
+    const player3 = await createPlayer(browser, baseURL);
+
+    await player1.goto("/");
+    await player2.goto("/");
+    await player3.goto("/");
+
+    await player1.waitForSelector(".app-container");
+    await player2.waitForSelector(".app-container");
+    await player3.waitForSelector(".app-container");
+
+    // P1 + P3 → White, P2 → Black
+    await player1.click('button:has-text("Join White")');
+    await player1.waitForTimeout(500);
+    await player2.click('button:has-text("Join Black")');
+    await player2.waitForTimeout(500);
+    await player3.click('button:has-text("Join White")');
+    await player3.waitForTimeout(500);
+
+    // Start game
+    await makeMove(player1, "e2", "e4");
+    await player1.waitForTimeout(1000);
+
+    // Player 2 starts reset vote
+    await player2.click('button:has-text("Reset Game")');
+    await player2.waitForTimeout(500);
+
+    // Player 4 joins late
+    const player4 = await createPlayer(browser, baseURL);
+    await player4.goto("/");
+    await player4.waitForSelector(".app-container");
+    await player4.waitForTimeout(1000);
+
+    // Assert: P4 (late joiner) sees reset vote but Yes/No buttons are disabled
+    const p4Yes = player4.locator('button:has-text("Yes")');
+    const p4No = player4.locator('button:has-text("No")');
+    await expect(p4Yes).toBeVisible({ timeout: 5000 });
+    await expect(p4Yes).toBeDisabled();
+    await expect(p4No).toBeDisabled();
+
+    // Assert: P1 (eligible) has Yes/No buttons enabled
+    const p1Yes = player1.locator('button:has-text("Yes")');
+    const p1No = player1.locator('button:has-text("No")');
+    await expect(p1Yes).toBeEnabled();
+    await expect(p1No).toBeEnabled();
+  });
 });
 
 // ---------------------------------------------------------------------------
