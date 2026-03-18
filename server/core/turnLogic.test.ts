@@ -79,6 +79,40 @@ describe("turnLogic", () => {
       expect(shouldFinalizeTurn(state, online)).toBe(true);
     });
 
+    it("returns false when status is FinalizingTurn", () => {
+      const proposals = new Map([
+        ["p1", { lan: "e2e4", san: "e4", name: "Alice" }],
+      ]);
+      const state = {
+        status: GameStatus.FinalizingTurn,
+        side: "white" as const,
+        moveNumber: 1,
+        whiteTime: 600,
+        blackTime: 600,
+        proposals,
+      };
+      const online = { activeTeamPids: new Set(["p1"]) };
+
+      expect(shouldFinalizeTurn(state, online)).toBe(false);
+    });
+
+    it("returns false when status is Over", () => {
+      const proposals = new Map([
+        ["p1", { lan: "e2e4", san: "e4", name: "Alice" }],
+      ]);
+      const state = {
+        status: GameStatus.Over,
+        side: "white" as const,
+        moveNumber: 1,
+        whiteTime: 600,
+        blackTime: 600,
+        proposals,
+      };
+      const online = { activeTeamPids: new Set(["p1"]) };
+
+      expect(shouldFinalizeTurn(state, online)).toBe(false);
+    });
+
     it("ignores proposals from offline players", () => {
       const proposals = new Map([
         ["p1", { lan: "e2e4", san: "e4", name: "Alice" }],
