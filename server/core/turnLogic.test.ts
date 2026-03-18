@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { Chess } from "chess.js";
 import {
+  DEFAULT_CLOCK_TIME,
+  INCREMENT_THRESHOLD,
+  TIME_INCREMENT,
+} from "../constants.js";
+import {
   shouldFinalizeTurn,
   calculateIncrement,
   validateAndApplyMove,
@@ -95,17 +100,17 @@ describe("turnLogic", () => {
   });
 
   describe("calculateIncrement", () => {
-    it("returns 10 when time is 60 or less", () => {
-      expect(calculateIncrement(60)).toBe(10);
-      expect(calculateIncrement(30)).toBe(10);
-      expect(calculateIncrement(1)).toBe(10);
-      expect(calculateIncrement(0)).toBe(10);
+    it("returns TIME_INCREMENT when time is at or below INCREMENT_THRESHOLD", () => {
+      expect(calculateIncrement(INCREMENT_THRESHOLD)).toBe(TIME_INCREMENT);
+      expect(calculateIncrement(30)).toBe(TIME_INCREMENT);
+      expect(calculateIncrement(1)).toBe(TIME_INCREMENT);
+      expect(calculateIncrement(0)).toBe(TIME_INCREMENT);
     });
 
-    it("returns 0 when time is above 60", () => {
-      expect(calculateIncrement(61)).toBe(0);
+    it("returns 0 when time is above INCREMENT_THRESHOLD", () => {
+      expect(calculateIncrement(INCREMENT_THRESHOLD + 1)).toBe(0);
       expect(calculateIncrement(100)).toBe(0);
-      expect(calculateIncrement(600)).toBe(0);
+      expect(calculateIncrement(DEFAULT_CLOCK_TIME)).toBe(0);
     });
   });
 

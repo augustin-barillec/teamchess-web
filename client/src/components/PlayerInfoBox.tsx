@@ -1,3 +1,5 @@
+import { LOW_TIME_THRESHOLD } from "../constants";
+
 interface PlayerInfoBoxProps {
   clockTime: number;
   lostPieces: string[];
@@ -11,7 +13,7 @@ export const PlayerInfoBox: React.FC<PlayerInfoBoxProps> = ({
   materialAdv,
   isActive,
 }) => {
-  const isLowTime = clockTime > 0 && clockTime <= 60;
+  const isLowTime = clockTime > 0 && clockTime <= LOW_TIME_THRESHOLD;
 
   return (
     <div className="game-player-info">

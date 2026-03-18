@@ -2,7 +2,7 @@ import { Server } from "socket.io";
 import { Chess } from "chess.js";
 import type { Session, GameState, Engine, PlayerSide } from "../types.js";
 import { GameStatus } from "../shared_types.js";
-import { DEFAULT_TIME } from "../constants.js";
+import { DEFAULT_CLOCK_TIME } from "../constants.js";
 
 /**
  * Minimal socket interface for dependency injection.
@@ -128,8 +128,8 @@ export function createInitialGameState(engine: Engine): GameState {
     moveNumber: 1,
     side: "white",
     proposals: new Map(),
-    whiteTime: DEFAULT_TIME,
-    blackTime: DEFAULT_TIME,
+    whiteTime: DEFAULT_CLOCK_TIME,
+    blackTime: DEFAULT_CLOCK_TIME,
     timerInterval: undefined,
     engine,
     chess: new Chess(),

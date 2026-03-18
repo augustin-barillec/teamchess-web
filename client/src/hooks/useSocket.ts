@@ -14,7 +14,7 @@ import {
   ResetVoteState,
 } from "../types";
 import { Turn } from "../types";
-import { STORAGE_KEYS } from "../constants";
+import { DEFAULT_CLOCK_TIME, STORAGE_KEYS } from "../constants";
 import {
   reasonMessages,
   gameOverFallback,
@@ -128,7 +128,10 @@ export function useSocket({
     myCurrentVote: null,
   });
   const [_hasUnreadMessages, setHasUnreadMessages] = useState(false);
-  const prevClocks = useRef({ whiteTime: 600, blackTime: 600 });
+  const prevClocks = useRef({
+    whiteTime: DEFAULT_CLOCK_TIME,
+    blackTime: DEFAULT_CLOCK_TIME,
+  });
 
   // Socket initialization
   useEffect(() => {
@@ -208,7 +211,10 @@ export function useSocket({
         setLastMoveSquares(null);
         setDrawOffer(null);
 
-        prevClocks.current = { whiteTime: 600, blackTime: 600 };
+        prevClocks.current = {
+          whiteTime: DEFAULT_CLOCK_TIME,
+          blackTime: DEFAULT_CLOCK_TIME,
+        };
 
         sounds.play("start");
       }
@@ -223,7 +229,10 @@ export function useSocket({
       setClocks({ whiteTime: 0, blackTime: 0 });
       setLastMoveSquares(null);
       setDrawOffer(null);
-      prevClocks.current = { whiteTime: 600, blackTime: 600 };
+      prevClocks.current = {
+        whiteTime: DEFAULT_CLOCK_TIME,
+        blackTime: DEFAULT_CLOCK_TIME,
+      };
       sounds.play("reset");
     });
 

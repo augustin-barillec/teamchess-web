@@ -27,7 +27,7 @@ import {
   clearResetVote,
   broadcastResetVote,
 } from "../voting/resetVote.js";
-import { DEFAULT_TIME } from "../constants.js";
+import { DEFAULT_CLOCK_TIME } from "../constants.js";
 import { MSG, VOTE_REASONS } from "../shared_messages.js";
 
 export function handleSetName(
@@ -123,8 +123,8 @@ export function executeGameReset(ctx: IGameContext = globalContext): void {
   sendSystemMessage(MSG.gameReset, ctx);
   io.emit("game_reset");
   io.emit("clock_update", {
-    whiteTime: DEFAULT_TIME,
-    blackTime: DEFAULT_TIME,
+    whiteTime: DEFAULT_CLOCK_TIME,
+    blackTime: DEFAULT_CLOCK_TIME,
   });
   broadcastTeamVote("white", ctx);
   broadcastTeamVote("black", ctx);

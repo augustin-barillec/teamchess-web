@@ -1,6 +1,7 @@
 import { Chess } from "chess.js";
 import { GameStatus, EndReason } from "../shared_types.js";
 import type { PlayerSide } from "../types.js";
+import { INCREMENT_THRESHOLD, TIME_INCREMENT } from "../constants.js";
 
 export interface TurnState {
   status: GameStatus;
@@ -38,7 +39,7 @@ export function shouldFinalizeTurn(
  * Returns 10 seconds if time is 60 or less, 0 otherwise.
  */
 export function calculateIncrement(currentTime: number): number {
-  return currentTime <= 60 ? 10 : 0;
+  return currentTime <= INCREMENT_THRESHOLD ? TIME_INCREMENT : 0;
 }
 
 export interface MoveResult {
