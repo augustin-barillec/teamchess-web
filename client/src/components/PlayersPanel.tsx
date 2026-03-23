@@ -173,12 +173,10 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
       <li key={p.id} style={{ flexDirection: "column", alignItems: "stretch" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           {isMe ? (
-            <strong>
-              <button className="clickable-name" onClick={openNameModal}>
-                {p.name}
-                {p.name === DEFAULT_PLAYER_NAME ? " ✏️" : ""}
-              </button>
-            </strong>
+            <button className="clickable-name" onClick={openNameModal}>
+              {p.name} (You)
+              {p.name === DEFAULT_PLAYER_NAME ? " ✏️" : ""}
+            </button>
           ) : (
             <span>{p.name}</span>
           )}
