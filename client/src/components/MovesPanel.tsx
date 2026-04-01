@@ -45,11 +45,8 @@ export const MovesPanel: React.FC<MovesPanelProps> = ({
                     return (
                       <li key={p.id}>
                         {" "}
-                        {p.id === myId ? (
-                          <strong>{p.name}</strong>
-                        ) : (
-                          p.name
-                        )}{" "}
+                        {p.name}
+                        {p.id === myId && " (You)"}{" "}
                         {isSel ? (
                           <span className="moves-list-item">{p.san}</span>
                         ) : (
