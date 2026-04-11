@@ -110,6 +110,13 @@
 }
 
 @media (min-width: 900.01px) {
+  .main-layout {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    align-items: stretch;
+  }
+
   .info-column {
     display: contents;
   }
@@ -123,37 +130,53 @@
   }
 
   .tab-panel {
-    display: block !important;
+    display: flex !important;
+    flex-direction: column;
     background: var(--color-bg-surface-alt);
     border: 1px solid var(--color-border-primary);
     border-radius: 8px;
     overflow: hidden;
-    position: sticky;
-    top: 20px;
-    flex-grow: 1;
-    flex-shrink: 1;
-    flex-basis: 20%;
-    min-width: 220px;
+    min-height: 0;
   }
 
   .game-column {
-    flex-grow: 0;
-    flex-shrink: 1;
-    flex-basis: 50%;
-    max-width: 70vh;
+    grid-column: 2;
+    grid-row: 1 / -1;
+    max-width: 80vh;
     min-width: 350px;
+    width: 100%;
+    justify-self: center;
   }
 
-  .players-panel,
-  .moves-panel,
-  .controls-panel {
-    flex-basis: 12%;
-    min-width: 140px;
+  .board-wrapper,
+  .game-player-info {
+    max-width: none;
   }
 
+  .players-panel {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .moves-panel {
+    grid-column: 1;
+    grid-row: 2;
+  }
   .chat-panel {
-    flex-basis: 20%;
-    min-width: 200px;
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .controls-panel {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .chat-box-container,
+  .moves-list,
+  .player-lists-container,
+  .controls-panel-content {
+    flex-grow: 1;
+    min-height: 0;
+    height: auto;
   }
 
   .tab-panel > h3 {
@@ -163,6 +186,8 @@
     padding: 10px 10px 8px 10px;
     border-bottom: 1px solid var(--color-border-primary);
     background: var(--color-bg-inset);
+    flex-shrink: 0;
+    text-align: center;
   }
 
   .unread-dot {
