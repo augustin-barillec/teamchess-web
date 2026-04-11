@@ -149,11 +149,14 @@
   height: 600px;
   overflow-y: auto;
   background: var(--color-bg-surface);
+  text-align: center;
 }
 .player-list li {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
+  padding: 4px;
 }
 
 .controls-panel-content {

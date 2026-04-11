@@ -171,7 +171,15 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
 
     return (
       <li key={p.id} style={{ flexDirection: "column", alignItems: "stretch" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            justifyContent: "center",
+            position: "relative",
+          }}
+        >
           {isMe ? (
             <button className="clickable-name" onClick={openNameModal}>
               {p.name}
@@ -187,7 +195,8 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
               onClick={() => onStartKickVote(p.id)}
               title={UI.kickVoteTooltip(p.name)}
               style={{
-                marginLeft: "auto",
+                position: "absolute",
+                right: 0,
                 background: "none",
                 border: "1px solid var(--color-border-primary)",
                 borderRadius: "4px",
