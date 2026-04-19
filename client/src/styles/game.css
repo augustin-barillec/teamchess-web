@@ -133,7 +133,8 @@
   text-overflow: ellipsis;
   min-width: 0;
 }
-.vote-banner-yes-list {
+.vote-banner-yes-list,
+.vote-banner-no-list {
   font-style: normal;
   color: var(--color-text-secondary);
 }

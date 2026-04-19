@@ -555,6 +555,12 @@ export default function App() {
                 &bull; Yes: {resetVote.yesVotes.join(", ")}
               </span>
             )}
+            {resetVote.noVotes.length > 0 && (
+              <span className="vote-banner-no-list">
+                {" "}
+                &bull; No: {resetVote.noVotes.join(", ")}
+              </span>
+            )}
           </div>
         </div>
         <div className="vote-banner-buttons">
