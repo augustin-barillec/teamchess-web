@@ -59,3 +59,100 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+.player-info-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: 0.5rem;
+}
+
+.action-icon-btn {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  opacity: 0.85;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+.action-icon-btn:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+.action-icon-btn .draw-glyph {
+  font-size: 1.4rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.vote-banner {
+  background: var(--color-vote-bg);
+  border: 1px solid var(--color-vote-border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+.vote-banner-info {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.2;
+}
+.vote-banner-title {
+  font-weight: bold;
+  font-size: 0.95em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.vote-banner-meta {
+  font-size: 0.85em;
+  color: var(--color-text-tertiary);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.vote-banner-yes-list {
+  font-style: normal;
+  color: var(--color-text-secondary);
+}
+.vote-banner-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.vote-banner-buttons button {
+  font-weight: bold;
+  margin: 0;
+}
+.vote-yes-btn:not(:disabled) {
+  background: var(--color-vote-yes-bg);
+  border-color: var(--color-vote-yes-border);
+  color: var(--color-vote-yes-text);
+}
+.vote-no-btn:not(:disabled) {
+  background: var(--color-vote-no-bg);
+  border-color: var(--color-vote-no-border);
+  color: var(--color-vote-no-text);
+}

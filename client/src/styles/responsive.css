@@ -120,26 +120,41 @@
   .main-layout {
     display: grid;
     grid-template-columns: 1fr 2fr 1fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-rows: auto auto auto;
     align-items: stretch;
+    align-content: start;
+    gap: 1rem;
     flex-grow: 1;
     min-height: 0;
   }
 
-  .info-column {
-    display: contents;
+  .side-left {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 0;
+  }
+  .side-left .tab-panel {
+    flex: 1 1 0;
+    min-height: 0;
   }
 
-  .info-tabs-nav {
-    display: none;
+  .side-right {
+    grid-column: 3;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
-
-  .info-tabs-content {
-    display: contents;
+  .side-right .tab-panel {
+    flex: 1;
+    min-height: 0;
   }
 
   .tab-panel {
-    display: flex !important;
+    display: flex;
     flex-direction: column;
     background: var(--color-bg-surface-alt);
     border: 1px solid var(--color-border-primary);
@@ -149,12 +164,31 @@
   }
 
   .game-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
     grid-column: 2;
-    grid-row: 1 / -1;
-    max-width: 80vh;
+    grid-row: 1;
     min-width: 350px;
     width: 100%;
+    max-width: min(80vh, calc(100vh - 340px));
     justify-self: center;
+    min-height: 0;
+  }
+
+  .bottom-clock-row {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: center;
+    width: 100%;
+    max-width: min(80vh, calc(100vh - 340px));
+  }
+  .vote-row {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: center;
+    width: 100%;
+    max-width: min(80vh, calc(100vh - 340px));
   }
 
   .board-wrapper,
@@ -162,27 +196,9 @@
     max-width: none;
   }
 
-  .players-panel {
-    grid-column: 1;
-    grid-row: 1;
-  }
-  .moves-panel {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  .chat-panel {
-    grid-column: 3;
-    grid-row: 1;
-  }
-  .controls-panel {
-    grid-column: 3;
-    grid-row: 2;
-  }
-
   .chat-box-container,
   .moves-list,
-  .player-lists-container,
-  .controls-panel-content {
+  .player-lists-container {
     flex-grow: 1;
     min-height: 0;
     height: auto;
@@ -197,15 +213,6 @@
     background: var(--color-bg-inset);
     flex-shrink: 0;
     text-align: center;
-  }
-
-  .unread-dot {
-    display: none;
-  }
-
-  .action-panel-desktop-left {
-    justify-content: flex-start;
-    flex-grow: 1;
   }
 }
 

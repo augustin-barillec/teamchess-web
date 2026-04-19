@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { LOW_TIME_THRESHOLD } from "../constants";
 
 interface PlayerInfoBoxProps {
@@ -5,6 +6,7 @@ interface PlayerInfoBoxProps {
   lostPieces: string[];
   materialAdv: number;
   isActive: boolean;
+  actionSlot?: ReactNode;
 }
 
 export const PlayerInfoBox: React.FC<PlayerInfoBoxProps> = ({
@@ -12,6 +14,7 @@ export const PlayerInfoBox: React.FC<PlayerInfoBoxProps> = ({
   lostPieces,
   materialAdv,
   isActive,
+  actionSlot,
 }) => {
   const isLowTime = clockTime > 0 && clockTime <= LOW_TIME_THRESHOLD;
 
@@ -34,6 +37,7 @@ export const PlayerInfoBox: React.FC<PlayerInfoBoxProps> = ({
           {materialAdv > 0 ? `+${materialAdv}` : ""}
         </span>
       </div>
+      {actionSlot && <div className="player-info-actions">{actionSlot}</div>}
     </div>
   );
 };

@@ -86,14 +86,14 @@
   align-self: flex-start;
 }
 .chat-message-item.system {
-  font-style: italic;
-  text-align: center;
-  color: var(--color-text-secondary);
-  padding: 0.25rem 0.5rem;
-  background: none;
+  align-self: flex-start;
+  background: transparent;
   border: none;
-  align-self: center;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  max-width: 100%;
   white-space: pre-line;
+  padding: 0.25rem 0.5rem;
 }
 .chat-message-item.own {
   align-self: flex-end;
@@ -132,13 +132,11 @@
 }
 .move-turn-header > strong {
   display: block;
-  text-align: center;
 }
 .move-turn-header ul {
   list-style: none;
   padding: 0;
   margin: 4px 0;
-  text-align: center;
 }
 
 .player-lists-container {
@@ -149,14 +147,75 @@
   height: 600px;
   overflow-y: auto;
   background: var(--color-bg-surface);
-  text-align: center;
 }
 .player-list li {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 0.5rem;
   padding: 4px;
+}
+
+.player-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.player-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 4px 0;
+}
+.player-section-heading h3 {
+  margin: 0;
+}
+.join-btn {
+  padding: 2px 8px;
+  font-size: 0.8em;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-primary);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+.join-btn:hover {
+  background: var(--color-bg-hover);
+}
+.kick-btn {
+  padding: 2px 6px;
+  font-size: 0.75em;
+  background: transparent;
+  border: 1px solid var(--color-border-primary);
+  color: var(--color-vote-disabled-text);
+  border-radius: 4px;
+  line-height: 1;
+  margin: 0;
+}
+.kick-btn:hover {
+  background: var(--color-accent-red-muted);
+  color: var(--color-text-primary);
+}
+
+.auto-assign-btn {
+  align-self: flex-start;
+  padding: 4px;
+  margin: 0;
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    transform 0.1s;
+}
+.auto-assign-btn:hover {
+  background: transparent;
+  opacity: 1;
+  color: var(--color-text-primary);
+  transform: scale(1.1);
 }
 
 .controls-panel-content {

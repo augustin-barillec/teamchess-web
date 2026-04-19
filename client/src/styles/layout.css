@@ -41,6 +41,40 @@
   flex-wrap: wrap;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1em;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  line-height: 1;
+  color: var(--color-text-primary);
+  opacity: 0.75;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    transform 0.1s;
+}
+.icon-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  background: transparent;
+}
+
 .main-layout {
   display: flex;
   align-items: flex-start;

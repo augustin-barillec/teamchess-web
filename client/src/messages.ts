@@ -45,6 +45,18 @@ export const UI = {
   btnUnmuteSounds: "🔊 Unmute Sounds",
   btnKick: "Kick",
   btnClose: "Close",
+  btnJoin: "Join",
+
+  // Desktop (icon-button) labels & tooltips
+  btnResignLabel: "Resign",
+  btnOfferDrawLabel: "Offer Draw",
+  btnResetLabel: "Reset",
+  btnMuteLabel: "Mute",
+  btnUnmuteLabel: "Unmute",
+  btnCopyPgnLabel: "PGN",
+  tooltipCopyPgn: "Copy PGN",
+  tooltipAutoAssign: "Auto assign",
+  drawOfferPending: "Draw offered",
 
   // Vote UI
   voteTypeResign: "Resign",

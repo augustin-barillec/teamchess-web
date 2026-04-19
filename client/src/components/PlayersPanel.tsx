@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Players, KickVoteState } from "../types";
+import { Players, KickVoteState, GameStatus } from "../types";
 import { DisconnectedIcon } from "../DisconnectedIcon";
 import { DEFAULT_PLAYER_NAME, UI } from "../messages";
 
@@ -13,6 +13,12 @@ interface PlayersPanelProps {
   kickVote: KickVoteState;
   onStartKickVote: (targetId: string) => void;
   onSendKickVote: (vote: "yes" | "no") => void;
+  /** Desktop-only: when provided, renders join/auto-assign controls in section headings. */
+  showJoinControls?: boolean;
+  side?: "white" | "black" | "spectator";
+  gameStatus?: GameStatus;
+  joinSide?: (target: "white" | "black" | "spectator") => void;
+  autoAssign?: () => void;
 }
 
 function KickVoteBox({
@@ -159,7 +165,30 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
   kickVote,
   onStartKickVote,
   onSendKickVote,
+  showJoinControls = false,
+  side,
+  gameStatus,
+  joinSide,
+  autoAssign,
 }) => {
+  const isSetup = gameStatus === GameStatus.Setup;
+  const canJoin = (target: "white" | "black" | "spectator") => {
+    if (!showJoinControls) return false;
+    if (!gameStatus || gameStatus === GameStatus.Over) return false;
+    if (side === target) return false;
+    if (
+      (target === "white" || target === "black") &&
+      side !== "spectator" &&
+      !isSetup
+    )
+      return false;
+    return true;
+  };
+  const showAutoAssign =
+    showJoinControls &&
+    gameStatus !== undefined &&
+    gameStatus !== GameStatus.Over &&
+    side === "spectator";
   const renderPlayerEntry = (
     p: { id: string; name: string; connected: boolean },
     teamSide?: "white" | "black"
@@ -176,8 +205,6 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
-            justifyContent: "center",
-            position: "relative",
           }}
         >
           {isMe ? (
@@ -192,20 +219,9 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
           {teamSide && hasPlayed(p.id, teamSide) && <span>✔️</span>}
           {showKickButton && (
             <button
+              className="kick-btn"
               onClick={() => onStartKickVote(p.id)}
               title={UI.kickVoteTooltip(p.name)}
-              style={{
-                position: "absolute",
-                right: 0,
-                background: "none",
-                border: "1px solid var(--color-border-primary)",
-                borderRadius: "4px",
-                padding: "2px 6px",
-                fontSize: "0.75em",
-                color: "var(--color-vote-disabled-text)",
-                cursor: "pointer",
-                lineHeight: 1,
-              }}
             >
               {UI.btnKick}
             </button>
@@ -218,6 +234,30 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
     );
   };
 
+  const renderSection = (
+    target: "white" | "black" | "spectator",
+    label: string,
+    list: { id: string; name: string; connected: boolean }[]
+  ) => {
+    const joinable = canJoin(target);
+    const teamSide = target === "spectator" ? undefined : target;
+    return (
+      <div className="player-section">
+        <div className="player-section-heading">
+          <h3>{label}</h3>
+          {joinable && joinSide && (
+            <button className="join-btn" onClick={() => joinSide(target)}>
+              {UI.btnJoin}
+            </button>
+          )}
+        </div>
+        <ul className="player-list">
+          {list.map((p) => renderPlayerEntry(p, teamSide))}
+        </ul>
+      </div>
+    );
+  };
+
   return (
     <div
       className={
@@ -226,24 +266,63 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
     >
       <h3>{UI.headingPlayers}</h3>
       <div className="player-lists-container">
-        <div>
-          <h3>{UI.headingSpectators}</h3>
-          <ul className="player-list">
-            {players.spectators.map((p) => renderPlayerEntry(p))}
-          </ul>
-        </div>
-        <div>
-          <h3>{UI.headingWhite}</h3>
-          <ul className="player-list">
-            {players.whitePlayers.map((p) => renderPlayerEntry(p, "white"))}
-          </ul>
-        </div>
-        <div>
-          <h3>{UI.headingBlack}</h3>
-          <ul className="player-list">
-            {players.blackPlayers.map((p) => renderPlayerEntry(p, "black"))}
-          </ul>
-        </div>
+        {showAutoAssign && autoAssign && (
+          <button
+            className="auto-assign-btn"
+            onClick={autoAssign}
+            title={UI.tooltipAutoAssign}
+            aria-label={UI.tooltipAutoAssign}
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="m16 3 4 4-4 4" />
+              <path d="M20 7H4" />
+              <path d="m8 21-4-4 4-4" />
+              <path d="M4 17h16" />
+            </svg>
+          </button>
+        )}
+        {showJoinControls ? (
+          <>
+            {renderSection("white", UI.headingWhite, players.whitePlayers)}
+            {renderSection("black", UI.headingBlack, players.blackPlayers)}
+            {renderSection(
+              "spectator",
+              UI.headingSpectators,
+              players.spectators
+            )}
+          </>
+        ) : (
+          <>
+            <div>
+              <h3>{UI.headingSpectators}</h3>
+              <ul className="player-list">
+                {players.spectators.map((p) => renderPlayerEntry(p))}
+              </ul>
+            </div>
+            <div>
+              <h3>{UI.headingWhite}</h3>
+              <ul className="player-list">
+                {players.whitePlayers.map((p) => renderPlayerEntry(p, "white"))}
+              </ul>
+            </div>
+            <div>
+              <h3>{UI.headingBlack}</h3>
+              <ul className="player-list">
+                {players.blackPlayers.map((p) => renderPlayerEntry(p, "black"))}
+              </ul>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
