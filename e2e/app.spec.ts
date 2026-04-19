@@ -120,6 +120,10 @@ async function makeMove(
   await page.mouse.up();
 }
 
+// Desktop UI note: viewport is 1280x720 → desktop layout renders. Join controls
+// live inline in each `.player-section` heading ("Join" button). Action icons
+// (Resign, Offer Draw, Reset, Copy PGN) use aria-label or title attributes.
+
 // ---------------------------------------------------------------------------
 // 1. Game and Social
 // ---------------------------------------------------------------------------
@@ -137,22 +141,22 @@ test.describe("Game and Social", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 clicks Auto Assign — should join Black (balancing teams)
-    await player2.click('button:has-text("Auto Assign")');
+    await player2.click('button[aria-label="Auto assign"]');
     await player2.waitForTimeout(500);
 
     // Assert: Black team has 1 player
     const blackPlayers = player1.locator(
-      '.players-panel h3:has-text("Black") + ul.player-list li'
+      '.player-section:has(h3:has-text("Black")) ul.player-list li'
     );
     await expect(blackPlayers).toHaveCount(1);
 
     // Assert: White team has 1 player
     const whitePlayers = player1.locator(
-      '.players-panel h3:has-text("White") + ul.player-list li'
+      '.player-section:has(h3:has-text("White")) ul.player-list li'
     );
     await expect(whitePlayers).toHaveCount(1);
   });
@@ -184,7 +188,9 @@ test.describe("Game and Social", () => {
     await player1.waitForTimeout(500);
 
     // Assert: Player 1 sees their new name "toto1"
-    await expect(player1.locator("button.clickable-name")).toHaveText("toto1");
+    await expect(player1.locator("button.clickable-name")).toHaveText(
+      "toto1 (You)"
+    );
 
     // Assert: Player 2 sees "toto1" in the players list
     await expect(player2.locator(".players-panel")).toContainText("toto1");
@@ -280,11 +286,11 @@ test.describe("Game and Social", () => {
     await spectator.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Spectator stays as spectator (default)
@@ -373,15 +379,15 @@ test.describe("Gameplay Mechanics", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White team
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black team
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 3 joins Black team
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4
@@ -433,15 +439,15 @@ test.describe("Gameplay Mechanics", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 3 joins Black
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4
@@ -461,7 +467,7 @@ test.describe("Gameplay Mechanics", () => {
     const player4 = await createPlayer(browser, baseURL);
     await player4.goto("/");
     await player4.waitForSelector(".app-container");
-    await player4.click('button:has-text("Join Black")');
+    await player4.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player4.waitForTimeout(500);
 
     // Player 4 (Black) proposes the best move: e7-e5
@@ -498,11 +504,11 @@ test.describe("Gameplay Mechanics", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White team
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black team
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Sequence of moves to get white pawn to h8:
@@ -574,11 +580,11 @@ test.describe("Gameplay Mechanics", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White team
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black team
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Same sequence as pawn_promotion_to_queen:
@@ -636,11 +642,11 @@ test.describe("Gameplay Mechanics", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4 — starts game, now it's Black's turn
@@ -677,13 +683,13 @@ test.describe("Gameplay Mechanics", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 and Player 3 join Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4 — starts game, Black's turn
@@ -714,11 +720,11 @@ test.describe("Gameplay Mechanics", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 2 (Black) tries to play e7-e5 — should be blocked (only White can start)
@@ -757,15 +763,15 @@ test.describe("Game End Conditions", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 3 joins Black
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // === Fool's Mate: 1. f3 e5 2. g4 Qh4# ===
@@ -796,7 +802,7 @@ test.describe("Game End Conditions", () => {
     await player3.waitForTimeout(3000);
 
     // Assert: Game is over — "Copy PGN" button appears
-    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
       timeout: 5000,
     });
 
@@ -821,9 +827,9 @@ test.describe("Game End Conditions", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White, Player 2 joins Black (1 per team — single proposal wins immediately)
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // === Fool's Mate: 1. f3 e5 2. g4 Qh4# 0-1 ===
@@ -845,12 +851,12 @@ test.describe("Game End Conditions", () => {
     await player2.waitForTimeout(1000);
 
     // Wait for game over — "Copy PGN" button appears
-    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
       timeout: 5000,
     });
 
     // Click "Copy PGN" and verify toast
-    await player1.click('button:has-text("Copy PGN")');
+    await player1.click('button[title="Copy PGN"]');
     await expect(player1.locator("text=PGN copied!")).toBeVisible();
 
     // Read clipboard
@@ -882,15 +888,15 @@ test.describe("Game End Conditions", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 3 joins Black
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // === Threefold repetition: Nf3 Nf6 Ng1 Ng8 (x2) ===
@@ -929,7 +935,7 @@ test.describe("Game End Conditions", () => {
     await player3.waitForTimeout(3000);
 
     // Assert: Game is over — "Copy PGN" button appears
-    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
       timeout: 5000,
     });
 
@@ -951,11 +957,11 @@ test.describe("Game End Conditions", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 1 plays e2-e4 (starts the game)
@@ -963,11 +969,13 @@ test.describe("Game End Conditions", () => {
     await player1.waitForTimeout(1000);
 
     // Player 2 joins spectators — black team is now empty
-    await player2.click('button:has-text("Join Spectators")');
+    await player2.click(
+      '.player-section:has(h3:has-text("Spectators")) .join-btn'
+    );
     await player2.waitForTimeout(1000);
 
     // Assert: Game is over — "Copy PGN" button appears (only visible when game is Over)
-    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
       timeout: 5000,
     });
 
@@ -989,11 +997,11 @@ test.describe("Game End Conditions", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 1 plays e2-e4 (starts the game)
@@ -1007,7 +1015,7 @@ test.describe("Game End Conditions", () => {
     await player1.waitForTimeout(25000);
 
     // Assert: Game is over — "Copy PGN" button appears
-    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
       timeout: 5000,
     });
 
@@ -1033,15 +1041,15 @@ test.describe("Game End Conditions", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 3 joins Black
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // === Sam Loyd's shortest stalemate (10 moves) ===
@@ -1144,7 +1152,7 @@ test.describe("Game End Conditions", () => {
     await player1.waitForTimeout(2000);
 
     // Assert: Game is over — "Copy PGN" button appears
-    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
       timeout: 5000,
     });
 
@@ -1171,11 +1179,11 @@ test.describe("Game End Conditions", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 1 plays e2-e4 (starts the game)
@@ -1201,9 +1209,7 @@ test.describe("Game End Conditions", () => {
     ).not.toBeVisible();
 
     // Assert: Game is NOT over — no "Copy PGN" button (no forfeit happened)
-    await expect(
-      player1.locator('button:has-text("Copy PGN")')
-    ).not.toBeVisible();
+    await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
   });
 });
 
@@ -1230,15 +1236,15 @@ test.describe("Voting", () => {
     await player4.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2, 3, 4 join Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
-    await player4.click('button:has-text("Join Black")');
+    await player4.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player4.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4
@@ -1246,7 +1252,7 @@ test.describe("Voting", () => {
     await player1.waitForTimeout(1000);
 
     // Player 2 starts a resign vote (auto-votes yes as initiator)
-    await player2.click('button:has-text("Resign")');
+    await player2.click('button[aria-label="Resign"]');
     await player2.waitForTimeout(500);
 
     // Player 3 votes No — vote fails immediately (unanimous required)
@@ -1254,9 +1260,7 @@ test.describe("Voting", () => {
     await player3.waitForTimeout(1000);
 
     // Assert: Game is NOT over — no "Copy PGN" button
-    await expect(
-      player1.locator('button:has-text("Copy PGN")')
-    ).not.toBeVisible();
+    await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
 
     // Assert: Board still has the position (white pawn on e4)
     await expect(
@@ -1282,15 +1286,15 @@ test.describe("Voting", () => {
     await player4.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2, 3, 4 join Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
-    await player4.click('button:has-text("Join Black")');
+    await player4.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player4.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4
@@ -1298,7 +1302,7 @@ test.describe("Voting", () => {
     await player1.waitForTimeout(1000);
 
     // Player 2 starts a resign vote (auto-votes yes as initiator)
-    await player2.click('button:has-text("Resign")');
+    await player2.click('button[aria-label="Resign"]');
     await player2.waitForTimeout(500);
 
     // Player 3 votes Yes
@@ -1310,7 +1314,7 @@ test.describe("Voting", () => {
     await player4.waitForTimeout(1000);
 
     // Assert: Game is over — "Copy PGN" button appears
-    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
       timeout: 5000,
     });
 
@@ -1335,15 +1339,15 @@ test.describe("Voting", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 3 joins Black
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4 to start the game
@@ -1351,7 +1355,7 @@ test.describe("Voting", () => {
     await player1.waitForTimeout(1000);
 
     // Player 2 starts a reset game vote (auto-votes yes as initiator)
-    await player2.click('button:has-text("Reset Game")');
+    await player2.click('button[aria-label="Reset"]');
     await player2.waitForTimeout(500);
 
     // Player 1 votes No
@@ -1391,15 +1395,15 @@ test.describe("Voting", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 3 joins Black
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4 to start the game
@@ -1407,7 +1411,7 @@ test.describe("Voting", () => {
     await player1.waitForTimeout(1000);
 
     // Player 2 starts a reset game vote (auto-votes yes as initiator)
-    await player2.click('button:has-text("Reset Game")');
+    await player2.click('button[aria-label="Reset"]');
     await player2.waitForTimeout(500);
 
     // Player 1 votes No
@@ -1441,11 +1445,11 @@ test.describe("Voting", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White (solo)
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black (solo)
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4 to start the game
@@ -1454,11 +1458,11 @@ test.describe("Voting", () => {
 
     // Player 1 clicks Resign — solo player gets confirm dialog → accept
     player1.on("dialog", (dialog) => dialog.accept());
-    await player1.click('button:has-text("Resign")');
+    await player1.click('button[aria-label="Resign"]');
     await player1.waitForTimeout(1000);
 
     // Assert: Game is over — "Copy PGN" button appears
-    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
       timeout: 5000,
     });
 
@@ -1484,15 +1488,15 @@ test.describe("Voting", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 3 joins Black
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4 to start the game
@@ -1500,7 +1504,7 @@ test.describe("Voting", () => {
     await player1.waitForTimeout(1000);
 
     // Player 2 starts a reset game vote (auto-votes yes)
-    await player2.click('button:has-text("Reset Game")');
+    await player2.click('button[aria-label="Reset"]');
     await player2.waitForTimeout(500);
 
     // Nobody else votes — wait for the vote to expire (20s + buffer)
@@ -1532,11 +1536,11 @@ test.describe("Voting", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 + Player 2 join White, Player 3 joins Black
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
-    await player2.click('button:has-text("Join White")');
+    await player2.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player2.waitForTimeout(500);
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Player 1 plays e2-e4 to start the game
@@ -1559,14 +1563,14 @@ test.describe("Voting", () => {
     });
 
     // Player 1 clicks Resign — gets confirm dialog (1 connected on team)
-    await player1.click('button:has-text("Resign")');
+    await player1.click('button[aria-label="Resign"]');
     await player1.waitForTimeout(1000);
 
     // Assert: dialog was triggered
     expect(dialogTriggered).toBe(true);
 
     // Assert: game over — "Copy PGN" visible
-    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
       timeout: 5000,
     });
 
@@ -1588,9 +1592,9 @@ test.describe("Voting", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White, Player 2 joins Black
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 1 plays e2-e4 to start the game
@@ -1613,7 +1617,7 @@ test.describe("Voting", () => {
     });
 
     // Player 1 clicks Reset Game — gets confirm dialog (alone connected)
-    await player1.click('button:has-text("Reset Game")');
+    await player1.click('button[aria-label="Reset"]');
     await player1.waitForTimeout(1000);
 
     // Assert: dialog was triggered
@@ -1671,11 +1675,11 @@ test.describe("Voting", () => {
     await player3.waitForTimeout(500);
 
     // Alice → White, Bob + Charlie → Black
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Alice plays e2-e4 to start the game
@@ -1683,7 +1687,7 @@ test.describe("Voting", () => {
     await player1.waitForTimeout(1000);
 
     // Bob clicks "Reset Game" (auto-votes yes)
-    await player2.click('button:has-text("Reset Game")');
+    await player2.click('button[aria-label="Reset"]');
     await player2.waitForTimeout(1000);
 
     // Assert on Alice's view: "Yes (1)" button visible, "Yes: Bob" label visible
@@ -1731,11 +1735,11 @@ test.describe("Voting", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 → White, Player 2 + 3 → Black
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Start game
@@ -1743,14 +1747,14 @@ test.describe("Voting", () => {
     await player1.waitForTimeout(1000);
 
     // Player 2 starts resign vote
-    await player2.click('button:has-text("Resign")');
+    await player2.click('button[aria-label="Resign"]');
     await player2.waitForTimeout(500);
 
     // Player 4 joins late, goes to Black
     const player4 = await createPlayer(browser, baseURL);
     await player4.goto("/");
     await player4.waitForSelector(".app-container");
-    await player4.click('button:has-text("Join Black")');
+    await player4.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player4.waitForTimeout(1000);
 
     // Assert: P4 (late joiner) sees vote but Yes/No buttons are disabled
@@ -1784,11 +1788,11 @@ test.describe("Voting", () => {
     await player3.waitForSelector(".app-container");
 
     // P1 + P3 → White, P2 → Black
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
-    await player3.click('button:has-text("Join White")');
+    await player3.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Start game
@@ -1796,7 +1800,7 @@ test.describe("Voting", () => {
     await player1.waitForTimeout(1000);
 
     // Player 2 starts reset vote
-    await player2.click('button:has-text("Reset Game")');
+    await player2.click('button[aria-label="Reset"]');
     await player2.waitForTimeout(500);
 
     // Player 4 joins late
@@ -1840,15 +1844,15 @@ test.describe("Draw Offers", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 3 joins Black
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4
@@ -1857,7 +1861,7 @@ test.describe("Draw Offers", () => {
 
     // Player 1 offers a draw (single player → confirm dialog)
     player1.on("dialog", (dialog) => dialog.accept());
-    await player1.click('button:has-text("Offer Draw")');
+    await player1.click('button[aria-label="Offer Draw"]');
     await player1.waitForTimeout(1000);
 
     // Player 2 and Player 3 see the accept_draw vote and click "Yes"
@@ -1867,7 +1871,7 @@ test.describe("Draw Offers", () => {
     await player3.waitForTimeout(1000);
 
     // Assert: Game is over — "Copy PGN" button appears
-    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
       timeout: 5000,
     });
 
@@ -1892,15 +1896,15 @@ test.describe("Draw Offers", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 3 joins Black
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4
@@ -1909,7 +1913,7 @@ test.describe("Draw Offers", () => {
 
     // Player 1 offers a draw (single player → confirm dialog)
     player1.on("dialog", (dialog) => dialog.accept());
-    await player1.click('button:has-text("Offer Draw")');
+    await player1.click('button[aria-label="Offer Draw"]');
     await player1.waitForTimeout(1000);
 
     // Player 2 votes Yes on the accept_draw vote
@@ -1921,9 +1925,7 @@ test.describe("Draw Offers", () => {
     await player3.waitForTimeout(1000);
 
     // Assert: Game is NOT over — no "Copy PGN" button
-    await expect(
-      player1.locator('button:has-text("Copy PGN")')
-    ).not.toBeVisible();
+    await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
 
     // Assert: Chat shows the draw rejection message (system message visible to all)
     await expect(player1.locator(".chat-messages")).toContainText(
@@ -1946,15 +1948,15 @@ test.describe("Draw Offers", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 3 joins Black
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4
@@ -1962,7 +1964,7 @@ test.describe("Draw Offers", () => {
     await player1.waitForTimeout(1000);
 
     // Player 2 starts an offer_draw team vote (auto-votes yes as initiator)
-    await player2.click('button:has-text("Offer Draw")');
+    await player2.click('button[aria-label="Offer Draw"]');
     await player2.waitForTimeout(500);
 
     // Player 3 votes No — vote fails immediately (unanimous required)
@@ -1970,9 +1972,7 @@ test.describe("Draw Offers", () => {
     await player3.waitForTimeout(1000);
 
     // Assert: Game is NOT over — no "Copy PGN" button
-    await expect(
-      player1.locator('button:has-text("Copy PGN")')
-    ).not.toBeVisible();
+    await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
 
     // Assert: Team chat shows the failure message (visible to black team)
     await expect(player2.locator(".chat-messages")).toContainText(
@@ -1995,15 +1995,15 @@ test.describe("Draw Offers", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(500);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(500);
 
     // Player 3 joins Black
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Player 1 (White) plays e2-e4
@@ -2011,7 +2011,7 @@ test.describe("Draw Offers", () => {
     await player1.waitForTimeout(1000);
 
     // Player 2 starts an offer_draw team vote (auto-votes yes as initiator)
-    await player2.click('button:has-text("Offer Draw")');
+    await player2.click('button[aria-label="Offer Draw"]');
     await player2.waitForTimeout(500);
 
     // Player 3 votes Yes — offer_draw vote passes (2/2 unanimous)
@@ -2024,7 +2024,7 @@ test.describe("Draw Offers", () => {
     await player1.waitForTimeout(1000);
 
     // Assert: Game is over — "Copy PGN" button appears
-    await expect(player1.locator('button:has-text("Copy PGN")')).toBeVisible({
+    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
       timeout: 5000,
     });
 
@@ -2051,15 +2051,15 @@ test.describe("Draw Offers", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White (solo)
-    await player1.click('button:has-text("Join White")');
+    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
     await player1.waitForTimeout(300);
 
     // Player 2 joins Black
-    await player2.click('button:has-text("Join Black")');
+    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player2.waitForTimeout(300);
 
     // Player 3 joins Black
-    await player3.click('button:has-text("Join Black")');
+    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
     await player3.waitForTimeout(500);
 
     // Player 1 (White, solo) plays e2-e4 to start the game
@@ -2068,7 +2068,7 @@ test.describe("Draw Offers", () => {
 
     // Player 1 offers a draw (solo white — passes immediately via confirm dialog)
     player1.on("dialog", (dialog) => dialog.accept());
-    await player1.click('button:has-text("Offer Draw")');
+    await player1.click('button[aria-label="Offer Draw"]');
     await player1.waitForTimeout(1000);
 
     // Draw offered to black team → accept_draw vote starts for black
@@ -2081,8 +2081,6 @@ test.describe("Draw Offers", () => {
     );
 
     // Assert: Game is NOT over — no "Copy PGN" button
-    await expect(
-      player1.locator('button:has-text("Copy PGN")')
-    ).not.toBeVisible();
+    await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
   });
 });
