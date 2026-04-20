@@ -849,43 +849,47 @@ export default function App() {
           ) : (
             <>
               <div className="side-left">
-                <PlayersPanel
-                  activeTab={activeTab}
-                  players={players}
-                  myId={myId}
-                  amDisconnected={amDisconnected}
-                  openNameModal={openNameModal}
-                  hasPlayed={hasPlayed}
-                  kickVote={kickVote}
-                  onStartKickVote={startKickVote}
-                  onSendKickVote={sendKickVote}
-                  showJoinControls
-                  side={side}
-                  gameStatus={gameStatus}
-                  joinSide={joinSide}
-                  autoAssign={autoAssign}
-                />
-                <MovesPanel
-                  activeTab={activeTab}
-                  turns={turns}
-                  myId={myId}
-                  movesRef={movesRef}
-                />
+                <div className="side-inner">
+                  <MovesPanel
+                    activeTab={activeTab}
+                    turns={turns}
+                    myId={myId}
+                    movesRef={movesRef}
+                  />
+                  <PlayersPanel
+                    activeTab={activeTab}
+                    players={players}
+                    myId={myId}
+                    amDisconnected={amDisconnected}
+                    openNameModal={openNameModal}
+                    hasPlayed={hasPlayed}
+                    kickVote={kickVote}
+                    onStartKickVote={startKickVote}
+                    onSendKickVote={sendKickVote}
+                    showJoinControls
+                    side={side}
+                    gameStatus={gameStatus}
+                    joinSide={joinSide}
+                    autoAssign={autoAssign}
+                  />
+                </div>
               </div>
               <div className="game-column">
                 {topPlayerInfoBox}
                 {boardBlock}
               </div>
               <div className="side-right">
-                <ChatPanel
-                  activeTab={activeTab}
-                  chatMessages={chatMessages}
-                  myId={myId}
-                  chatInput={chatInput}
-                  setChatInput={setChatInput}
-                  chatInputRef={chatInputRef}
-                  socket={socket}
-                />
+                <div className="side-inner">
+                  <ChatPanel
+                    activeTab={activeTab}
+                    chatMessages={chatMessages}
+                    myId={myId}
+                    chatInput={chatInput}
+                    setChatInput={setChatInput}
+                    chatInputRef={chatInputRef}
+                    socket={socket}
+                  />
+                </div>
               </div>
               <div className="bottom-clock-row">
                 {renderBottomPlayerInfoBox(bottomActionSlot)}

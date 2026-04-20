@@ -50,10 +50,18 @@
   color: inherit;
   cursor: pointer;
   text-decoration: none;
+  text-align: left;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
 }
 .clickable-name:hover {
   background-color: var(--color-overlay-hover-subtle);
   border-radius: var(--radius-sm);
+}
+.clickable-name .pencil-hint {
+  opacity: 0.7;
 }
 
 .name-modal-overlay {

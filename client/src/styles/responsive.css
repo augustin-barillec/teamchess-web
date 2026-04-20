@@ -132,7 +132,7 @@
 
   .main-layout {
     display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-columns: 1fr auto 1fr;
     grid-template-rows: auto auto auto;
     align-items: stretch;
     align-content: start;
@@ -144,19 +144,32 @@
   .side-left {
     grid-column: 1;
     grid-row: 1;
+    position: relative;
+    min-height: 0;
+  }
+  .side-left .side-inner {
+    position: absolute;
+    inset: 0;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: var(--space-4);
     min-height: 0;
   }
   .side-left .tab-panel {
     flex: 1 1 0;
+    min-width: 0;
     min-height: 0;
   }
 
   .side-right {
     grid-column: 3;
     grid-row: 1;
+    position: relative;
+    min-height: 0;
+  }
+  .side-right .side-inner {
+    position: absolute;
+    inset: 0;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -182,29 +195,27 @@
     gap: var(--space-4);
     grid-column: 2;
     grid-row: 1;
+    width: min(80vh, calc(100vh - 340px));
     min-width: 350px;
-    width: 100%;
-    max-width: min(80vh, calc(100vh - 340px));
-    justify-self: center;
     min-height: 0;
   }
 
   .bottom-clock-row {
     grid-column: 2;
     grid-row: 2;
-    justify-self: center;
     width: 100%;
-    max-width: min(80vh, calc(100vh - 340px));
   }
   .vote-row {
     grid-column: 2;
     grid-row: 3;
-    justify-self: center;
     width: 100%;
-    max-width: min(80vh, calc(100vh - 340px));
   }
 
-  .board-wrapper,
+  .board-wrapper {
+    max-width: none;
+    margin: 0;
+    aspect-ratio: 1 / 1;
+  }
   .game-player-info {
     max-width: none;
   }

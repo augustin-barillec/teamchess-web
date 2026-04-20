@@ -158,20 +158,32 @@
   overflow-y: auto;
   background: var(--color-bg-panel);
 }
+.player-list {
+  padding-inline-start: 0;
+  padding-left: 0;
+  margin: 0;
+  list-style: none;
+}
 .player-list li {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1);
+  padding: var(--space-1) 0;
+  min-width: 0;
 }
-.player-list-item-column {
+.player-list li.player-list-item-column {
   flex-direction: column;
-  align-items: stretch;
+  align-items: flex-start;
+}
+.player-list li.player-list-item-column > .kick-vote-wrap {
+  align-self: stretch;
+  width: 100%;
 }
 .player-entry {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .player-section {

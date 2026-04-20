@@ -39,6 +39,25 @@ const PlayedCheck: React.FC = () => (
   </svg>
 );
 
+const PencilIcon: React.FC = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+    className="pencil-hint"
+  >
+    <title>Edit name</title>
+    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    <path d="m15 5 4 4" />
+  </svg>
+);
+
 function KickVoteBox({
   kickVote,
   onSendKickVote,
@@ -153,8 +172,9 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
         <div className="player-entry">
           {isMe ? (
             <button className="clickable-name" onClick={openNameModal}>
-              {p.name}
-              {p.name === DEFAULT_PLAYER_NAME ? " ✏️" : ""} (You)
+              <span>{p.name}</span>
+              {p.name === DEFAULT_PLAYER_NAME && <PencilIcon />}
+              <span> (You)</span>
             </button>
           ) : (
             <span>{p.name}</span>
@@ -210,40 +230,40 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
     >
       <h3>{UI.headingPlayers}</h3>
       <div className="player-lists-container">
-        {showAutoAssign && autoAssign && (
-          <button
-            className="auto-assign-btn"
-            onClick={autoAssign}
-            title={UI.tooltipAutoAssign}
-            aria-label={UI.tooltipAutoAssign}
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="m16 3 4 4-4 4" />
-              <path d="M20 7H4" />
-              <path d="m8 21-4-4 4-4" />
-              <path d="M4 17h16" />
-            </svg>
-          </button>
-        )}
         {showJoinControls ? (
           <>
-            {renderSection("white", UI.headingWhite, players.whitePlayers)}
-            {renderSection("black", UI.headingBlack, players.blackPlayers)}
             {renderSection(
               "spectator",
               UI.headingSpectators,
               players.spectators
             )}
+            {showAutoAssign && autoAssign && (
+              <button
+                className="auto-assign-btn"
+                onClick={autoAssign}
+                title={UI.tooltipAutoAssign}
+                aria-label={UI.tooltipAutoAssign}
+              >
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="m16 3 4 4-4 4" />
+                  <path d="M20 7H4" />
+                  <path d="m8 21-4-4 4-4" />
+                  <path d="M4 17h16" />
+                </svg>
+              </button>
+            )}
+            {renderSection("white", UI.headingWhite, players.whitePlayers)}
+            {renderSection("black", UI.headingBlack, players.blackPlayers)}
           </>
         ) : (
           <>
