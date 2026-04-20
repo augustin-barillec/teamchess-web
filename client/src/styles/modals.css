@@ -5,8 +5,8 @@
   transform: translate(-50%, -50%);
   background: var(--color-bg-surface);
   border: 2px solid var(--color-text-secondary);
-  border-radius: 8px;
-  padding: 1rem;
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -15,29 +15,29 @@
 }
 
 .promotion-dialog h3 {
-  margin: 0 0 0.75rem 0;
+  margin: 0 0 var(--space-3) 0;
   font-size: 1.2em;
   color: var(--color-text-primary);
 }
 
 .promotion-choices {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .promotion-choices button {
   font-size: 4rem;
-  padding: 0.25rem 0.5rem;
+  padding: var(--space-1) var(--space-2);
   background: transparent;
   border: none;
   cursor: pointer;
   line-height: 1;
-  transition: background-color 0.2s;
+  transition: background-color var(--transition-base);
 }
 
 .promotion-choices button:hover {
   background-color: var(--color-overlay-hover);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .clickable-name {
@@ -53,7 +53,7 @@
 }
 .clickable-name:hover {
   background-color: var(--color-overlay-hover-subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .name-modal-overlay {
@@ -68,11 +68,11 @@
 
 .name-modal-dialog {
   background: var(--color-bg-surface);
-  padding: 1.5rem;
-  border-radius: 8px;
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-4);
   min-width: 300px;
   box-shadow: 0 4px 12px var(--color-shadow);
 }
@@ -88,7 +88,39 @@
 
 .name-modal-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   justify-content: flex-end;
-  margin-top: 0.5rem;
+  margin-top: var(--space-2);
+}
+
+/* --- Confirm modal (mirrors teamchess-steam ConfirmModal) --- */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay-scrim);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.confirm-dialog {
+  background: rgba(40, 40, 40, 0.95);
+  border: 2px solid #777;
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: 0 4px 12px var(--color-shadow);
+  max-width: 360px;
+  text-align: center;
+}
+.confirm-dialog p {
+  margin: 0 0 var(--space-4) 0;
+  font-size: 1.1em;
+}
+.confirm-dialog-buttons {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+}
+.confirm-dialog-buttons button {
+  min-width: 90px;
 }

@@ -82,6 +82,8 @@ export const UI = {
   confirmResign: "Are you sure you want to resign?",
   confirmOfferDraw: "Are you sure you want to offer a draw?",
   confirmResetGame: "Are you sure you want to reset the game?",
+  confirmOk: "Confirm",
+  confirmCancel: "Cancel",
 
   // Toasts
   toastMoveSubmitted: "✅ Move submitted",

@@ -2,48 +2,48 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 8px;
-  background: var(--color-bg-elevated);
-  border-radius: 6px;
+  gap: var(--space-4);
+  padding: var(--space-2);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-md);
   width: 100%;
   max-width: 700px;
   margin: 0 auto;
 }
 .clock-box {
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
   color: var(--color-text-on-accent);
   text-align: center;
-  background: var(--color-clock-inactive);
+  background: var(--color-bg-inky);
   font-weight: normal;
   font-family: monospace;
   font-size: 2rem;
   min-width: 140px;
 }
 .clock-box.active {
-  background: var(--color-accent-green);
+  background: var(--color-positive-muted);
   font-weight: bold;
 }
 .clock-box.low-time {
-  background-color: var(--color-accent-red-muted);
+  background-color: var(--color-danger-muted);
   color: var(--color-text-on-accent);
 }
 .clock-box.active.low-time {
-  background-color: var(--color-accent-red);
+  background-color: var(--color-danger-strong);
 }
 .material-display {
   font-size: 2rem;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-grow: 1;
   color: var(--color-material-piece);
 }
 .material-adv-label {
   display: inline-block;
   min-width: 3ch;
-  margin-right: 0.5rem;
+  margin-right: var(--space-2);
   font-size: 0.75em;
   text-align: right;
 }
@@ -52,21 +52,21 @@
 }
 .game-over-info p {
   font-size: 1.2em;
-  margin: 0 0 1rem 0;
+  margin: 0 0 var(--space-4) 0;
 }
 .pgn-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .player-info-actions {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--space-1);
   flex-shrink: 0;
   margin-left: auto;
-  margin-right: 0.5rem;
+  margin-right: var(--space-2);
 }
 
 .action-icon-btn {
@@ -80,18 +80,18 @@
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   opacity: 0.85;
   transition:
-    opacity 0.15s,
-    color 0.15s,
-    background 0.15s;
+    opacity var(--transition-base),
+    color var(--transition-base),
+    background var(--transition-base);
 }
 .action-icon-btn:hover:not(:disabled) {
   opacity: 1;
   color: var(--color-text-primary);
-  background: var(--color-bg-hover);
+  background: var(--color-bg-surface-hover);
 }
 .action-icon-btn .draw-glyph {
   font-size: 1.4rem;
@@ -102,18 +102,18 @@
 .vote-banner {
   background: var(--color-vote-bg);
   border: 1px solid var(--color-vote-border);
-  border-radius: 6px;
-  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 .vote-banner-info {
   display: flex;
   flex-direction: row;
   align-items: baseline;
-  gap: 0.6rem;
+  gap: var(--space-2);
   flex: 1;
   min-width: 0;
   line-height: 1.2;
@@ -140,7 +140,7 @@
 }
 .vote-banner-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 .vote-banner-buttons button {
@@ -156,4 +156,72 @@
   background: var(--color-vote-no-bg);
   border-color: var(--color-vote-no-border);
   color: var(--color-vote-no-text);
+}
+
+.vote-status-text {
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+/* --- Vote box (tab/kick vote — boxed variant used in Controls/Players) --- */
+.vote-box {
+  background: var(--color-vote-bg);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-vote-border);
+}
+.vote-box-title {
+  font-weight: bold;
+  margin-bottom: var(--space-1);
+}
+.vote-box-meta {
+  font-size: 0.85em;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-3);
+  font-style: italic;
+}
+.vote-box-buttons {
+  display: flex;
+  gap: var(--space-3);
+}
+.vote-box-buttons button {
+  flex: 1;
+  font-weight: bold;
+  margin: 0;
+}
+.vote-box-yes-list {
+  font-size: 0.8em;
+  margin-top: 6px;
+  color: var(--color-vote-yes-label);
+}
+.vote-box-no-list {
+  font-size: 0.8em;
+  margin-top: 2px;
+  color: var(--color-vote-no-label);
+}
+.vote-box-buttons .vote-yes-btn.cast {
+  background: var(--color-vote-yes-bg-active);
+}
+.vote-box-buttons .vote-no-btn.cast {
+  background: var(--color-vote-no-bg-active);
+}
+.vote-box-buttons button:disabled {
+  background: var(--color-vote-disabled-bg);
+  border-color: var(--color-vote-disabled-border);
+  color: var(--color-vote-disabled-text);
+  opacity: 0.6;
+  cursor: default;
+}
+
+.poll-container {
+  margin-bottom: var(--space-3);
+}
+.kick-vote-wrap {
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+.draw-offered-btn {
+  opacity: 0.6;
+  cursor: default;
 }

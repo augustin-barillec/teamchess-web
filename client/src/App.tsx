@@ -23,6 +23,7 @@ import {
 } from "./confirmUtils";
 import { useSocket } from "./hooks/useSocket";
 import { NameChangeModal } from "./components/NameChangeModal";
+import { ConfirmModal } from "./components/ConfirmModal";
 import { ControlsPanel } from "./components/ControlsPanel";
 import { PromotionDialog } from "./components/PromotionDialog";
 import { PlayerInfoBox } from "./components/PlayerInfoBox";
@@ -76,6 +77,8 @@ export default function App() {
   const movesRef = useRef<HTMLDivElement>(null);
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
+  const [pendingTeamVote, setPendingTeamVote] = useState<VoteType | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const [chatInput, setChatInput] = useState("");
@@ -181,20 +184,21 @@ export default function App() {
 
   const joinSpectator = () => joinSide("spectator");
 
+  const doStartTeamVote = (type: VoteType) => {
+    socket?.emit("start_team_vote", type);
+    setIsMobileInfoVisible(false);
+  };
+
   const startTeamVote = (type: VoteType) => {
     if (side === "white" || side === "black") {
       const myTeamArray =
         side === "white" ? players.whitePlayers : players.blackPlayers;
       if (shouldConfirmTeamAction(myTeamArray)) {
-        let msg = "";
-        if (type === "resign") msg = UI.confirmResign;
-        else if (type === "offer_draw") msg = UI.confirmOfferDraw;
-        if (msg && !window.confirm(msg)) return;
+        setPendingTeamVote(type);
+        return;
       }
     }
-
-    socket?.emit("start_team_vote", type);
-    setIsMobileInfoVisible(false);
+    doStartTeamVote(type);
   };
 
   const sendTeamVote = (vote: "yes" | "no") => {
@@ -209,21 +213,24 @@ export default function App() {
     socket?.emit("vote_kick", vote);
   };
 
+  const doResetGame = () => {
+    socket?.emit("reset_game", (res: { success: boolean; error?: string }) => {
+      if (res.error) return toast.error(res.error);
+    });
+    setIsMobileInfoVisible(false);
+  };
+
   const resetGame = () => {
     const allPlayers = [
       ...players.whitePlayers,
       ...players.blackPlayers,
       ...players.spectators,
     ];
-    if (
-      shouldConfirmResetGame(allPlayers) &&
-      !window.confirm(UI.confirmResetGame)
-    )
+    if (shouldConfirmResetGame(allPlayers)) {
+      setShowResetConfirm(true);
       return;
-    socket?.emit("reset_game", (res: { success: boolean; error?: string }) => {
-      if (res.error) return toast.error(res.error);
-    });
-    setIsMobileInfoVisible(false);
+    }
+    doResetGame();
   };
 
   const sendResetVote = (vote: "yes" | "no") => {
@@ -481,13 +488,9 @@ export default function App() {
       </button>
     </>
   ) : myTeamOfferedDraw ? (
-    <span style={{ fontStyle: "italic", fontSize: "0.85em" }}>
-      {UI.drawOfferPending}
-    </span>
+    <span className="vote-status-text">{UI.drawOfferPending}</span>
   ) : otherTeamOfferingDraw ? (
-    <span style={{ fontStyle: "italic", fontSize: "0.85em" }}>
-      {UI.votingOnDraw}
-    </span>
+    <span className="vote-status-text">{UI.votingOnDraw}</span>
   ) : pgn && gameStatus === GameStatus.Over ? (
     <button
       className="action-icon-btn"
@@ -801,6 +804,30 @@ export default function App() {
         gameStatus={gameStatus}
         side={side}
       />
+      {pendingTeamVote && (
+        <ConfirmModal
+          message={
+            pendingTeamVote === "resign"
+              ? UI.confirmResign
+              : UI.confirmOfferDraw
+          }
+          onConfirm={() => {
+            doStartTeamVote(pendingTeamVote);
+            setPendingTeamVote(null);
+          }}
+          onCancel={() => setPendingTeamVote(null)}
+        />
+      )}
+      {showResetConfirm && (
+        <ConfirmModal
+          message={UI.confirmResetGame}
+          onConfirm={() => {
+            setShowResetConfirm(false);
+            doResetGame();
+          }}
+          onCancel={() => setShowResetConfirm(false)}
+        />
+      )}
 
       {amDisconnected && (
         <div className="offline-banner"> {UI.offlineBanner} </div>

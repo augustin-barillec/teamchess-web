@@ -1,38 +1,50 @@
 /* ===== Dark Theme (only) ===== */
+/*
+ * Token system mirrors teamchess-steam for cross-app visual consistency.
+ * Names prefixed `--color-bg-*`, `--color-text-*`, `--color-border-*`, etc.
+ * Older aliases (--color-bg-page, --color-bg-elevated, --color-accent-green)
+ * are kept so existing styles keep rendering unchanged.
+ */
 :root {
   /* Surfaces */
-  --color-bg-page: #222;
-  --color-bg-surface: #252525;
-  --color-bg-surface-alt: #252525;
-  --color-bg-elevated: #333;
-  --color-bg-inset: #252525;
-  --color-bg-hover: #444;
+  --color-bg-body: #222;
+  --color-bg-panel: #252525;
+  --color-bg-surface: #333;
+  --color-bg-surface-hover: #444;
+  --color-bg-sunken: #1e1e1e;
+  --color-bg-inky: #111;
+
+  /* Accent (brand gold, matches teamchess-steam) */
+  --color-accent: #d4a24c;
+  --color-accent-dim: #8a6a2e;
+  --color-accent-soft: #bfa575;
+  --color-accent-contrast: #1b1b1f;
+
+  /* Semantic */
+  --color-success: #6dcc6d;
+  --color-warning: #cc9a3a;
+  --color-danger: #ff6b6b;
+  --color-danger-strong: #d32f2f;
+  --color-danger-muted: #5c2b2b;
+  --color-positive-muted: #3a5f0b;
+  --color-positive-panel: #2a3a2a;
+  --color-positive-panel-border: #4a8a4a;
 
   /* Text */
   --color-text-primary: #eee;
   --color-text-secondary: #aaa;
   --color-text-tertiary: #999;
+  --color-text-muted: #666;
+  --color-text-soft: #ccc;
+  --color-text-invert: #1b1b1f;
   --color-text-on-accent: #ffffff;
 
   /* Borders */
-  --color-border-primary: #444;
-  --color-border-secondary: #444;
+  --color-border-subtle: #333;
+  --color-border-1: #444;
+  --color-border-2: #555;
 
-  /* Accents */
-  --color-accent-green: #3a5f0b;
-  --color-accent-red: #d32f2f;
-  --color-accent-red-muted: #5c2b2b;
-  --color-accent-blue: #64b5f6;
-  --color-selected-move: #4caf50;
-
-  /* Banner */
-  --color-banner-bg: #4a1c1c;
-  --color-banner-border: #5c2b2b;
-
-  /* Chat */
-  --color-chat-own-bg: #004c8c;
-
-  /* Vote box */
+  /* Vote UI */
   --color-vote-bg: #2a2520;
   --color-vote-border: #555;
   --color-vote-yes-bg: #2a5a2a;
@@ -49,17 +61,54 @@
   --color-vote-disabled-border: #3a3a3a;
   --color-vote-disabled-text: #606060;
 
+  /* Chat */
+  --color-chat-own-bg: #004c8c;
+
   /* Overlays & shadows */
   --color-overlay-bg: rgba(0, 0, 0, 0.75);
+  --color-overlay-scrim: rgba(0, 0, 0, 0.6);
   --color-shadow: rgba(0, 0, 0, 0.5);
   --color-overlay-hover: rgba(255, 255, 255, 0.1);
   --color-overlay-hover-subtle: rgba(255, 255, 255, 0.05);
 
-  /* Clock */
-  --color-clock-inactive: #111;
+  /* Banner (offline) */
+  --color-banner-bg: #4a1c1c;
+  --color-banner-border: #5c2b2b;
 
   /* Misc */
   --color-icon-fill: #eee;
-  --color-material-piece: #999999;
+  --color-material-piece: #999;
   --color-notification-dot: #ffa726;
+  --color-selected-move: #4caf50;
+
+  /* Spacing scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Motion */
+  --transition-fast: 0.1s ease;
+  --transition-base: 0.15s ease;
+
+  /* ---- Legacy aliases (do not remove without sweep) ---- */
+  --color-bg-page: var(--color-bg-body);
+  --color-bg-surface-alt: var(--color-bg-panel);
+  --color-bg-elevated: var(--color-bg-surface);
+  --color-bg-inset: var(--color-bg-panel);
+  --color-bg-hover: var(--color-bg-surface-hover);
+  --color-border-primary: var(--color-border-1);
+  --color-border-secondary: var(--color-border-1);
+  --color-accent-green: var(--color-positive-muted);
+  --color-accent-red: var(--color-danger-strong);
+  --color-accent-red-muted: var(--color-danger-muted);
+  --color-accent-blue: #64b5f6;
+  --color-clock-inactive: var(--color-bg-inky);
 }

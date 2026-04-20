@@ -21,6 +21,24 @@ interface PlayersPanelProps {
   autoAssign?: () => void;
 }
 
+const PlayedCheck: React.FC = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-label="Played"
+    style={{ color: "var(--color-success)" }}
+  >
+    <title>Played</title>
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
 function KickVoteBox({
   kickVote,
   onSendKickVote,
@@ -41,112 +59,44 @@ function KickVoteBox({
   const canVote = kickVote.myVoteEligible && !kickVote.amTarget;
   const canVoteYes = canVote && kickVote.myCurrentVote !== "yes";
   const canVoteNo = canVote && kickVote.myCurrentVote !== "no";
+  const yesClass =
+    "vote-yes-btn" + (kickVote.myCurrentVote === "yes" ? " cast" : "");
+  const noClass =
+    "vote-no-btn" + (kickVote.myCurrentVote === "no" ? " cast" : "");
 
   return (
-    <div style={{ marginTop: "6px", marginBottom: "6px" }}>
-      <div
-        style={{
-          background: "var(--color-vote-bg)",
-          padding: "10px",
-          borderRadius: "6px",
-          border: "1px solid var(--color-vote-border)",
-        }}
-      >
-        <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
+    <div className="kick-vote-wrap">
+      <div className="vote-box">
+        <div className="vote-box-title">
           {kickVote.amTarget ? UI.kickVoteTargetSelf : UI.kickVoteTargetOther}
         </div>
-        <div
-          style={{
-            fontSize: "0.85em",
-            color: "var(--color-text-tertiary)",
-            marginBottom: "10px",
-            fontStyle: "italic",
-          }}
-        >
+        <div className="vote-box-meta">
           {kickVote.yesVotes.length}/{kickVote.requiredVotes} &bull; {timeLeft}s
         </div>
 
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div className="vote-box-buttons">
           <button
             onClick={() => onSendKickVote("yes")}
             disabled={!canVoteYes}
-            style={{
-              flex: 1,
-              background:
-                kickVote.myCurrentVote === "yes"
-                  ? "var(--color-vote-yes-bg-active)"
-                  : canVoteYes
-                    ? "var(--color-vote-yes-bg)"
-                    : "var(--color-vote-disabled-bg)",
-              borderColor:
-                kickVote.myCurrentVote === "yes"
-                  ? "var(--color-vote-yes-border)"
-                  : canVoteYes
-                    ? "var(--color-vote-yes-border)"
-                    : "var(--color-vote-disabled-border)",
-              color:
-                kickVote.myCurrentVote === "yes"
-                  ? "var(--color-vote-yes-text)"
-                  : canVoteYes
-                    ? "var(--color-vote-yes-text)"
-                    : "var(--color-vote-disabled-text)",
-              fontWeight: "bold",
-              cursor: canVoteYes ? "pointer" : "default",
-              opacity: canVoteYes || kickVote.myCurrentVote === "yes" ? 1 : 0.6,
-            }}
+            className={yesClass}
           >
             Yes ({kickVote.yesVotes.length})
           </button>
           <button
             onClick={() => onSendKickVote("no")}
             disabled={!canVoteNo}
-            style={{
-              flex: 1,
-              background:
-                kickVote.myCurrentVote === "no"
-                  ? "var(--color-vote-no-bg-active)"
-                  : canVoteNo
-                    ? "var(--color-vote-no-bg)"
-                    : "var(--color-vote-disabled-bg)",
-              borderColor:
-                kickVote.myCurrentVote === "no"
-                  ? "var(--color-vote-no-border)"
-                  : canVoteNo
-                    ? "var(--color-vote-no-border)"
-                    : "var(--color-vote-disabled-border)",
-              color:
-                kickVote.myCurrentVote === "no"
-                  ? "var(--color-vote-no-text)"
-                  : canVoteNo
-                    ? "var(--color-vote-no-text)"
-                    : "var(--color-vote-disabled-text)",
-              fontWeight: "bold",
-              cursor: canVoteNo ? "pointer" : "default",
-              opacity: canVoteNo || kickVote.myCurrentVote === "no" ? 1 : 0.6,
-            }}
+            className={noClass}
           >
             No ({kickVote.noVotes.length})
           </button>
         </div>
         {kickVote.yesVotes.length > 0 && (
-          <div
-            style={{
-              fontSize: "0.8em",
-              marginTop: "6px",
-              color: "var(--color-vote-yes-label)",
-            }}
-          >
+          <div className="vote-box-yes-list">
             Yes: {kickVote.yesVotes.join(", ")}
           </div>
         )}
         {kickVote.noVotes.length > 0 && (
-          <div
-            style={{
-              fontSize: "0.8em",
-              marginTop: "2px",
-              color: "var(--color-vote-no-label)",
-            }}
-          >
+          <div className="vote-box-no-list">
             No: {kickVote.noVotes.join(", ")}
           </div>
         )}
@@ -199,14 +149,8 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
     const isKickTarget = kickVote.isActive && kickVote.targetId === p.id;
 
     return (
-      <li key={p.id} style={{ flexDirection: "column", alignItems: "stretch" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
+      <li key={p.id} className="player-list-item-column">
+        <div className="player-entry">
           {isMe ? (
             <button className="clickable-name" onClick={openNameModal}>
               {p.name}
@@ -216,7 +160,7 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
             <span>{p.name}</span>
           )}
           {disconnected && <DisconnectedIcon />}
-          {teamSide && hasPlayed(p.id, teamSide) && <span>✔️</span>}
+          {teamSide && hasPlayed(p.id, teamSide) && <PlayedCheck />}
           {showKickButton && (
             <button
               className="kick-btn"

@@ -59,82 +59,34 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
     };
 
     return (
-      <div className="poll-container" style={{ marginBottom: "10px" }}>
-        <div
-          style={{
-            background: "var(--color-vote-bg)",
-            padding: "10px",
-            borderRadius: "6px",
-            border: "1px solid var(--color-vote-border)",
-          }}
-        >
-          <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
+      <div className="poll-container">
+        <div className="vote-box">
+          <div className="vote-box-title">
             🗳️ Vote: {titleMap[teamVote.type]}
           </div>
-          <div
-            style={{
-              fontSize: "0.85em",
-              color: "var(--color-text-tertiary)",
-              marginBottom: "10px",
-              fontStyle: "italic",
-            }}
-          >
+          <div className="vote-box-meta">
             {teamVote.yesVotes.length}/{teamVote.requiredVotes} • {voteTimeLeft}
             s
           </div>
 
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div className="vote-box-buttons">
             <button
               onClick={() => onSendTeamVote("yes")}
               disabled={!teamVote.myVoteEligible}
-              style={{
-                flex: 1,
-                background: teamVote.myVoteEligible
-                  ? "var(--color-vote-yes-bg)"
-                  : "var(--color-vote-disabled-bg)",
-                borderColor: teamVote.myVoteEligible
-                  ? "var(--color-vote-yes-border)"
-                  : "var(--color-vote-disabled-border)",
-                color: teamVote.myVoteEligible
-                  ? "var(--color-vote-yes-text)"
-                  : "var(--color-vote-disabled-text)",
-                fontWeight: "bold",
-                cursor: teamVote.myVoteEligible ? "pointer" : "default",
-                opacity: teamVote.myVoteEligible ? 1 : 0.6,
-              }}
+              className="vote-yes-btn"
             >
               Yes ({teamVote.yesVotes.length})
             </button>
             <button
               onClick={() => onSendTeamVote("no")}
               disabled={!teamVote.myVoteEligible}
-              style={{
-                flex: 1,
-                background: teamVote.myVoteEligible
-                  ? "var(--color-vote-no-bg)"
-                  : "var(--color-vote-disabled-bg)",
-                borderColor: teamVote.myVoteEligible
-                  ? "var(--color-vote-no-border)"
-                  : "var(--color-vote-disabled-border)",
-                color: teamVote.myVoteEligible
-                  ? "var(--color-vote-no-text)"
-                  : "var(--color-vote-disabled-text)",
-                fontWeight: "bold",
-                cursor: teamVote.myVoteEligible ? "pointer" : "default",
-                opacity: teamVote.myVoteEligible ? 1 : 0.6,
-              }}
+              className="vote-no-btn"
             >
               No
             </button>
           </div>
           {teamVote.yesVotes.length > 0 && (
-            <div
-              style={{
-                fontSize: "0.8em",
-                marginTop: "6px",
-                color: "var(--color-vote-yes-label)",
-              }}
-            >
+            <div className="vote-box-yes-list">
               Yes: {teamVote.yesVotes.join(", ")}
             </div>
           )}
@@ -152,93 +104,37 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
     );
 
     return (
-      <div className="poll-container" style={{ marginBottom: "10px" }}>
-        <div
-          style={{
-            background: "var(--color-vote-bg)",
-            padding: "10px",
-            borderRadius: "6px",
-            border: "1px solid var(--color-vote-border)",
-          }}
-        >
-          <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
-            {UI.voteResetGame}
-          </div>
-          <div
-            style={{
-              fontSize: "0.85em",
-              color: "var(--color-text-tertiary)",
-              marginBottom: "10px",
-              fontStyle: "italic",
-            }}
-          >
+      <div className="poll-container">
+        <div className="vote-box">
+          <div className="vote-box-title">{UI.voteResetGame}</div>
+          <div className="vote-box-meta">
             {resetVote.yesVotes.length}/{resetVote.requiredVotes} •{" "}
             {resetVoteTimeLeft}s
           </div>
 
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div className="vote-box-buttons">
             <button
               onClick={() => onSendResetVote("yes")}
               disabled={!resetVote.myVoteEligible}
-              style={{
-                flex: 1,
-                background: resetVote.myVoteEligible
-                  ? "var(--color-vote-yes-bg)"
-                  : "var(--color-vote-disabled-bg)",
-                borderColor: resetVote.myVoteEligible
-                  ? "var(--color-vote-yes-border)"
-                  : "var(--color-vote-disabled-border)",
-                color: resetVote.myVoteEligible
-                  ? "var(--color-vote-yes-text)"
-                  : "var(--color-vote-disabled-text)",
-                fontWeight: "bold",
-                cursor: resetVote.myVoteEligible ? "pointer" : "default",
-                opacity: resetVote.myVoteEligible ? 1 : 0.6,
-              }}
+              className="vote-yes-btn"
             >
               Yes ({resetVote.yesVotes.length})
             </button>
             <button
               onClick={() => onSendResetVote("no")}
               disabled={!resetVote.myVoteEligible}
-              style={{
-                flex: 1,
-                background: resetVote.myVoteEligible
-                  ? "var(--color-vote-no-bg)"
-                  : "var(--color-vote-disabled-bg)",
-                borderColor: resetVote.myVoteEligible
-                  ? "var(--color-vote-no-border)"
-                  : "var(--color-vote-disabled-border)",
-                color: resetVote.myVoteEligible
-                  ? "var(--color-vote-no-text)"
-                  : "var(--color-vote-disabled-text)",
-                fontWeight: "bold",
-                cursor: resetVote.myVoteEligible ? "pointer" : "default",
-                opacity: resetVote.myVoteEligible ? 1 : 0.6,
-              }}
+              className="vote-no-btn"
             >
               No ({resetVote.noVotes.length})
             </button>
           </div>
           {resetVote.yesVotes.length > 0 && (
-            <div
-              style={{
-                fontSize: "0.8em",
-                marginTop: "6px",
-                color: "var(--color-vote-yes-label)",
-              }}
-            >
+            <div className="vote-box-yes-list">
               Yes: {resetVote.yesVotes.join(", ")}
             </div>
           )}
           {resetVote.noVotes.length > 0 && (
-            <div
-              style={{
-                fontSize: "0.8em",
-                marginTop: "2px",
-                color: "var(--color-vote-no-label)",
-              }}
-            >
+            <div className="vote-box-no-list">
               No: {resetVote.noVotes.join(", ")}
             </div>
           )}
@@ -256,7 +152,6 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
           <button onClick={resetGame}>{UI.btnResetGame}</button>
         ))}
 
-      {/* 1. Join/Switch Buttons (Always Visible) */}
       {gameStatus !== GameStatus.Over && (
         <>
           {side === "spectator" && (
@@ -285,27 +180,21 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
         </>
       )}
 
-      {/* 2. Action Area: Vote Box OR Action Buttons */}
       {gameStatus !== GameStatus.Over && (
         <>
-          {/* If Vote is active, show Vote Box */}
           {teamVote.isActive && renderVoteUI()}
 
-          {/* If Vote NOT active, show Resign/Draw Buttons */}
           {!teamVote.isActive &&
             gameStatus === GameStatus.AwaitingProposals && (
               <>
                 {(side === "white" || side === "black") && (
                   <>
                     {drawOffer === side ? (
-                      <button
-                        disabled
-                        style={{ opacity: 0.6, cursor: "default" }}
-                      >
+                      <button disabled className="draw-offered-btn">
                         {UI.btnDrawOffered}
                       </button>
                     ) : drawOffer && drawOffer !== side ? (
-                      <span style={{ fontStyle: "italic", fontSize: "0.9em" }}>
+                      <span className="vote-status-text">
                         {UI.votingOnDraw}
                       </span>
                     ) : (

@@ -24,43 +24,38 @@ export const MovesPanel: React.FC<MovesPanelProps> = ({
       <h3>{UI.headingMoves}</h3>
       {turns.some((t) => t.selection) ? (
         <div ref={movesRef} className="moves-list">
-          {" "}
           {turns
             .filter((t) => t.selection)
             .map((t) => (
               <div
                 key={`${t.side}-${t.moveNumber}`}
                 className="move-turn-header"
-                style={{ marginBottom: "1rem" }}
               >
-                {" "}
                 <strong>
                   {Math.ceil(t.moveNumber / 2)}.{" "}
                   {t.side === "white" ? "White" : "Black"}
-                </strong>{" "}
-                <ul>
-                  {" "}
+                </strong>
+                <ul className="move-proposals">
                   {t.proposals.map((p) => {
                     const isSel = t.selection!.lan === p.lan;
                     return (
                       <li key={p.id}>
-                        {" "}
                         {p.name}
                         {p.id === myId && " (You)"}{" "}
                         {isSel ? (
                           <span className="moves-list-item">{p.san}</span>
                         ) : (
                           p.san
-                        )}{" "}
+                        )}
                       </li>
                     );
-                  })}{" "}
-                </ul>{" "}
+                  })}
+                </ul>
               </div>
-            ))}{" "}
+            ))}
         </div>
       ) : (
-        <p style={{ padding: "10px", fontStyle: "italic" }}>{UI.noMovesYet}</p>
+        <p className="moves-list-empty">{UI.noMovesYet}</p>
       )}
     </div>
   );
