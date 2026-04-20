@@ -1456,9 +1456,9 @@ test.describe("Voting", () => {
     await makeMove(player1, "e2", "e4");
     await player1.waitForTimeout(1000);
 
-    // Player 1 clicks Resign — solo player gets confirm dialog → accept
-    player1.on("dialog", (dialog) => dialog.accept());
+    // Player 1 clicks Resign — solo player gets confirm modal → click Confirm
     await player1.click('button[aria-label="Resign"]');
+    await player1.getByRole("button", { name: "Confirm" }).click();
     await player1.waitForTimeout(1000);
 
     // Assert: Game is over — "Copy PGN" button appears
@@ -1551,23 +1551,16 @@ test.describe("Voting", () => {
     await player2.context().close();
 
     // Wait for Player 1 to see the disconnected icon in the players panel
-    await expect(player1.locator(".players-panel svg")).toBeVisible({
-      timeout: 10000,
-    });
+    await expect(
+      player1.locator(".players-panel .disconnected-icon")
+    ).toBeVisible({ timeout: 10000 });
 
-    // Register dialog handler on Player 1 (track that dialog appeared)
-    let dialogTriggered = false;
-    player1.on("dialog", async (dialog) => {
-      dialogTriggered = true;
-      await dialog.accept();
-    });
-
-    // Player 1 clicks Resign — gets confirm dialog (1 connected on team)
+    // Player 1 clicks Resign — gets confirm modal (1 connected on team)
     await player1.click('button[aria-label="Resign"]');
+    const confirmBtn = player1.getByRole("button", { name: "Confirm" });
+    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+    await confirmBtn.click();
     await player1.waitForTimeout(1000);
-
-    // Assert: dialog was triggered
-    expect(dialogTriggered).toBe(true);
 
     // Assert: game over — "Copy PGN" visible
     await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
@@ -1605,23 +1598,16 @@ test.describe("Voting", () => {
     await player2.context().close();
 
     // Wait for Player 1 to see the disconnected icon in the players panel
-    await expect(player1.locator(".players-panel svg")).toBeVisible({
-      timeout: 10000,
-    });
+    await expect(
+      player1.locator(".players-panel .disconnected-icon")
+    ).toBeVisible({ timeout: 10000 });
 
-    // Register dialog handler on Player 1
-    let dialogTriggered = false;
-    player1.on("dialog", async (dialog) => {
-      dialogTriggered = true;
-      await dialog.accept();
-    });
-
-    // Player 1 clicks Reset Game — gets confirm dialog (alone connected)
+    // Player 1 clicks Reset Game — gets confirm modal (alone connected)
     await player1.click('button[aria-label="Reset"]');
+    const confirmBtn = player1.getByRole("button", { name: "Confirm" });
+    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+    await confirmBtn.click();
     await player1.waitForTimeout(1000);
-
-    // Assert: dialog was triggered
-    expect(dialogTriggered).toBe(true);
 
     // Assert: game resets — pawn back on e2, not on e4
     await expect(
@@ -1859,9 +1845,9 @@ test.describe("Draw Offers", () => {
     await makeMove(player1, "e2", "e4");
     await player1.waitForTimeout(1000);
 
-    // Player 1 offers a draw (single player → confirm dialog)
-    player1.on("dialog", (dialog) => dialog.accept());
+    // Player 1 offers a draw (single player → confirm modal)
     await player1.click('button[aria-label="Offer Draw"]');
+    await player1.getByRole("button", { name: "Confirm" }).click();
     await player1.waitForTimeout(1000);
 
     // Player 2 and Player 3 see the accept_draw vote and click "Yes"
@@ -1911,9 +1897,9 @@ test.describe("Draw Offers", () => {
     await makeMove(player1, "e2", "e4");
     await player1.waitForTimeout(1000);
 
-    // Player 1 offers a draw (single player → confirm dialog)
-    player1.on("dialog", (dialog) => dialog.accept());
+    // Player 1 offers a draw (single player → confirm modal)
     await player1.click('button[aria-label="Offer Draw"]');
+    await player1.getByRole("button", { name: "Confirm" }).click();
     await player1.waitForTimeout(1000);
 
     // Player 2 votes Yes on the accept_draw vote
@@ -2066,9 +2052,9 @@ test.describe("Draw Offers", () => {
     await makeMove(player1, "e2", "e4");
     await player1.waitForTimeout(1000);
 
-    // Player 1 offers a draw (solo white — passes immediately via confirm dialog)
-    player1.on("dialog", (dialog) => dialog.accept());
+    // Player 1 offers a draw (solo white — passes immediately via confirm modal)
     await player1.click('button[aria-label="Offer Draw"]');
+    await player1.getByRole("button", { name: "Confirm" }).click();
     await player1.waitForTimeout(1000);
 
     // Draw offered to black team → accept_draw vote starts for black
