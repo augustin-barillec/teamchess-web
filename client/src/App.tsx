@@ -24,7 +24,6 @@ import {
 import { useSocket } from "./hooks/useSocket";
 import { NameChangeModal } from "./components/NameChangeModal";
 import { ConfirmModal } from "./components/ConfirmModal";
-import { ControlsPanel } from "./components/ControlsPanel";
 import { PromotionDialog } from "./components/PromotionDialog";
 import { PlayerInfoBox } from "./components/PlayerInfoBox";
 import { PlayersPanel } from "./components/PlayersPanel";
@@ -70,9 +69,9 @@ export default function App() {
   } | null>(null);
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardWidth, setBoardWidth] = useState(600);
-  const [activeTab, setActiveTab] = useState<
-    "chat" | "moves" | "players" | "controls"
-  >("players");
+  const [activeTab, setActiveTab] = useState<"chat" | "moves" | "players">(
+    "players"
+  );
   const [hasUnreadMessages, setLocalHasUnreadMessages] = useState(false);
   const movesRef = useRef<HTMLDivElement>(null);
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
@@ -181,8 +180,6 @@ export default function App() {
     joinSide(chosen);
     setIsMobileInfoVisible(false);
   };
-
-  const joinSpectator = () => joinSide("spectator");
 
   const doStartTeamVote = (type: VoteType) => {
     socket?.emit("start_team_vote", type);
@@ -590,14 +587,14 @@ export default function App() {
     );
   }
 
-  // --- Desktop header icon buttons ---
-  const showDesktopReset =
+  // --- Header icon buttons (reset + mute) ---
+  const showResetIcon =
     gameStatus !== GameStatus.Setup &&
     gameStatus !== GameStatus.Over &&
     !resetVote.isActive;
-  const desktopHeaderActions = (
+  const headerActions = (
     <div className="header-actions">
-      {showDesktopReset && (
+      {showResetIcon && (
         <button
           className="icon-btn"
           onClick={resetGame}
@@ -704,17 +701,6 @@ export default function App() {
           {UI.tabChat}{" "}
           {hasUnreadMessages && <span className="unread-dot"></span>}{" "}
         </button>
-        <button
-          className={activeTab === "controls" ? "active" : ""}
-          onClick={() => {
-            setActiveTab("controls");
-            setIsMobileInfoVisible(true);
-          }}
-        >
-          {UI.tabControls}
-          {(teamVote.isActive || resetVote.isActive) &&
-            activeTab !== "controls" && <span className="unread-dot"></span>}
-        </button>
       </nav>
 
       <div className="info-tabs-content">
@@ -728,6 +714,11 @@ export default function App() {
           kickVote={kickVote}
           onStartKickVote={startKickVote}
           onSendKickVote={sendKickVote}
+          showJoinControls
+          side={side}
+          gameStatus={gameStatus}
+          joinSide={joinSide}
+          autoAssign={autoAssign}
         />
         <MovesPanel
           activeTab={activeTab}
@@ -744,34 +735,6 @@ export default function App() {
           chatInputRef={chatInputRef}
           socket={socket}
         />
-        <div
-          className={
-            "tab-panel controls-panel " +
-            (activeTab === "controls" ? "active" : "")
-          }
-        >
-          <h3>{UI.headingControls}</h3>
-          <div className="controls-panel-content">
-            <ControlsPanel
-              gameStatus={gameStatus}
-              side={side}
-              drawOffer={drawOffer}
-              pgn={pgn}
-              isMuted={isMuted}
-              toggleMute={toggleMute}
-              resetGame={resetGame}
-              autoAssign={autoAssign}
-              joinSide={joinSide}
-              joinSpectator={joinSpectator}
-              copyPgn={copyPgn}
-              teamVote={teamVote}
-              onStartTeamVote={startTeamVote}
-              onSendTeamVote={sendTeamVote}
-              resetVote={resetVote}
-              onSendResetVote={sendResetVote}
-            />
-          </div>
-        </div>
       </div>
       <div className="mobile-info-header">
         <h3>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h3>
@@ -834,7 +797,7 @@ export default function App() {
       )}
 
       <div className="app-container">
-        <div className="header-bar">{!isMobile && desktopHeaderActions}</div>
+        <div className="header-bar">{headerActions}</div>
 
         <div className="main-layout">
           {isMobile ? (
@@ -842,8 +805,13 @@ export default function App() {
               <div className="game-column">
                 {topPlayerInfoBox}
                 {boardBlock}
-                {renderBottomPlayerInfoBox()}
+                {renderBottomPlayerInfoBox(bottomActionSlot)}
               </div>
+              {voteBannerContent && (
+                <div className="vote-row vote-row-mobile">
+                  {voteBannerContent}
+                </div>
+              )}
               {mobileTabsAndContent}
             </>
           ) : (

@@ -74,13 +74,26 @@
 
   .info-column.mobile-overlay-active .moves-list,
   .info-column.mobile-overlay-active .chat-box-container,
-  .info-column.mobile-overlay-active .player-lists-container,
-  .info-column.mobile-overlay-active .controls-panel-content {
+  .info-column.mobile-overlay-active .player-lists-container {
     height: 100%;
   }
 
   .info-column.mobile-overlay-active .mobile-info-header {
     display: flex;
+  }
+
+  .vote-row-mobile {
+    width: 100%;
+    max-width: 800px;
+    order: 1;
+  }
+  .vote-row-mobile .vote-banner {
+    border-radius: var(--radius-lg);
+  }
+
+  .icon-btn {
+    width: 44px;
+    height: 44px;
   }
 }
 

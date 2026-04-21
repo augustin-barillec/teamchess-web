@@ -9,13 +9,11 @@ export const UI = {
   tabPlayers: "Players",
   tabMoves: "Moves",
   tabChat: "Chat",
-  tabControls: "Controls",
 
   // Section headings
   headingPlayers: "Players",
   headingMoves: "Moves",
   headingChat: "Chat",
-  headingControls: "Controls",
   headingSpectators: "Spectators",
   headingWhite: "White",
   headingBlack: "Black",
@@ -31,23 +29,11 @@ export const UI = {
   promotionTitle: "Promote to:",
 
   // Buttons
-  btnResetGame: "⏮️ Reset Game",
-  btnAutoAssign: "🎲 Auto Assign",
-  btnJoinWhite: "⚪ Join White",
-  btnJoinBlack: "⚫ Join Black",
-  btnJoinSpectators: "👁️ Join Spectators",
-  btnSwitchTo: (otherSide: string) => `🔁 Switch to ${otherSide}`,
-  btnResign: "🏳️ Resign",
-  btnOfferDraw: "🤝 Offer Draw",
-  btnDrawOffered: "⏳ Draw Offered...",
-  btnCopyPgn: "📋 Copy PGN",
-  btnMuteSounds: "🔇 Mute Sounds",
-  btnUnmuteSounds: "🔊 Unmute Sounds",
   btnKick: "Kick",
   btnClose: "Close",
   btnJoin: "Join",
 
-  // Desktop (icon-button) labels & tooltips
+  // Icon-button labels & tooltips
   btnResignLabel: "Resign",
   btnOfferDrawLabel: "Offer Draw",
   btnResetLabel: "Reset",
@@ -63,7 +49,7 @@ export const UI = {
   voteTypeOfferDraw: "Offer Draw",
   voteTypeAcceptDraw: "Accept Draw",
   voteResetGame: "Vote: Reset Game",
-  votingOnDraw: "⏳ Voting on draw...",
+  votingOnDraw: "Voting on draw...",
   voteInProgress: "Vote in progress.",
 
   // Kick vote
@@ -86,7 +72,7 @@ export const UI = {
   confirmCancel: "Cancel",
 
   // Toasts
-  toastMoveSubmitted: "✅ Move submitted",
+  toastMoveSubmitted: "Move submitted",
   toastPgnCopied: "PGN copied!",
   toastPgnCopyFailed: "Could not copy PGN.",
   toastIllegalMove: "Illegal move!",
