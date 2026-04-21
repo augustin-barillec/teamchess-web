@@ -2,32 +2,19 @@ import { test, expect } from "@playwright/test";
 import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
-
-const BASE_PORT = 8080;
-function workerPort(workerIndex: number) {
-  return BASE_PORT + workerIndex;
-}
-function workerProject(workerIndex: number) {
-  return `teamchess-test-${workerIndex}`;
-}
-
-const VIDEO_DIR = "test-results/videos";
-let trackedPages: import("@playwright/test").Page[] = [];
-let trackedContexts: import("@playwright/test").BrowserContext[] = [];
-
-async function createPlayer(
-  browser: import("@playwright/test").Browser,
-  baseURL: string
-): Promise<import("@playwright/test").Page> {
-  const context = await browser.newContext({
-    baseURL,
-    recordVideo: { dir: VIDEO_DIR, size: { width: 1280, height: 720 } },
-  });
-  const page = await context.newPage();
-  trackedPages.push(page);
-  trackedContexts.push(context);
-  return page;
-}
+import {
+  VIDEO_DIR,
+  workerPort,
+  workerProject,
+  trackedPages,
+  trackedContexts,
+  resetTracking,
+  createPlayer,
+  setupPlayers,
+  joinTeam,
+  joinSpectators,
+  makeMove,
+} from "./helpers";
 
 // Start Docker container before each test
 test.beforeEach(async () => {
@@ -83,42 +70,13 @@ test.afterEach(async ({}, testInfo) => {
     }
   }
 
-  // Reset arrays
-  trackedPages = [];
-  trackedContexts = [];
+  resetTracking();
 
   // Docker cleanup
   const { workerIndex } = test.info();
   const project = workerProject(workerIndex);
   execSync(`docker compose -p ${project} down`, { stdio: "ignore" });
 });
-
-// Helper function for drag and drop move
-async function makeMove(
-  page: import("@playwright/test").Page,
-  from: string,
-  to: string
-) {
-  const fromSquare = page.locator(`[data-square="${from}"]`);
-  const toSquare = page.locator(`[data-square="${to}"]`);
-
-  const fromBox = await fromSquare.boundingBox();
-  const toBox = await toSquare.boundingBox();
-
-  if (!fromBox || !toBox) {
-    throw new Error(`Could not find squares ${from} or ${to}`);
-  }
-
-  await page.mouse.move(
-    fromBox.x + fromBox.width / 2,
-    fromBox.y + fromBox.height / 2
-  );
-  await page.mouse.down();
-  await page.mouse.move(toBox.x + toBox.width / 2, toBox.y + toBox.height / 2, {
-    steps: 5,
-  });
-  await page.mouse.up();
-}
 
 // Desktop UI note: viewport is 1280x720 → desktop layout renders. Join controls
 // live inline in each `.player-section` heading ("Join" button). Action icons
@@ -130,19 +88,9 @@ async function makeMove(
 
 test.describe("Game and Social", () => {
   test("auto_assign_balances_teams", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-
+    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 clicks Auto Assign — should join Black (balancing teams)
     await player2.click('button[aria-label="Auto assign"]');
@@ -162,18 +110,7 @@ test.describe("Game and Social", () => {
   });
 
   test("name_change", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-
-    // Both players join the website
-    await player1.goto("/");
-    await player2.goto("/");
-
-    // Wait for app to load
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-
+    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 clicks on their name to open the name change modal
     await player1.click("button.clickable-name");
     await player1.waitForSelector(".name-modal-dialog");
@@ -197,18 +134,7 @@ test.describe("Game and Social", () => {
   });
 
   test("chat_message", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-
-    // Both players join the website
-    await player1.goto("/");
-    await player2.goto("/");
-
-    // Wait for app to load
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-
+    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 types "hello1" in the chat input and presses Enter
     const chatInput = player1.locator('.chat-panel input[type="text"]');
     await chatInput.fill("hello1");
@@ -223,20 +149,11 @@ test.describe("Game and Social", () => {
   });
 
   test("kick_vote_and_blacklist", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
-    // Wait for all 3 players to appear in player 1's spectators list
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     const kickButtons = player1.locator(
       '.players-panel button:has-text("Kick")'
     );
@@ -286,12 +203,10 @@ test.describe("Game and Social", () => {
     await spectator.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Spectator stays as spectator (default)
 
@@ -363,32 +278,19 @@ test.describe("Game and Social", () => {
 
 test.describe("Gameplay Mechanics", () => {
   test("three_players_stockfish", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    // All players join the website
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    // Wait for app to load for all players
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 joins White team
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black team
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 3 joins Black team
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // Player 1 (White) plays e2-e4
     await makeMove(player1, "e2", "e4");
@@ -424,31 +326,19 @@ test.describe("Gameplay Mechanics", () => {
   });
 
   test("late_joiner_best_move_wins", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    // Player 1, 2, 3 join the website
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 3 joins Black
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // Player 1 (White) plays e2-e4
     await makeMove(player1, "e2", "e4");
@@ -464,11 +354,8 @@ test.describe("Gameplay Mechanics", () => {
     await player2.waitForTimeout(500);
 
     // Player 4 arrives late and joins Black
-    const player4 = await createPlayer(browser, baseURL);
-    await player4.goto("/");
-    await player4.waitForSelector(".app-container");
-    await player4.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player4.waitForTimeout(500);
+    const [player4] = await setupPlayers(browser, testInfo, 1);
+    await joinTeam(player4, "black");
 
     // Player 4 (Black) proposes the best move: e7-e5
     await makeMove(player4, "e7", "e5");
@@ -491,25 +378,12 @@ test.describe("Gameplay Mechanics", () => {
   });
 
   test("pawn_promotion_to_queen", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-
-    // Both players join the website
-    await player1.goto("/");
-    await player2.goto("/");
-
-    // Wait for app to load
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-
+    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 joins White team
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black team
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Sequence of moves to get white pawn to h8:
     // 1. g2-g4 (white)
@@ -569,23 +443,12 @@ test.describe("Gameplay Mechanics", () => {
   });
 
   test("pawn_promotion_to_knight", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-
+    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 joins White team
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black team
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Same sequence as pawn_promotion_to_queen:
     // 1. g2-g4  2. h7-h5  3. g4xh5  4. g7-g6
@@ -631,23 +494,12 @@ test.describe("Gameplay Mechanics", () => {
   });
 
   test("illegal_move_rejected", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-
+    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 1 (White) plays e2-e4 — starts game, now it's Black's turn
     await makeMove(player1, "e2", "e4");
@@ -669,28 +521,17 @@ test.describe("Gameplay Mechanics", () => {
   });
 
   test("multiple_move_rejection", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 and Player 3 join Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player2, "black");
+    await joinTeam(player3, "black");
 
     // Player 1 (White) plays e2-e4 — starts game, Black's turn
     await makeMove(player1, "e2", "e4");
@@ -709,23 +550,12 @@ test.describe("Gameplay Mechanics", () => {
   });
 
   test("black_tries_to_start_game", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-
+    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 2 (Black) tries to play e7-e5 — should be blocked (only White can start)
     await makeMove(player2, "e7", "e5");
@@ -749,30 +579,19 @@ test.describe("Gameplay Mechanics", () => {
 
 test.describe("Game End Conditions", () => {
   test("black_team_checkmates_white", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 3 joins Black
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // === Fool's Mate: 1. f3 e5 2. g4 Qh4# ===
 
@@ -827,10 +646,8 @@ test.describe("Game End Conditions", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White, Player 2 joins Black (1 per team — single proposal wins immediately)
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player1, "white");
+    await joinTeam(player2, "black");
 
     // === Fool's Mate: 1. f3 e5 2. g4 Qh4# 0-1 ===
 
@@ -874,30 +691,19 @@ test.describe("Game End Conditions", () => {
 
   test("threefold_repetition_draw", async ({ browser }, testInfo) => {
     test.setTimeout(60000);
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 3 joins Black
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // === Threefold repetition: Nf3 Nf6 Ng1 Ng8 (x2) ===
     // Starting position occurs 3 times: initial, after round 1, after round 2
@@ -946,33 +752,20 @@ test.describe("Game End Conditions", () => {
   });
 
   test("forfeit_by_joining_spectators", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-
+    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 1 plays e2-e4 (starts the game)
     await makeMove(player1, "e2", "e4");
     await player1.waitForTimeout(1000);
 
     // Player 2 joins spectators — black team is now empty
-    await player2.click(
-      '.player-section:has(h3:has-text("Spectators")) .join-btn'
-    );
-    await player2.waitForTimeout(1000);
+    await joinSpectators(player2);
+    await player2.waitForTimeout(500);
 
     // Assert: Game is over — "Copy PGN" button appears (only visible when game is Over)
     await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
@@ -997,12 +790,10 @@ test.describe("Game End Conditions", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 1 plays e2-e4 (starts the game)
     await makeMove(player1, "e2", "e4");
@@ -1041,16 +832,13 @@ test.describe("Game End Conditions", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 3 joins Black
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // === Sam Loyd's shortest stalemate (10 moves) ===
     // 1. c4 h5  2. h4 a5  3. Qa4 Ra6  4. Qxa5 Rah6
@@ -1179,12 +967,10 @@ test.describe("Game End Conditions", () => {
     await player2.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 1 plays e2-e4 (starts the game)
     await makeMove(player1, "e2", "e4");
@@ -1219,33 +1005,18 @@ test.describe("Game End Conditions", () => {
 
 test.describe("Voting", () => {
   test("resign_vote_rejected", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-    const player4 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-    await player4.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-    await player4.waitForSelector(".app-container");
-
+    const [player1, player2, player3, player4] = await setupPlayers(
+      browser,
+      testInfo,
+      4
+    );
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2, 3, 4 join Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
-    await player4.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player4.waitForTimeout(500);
+    await joinTeam(player2, "black");
+    await joinTeam(player3, "black");
+    await joinTeam(player4, "black");
 
     // Player 1 (White) plays e2-e4
     await makeMove(player1, "e2", "e4");
@@ -1269,33 +1040,18 @@ test.describe("Voting", () => {
   });
 
   test("resign_vote_accepted", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-    const player4 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-    await player4.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-    await player4.waitForSelector(".app-container");
-
+    const [player1, player2, player3, player4] = await setupPlayers(
+      browser,
+      testInfo,
+      4
+    );
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2, 3, 4 join Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
-    await player4.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player4.waitForTimeout(500);
+    await joinTeam(player2, "black");
+    await joinTeam(player3, "black");
+    await joinTeam(player4, "black");
 
     // Player 1 (White) plays e2-e4
     await makeMove(player1, "e2", "e4");
@@ -1325,30 +1081,19 @@ test.describe("Voting", () => {
   });
 
   test("reset_vote_accepted", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 3 joins Black
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // Player 1 (White) plays e2-e4 to start the game
     await makeMove(player1, "e2", "e4");
@@ -1381,30 +1126,19 @@ test.describe("Voting", () => {
   });
 
   test("reset_vote_rejected", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 3 joins Black
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // Player 1 (White) plays e2-e4 to start the game
     await makeMove(player1, "e2", "e4");
@@ -1434,23 +1168,12 @@ test.describe("Voting", () => {
   });
 
   test("single_player_resign", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-
+    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 joins White (solo)
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black (solo)
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 1 (White) plays e2-e4 to start the game
     await makeMove(player1, "e2", "e4");
@@ -1488,16 +1211,13 @@ test.describe("Voting", () => {
     await player3.waitForSelector(".app-container");
 
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 3 joins Black
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // Player 1 (White) plays e2-e4 to start the game
     await makeMove(player1, "e2", "e4");
@@ -1522,26 +1242,15 @@ test.describe("Voting", () => {
   });
 
   test("resign_with_disconnected_teammate", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 + Player 2 join White, Player 3 joins Black
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
-    await player2.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player2.waitForTimeout(500);
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player1, "white");
+    await joinTeam(player2, "white");
+    await joinTeam(player3, "black");
 
     // Player 1 plays e2-e4 to start the game
     await makeMove(player1, "e2", "e4");
@@ -1574,21 +1283,10 @@ test.describe("Voting", () => {
   });
 
   test("reset_game_when_alone_connected", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-
+    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 joins White, Player 2 joins Black
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player1, "white");
+    await joinTeam(player2, "black");
 
     // Player 1 plays e2-e4 to start the game
     await makeMove(player1, "e2", "e4");
@@ -1619,19 +1317,11 @@ test.describe("Voting", () => {
   });
 
   test("reset_vote_shows_voter_labels", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Set distinct names for each player
     // Player 1 → Alice
     await player1.click("button.clickable-name");
@@ -1661,12 +1351,9 @@ test.describe("Voting", () => {
     await player3.waitForTimeout(500);
 
     // Alice → White, Bob + Charlie → Black
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player1, "white");
+    await joinTeam(player2, "black");
+    await joinTeam(player3, "black");
 
     // Alice plays e2-e4 to start the game
     await makeMove(player1, "e2", "e4");
@@ -1707,26 +1394,15 @@ test.describe("Voting", () => {
   test("team_vote_buttons_disabled_for_late_joiner", async ({
     browser,
   }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 → White, Player 2 + 3 → Black
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player1, "white");
+    await joinTeam(player2, "black");
+    await joinTeam(player3, "black");
 
     // Start game
     await makeMove(player1, "e2", "e4");
@@ -1737,11 +1413,9 @@ test.describe("Voting", () => {
     await player2.waitForTimeout(500);
 
     // Player 4 joins late, goes to Black
-    const player4 = await createPlayer(browser, baseURL);
-    await player4.goto("/");
-    await player4.waitForSelector(".app-container");
-    await player4.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player4.waitForTimeout(1000);
+    const [player4] = await setupPlayers(browser, testInfo, 1);
+    await joinTeam(player4, "black");
+    await player4.waitForTimeout(500);
 
     // Assert: P4 (late joiner) sees vote but Yes/No buttons are disabled
     const p4Yes = player4.locator('button:has-text("Yes")');
@@ -1760,26 +1434,15 @@ test.describe("Voting", () => {
   test("reset_vote_buttons_disabled_for_late_joiner", async ({
     browser,
   }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // P1 + P3 → White, P2 → Black
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
-    await player3.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player1, "white");
+    await joinTeam(player2, "black");
+    await joinTeam(player3, "white");
 
     // Start game
     await makeMove(player1, "e2", "e4");
@@ -1790,9 +1453,7 @@ test.describe("Voting", () => {
     await player2.waitForTimeout(500);
 
     // Player 4 joins late
-    const player4 = await createPlayer(browser, baseURL);
-    await player4.goto("/");
-    await player4.waitForSelector(".app-container");
+    const [player4] = await setupPlayers(browser, testInfo, 1);
     await player4.waitForTimeout(1000);
 
     // Assert: P4 (late joiner) sees reset vote but Yes/No buttons are disabled
@@ -1816,30 +1477,19 @@ test.describe("Voting", () => {
 
 test.describe("Draw Offers", () => {
   test("draw_by_agreement", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 3 joins Black
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // Player 1 (White) plays e2-e4
     await makeMove(player1, "e2", "e4");
@@ -1868,30 +1518,19 @@ test.describe("Draw Offers", () => {
   });
 
   test("draw_offer_rejected", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 3 joins Black
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // Player 1 (White) plays e2-e4
     await makeMove(player1, "e2", "e4");
@@ -1920,30 +1559,19 @@ test.describe("Draw Offers", () => {
   });
 
   test("team_offer_draw_rejected", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 3 joins Black
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // Player 1 (White) plays e2-e4
     await makeMove(player1, "e2", "e4");
@@ -1967,30 +1595,19 @@ test.describe("Draw Offers", () => {
   });
 
   test("team_offer_draw_accepted", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
     // Player 1 joins White
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(500);
+    await joinTeam(player1, "white");
 
     // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(500);
+    await joinTeam(player2, "black");
 
     // Player 3 joins Black
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // Player 1 (White) plays e2-e4
     await makeMove(player1, "e2", "e4");
@@ -2045,8 +1662,7 @@ test.describe("Draw Offers", () => {
     await player2.waitForTimeout(300);
 
     // Player 3 joins Black
-    await player3.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player3.waitForTimeout(500);
+    await joinTeam(player3, "black");
 
     // Player 1 (White, solo) plays e2-e4 to start the game
     await makeMove(player1, "e2", "e4");

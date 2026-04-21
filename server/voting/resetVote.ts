@@ -8,6 +8,7 @@ import {
   createResetVoteState,
 } from "../core/resetVoteLogic.js";
 import { MSG } from "../shared_messages.js";
+import { voterNames, currentVoteOf } from "./voteHelpers.js";
 
 /**
  * Gets reset vote data formatted for a specific client.
@@ -34,30 +35,16 @@ export function getResetVoteClientData(
     };
   }
 
-  const yesNames = Array.from(vote.yesVoters).map(
-    (pid) => sessions.get(pid)?.name || "Unknown"
-  );
-  const noNames = Array.from(vote.noVoters).map(
-    (pid) => sessions.get(pid)?.name || "Unknown"
-  );
-
-  const isEligible = vote.eligibleVoters.has(viewerPid);
-  const myCurrentVote = vote.yesVoters.has(viewerPid)
-    ? ("yes" as const)
-    : vote.noVoters.has(viewerPid)
-      ? ("no" as const)
-      : null;
-
   return {
     isActive: true,
     initiatorName: vote.initiatorName,
-    yesVotes: yesNames,
-    noVotes: noNames,
+    yesVotes: voterNames(vote.yesVoters, sessions),
+    noVotes: voterNames(vote.noVoters, sessions),
     requiredVotes: vote.required,
     totalVoters: vote.total,
     endTime: vote.endTime,
-    myVoteEligible: isEligible,
-    myCurrentVote,
+    myVoteEligible: vote.eligibleVoters.has(viewerPid),
+    myCurrentVote: currentVoteOf(viewerPid, vote.yesVoters, vote.noVoters),
   };
 }
 

@@ -29,6 +29,7 @@ import { PlayerInfoBox } from "./components/PlayerInfoBox";
 import { PlayersPanel } from "./components/PlayersPanel";
 import { MovesPanel } from "./components/MovesPanel";
 import { ChatPanel } from "./components/ChatPanel";
+import { VoteBanner } from "./components/VoteBanner";
 import { sounds } from "./soundEngine";
 
 export default function App() {
@@ -499,91 +500,37 @@ export default function App() {
   ) : null;
 
   // --- Desktop vote banner (team vote or reset vote) ---
+  const teamVoteTitleMap = {
+    resign: UI.voteTypeResign,
+    offer_draw: UI.voteTypeOfferDraw,
+    accept_draw: UI.voteTypeAcceptDraw,
+  };
   let voteBannerContent: React.ReactNode = null;
   if (teamVote.isActive && teamVote.type) {
-    const titleMap = {
-      resign: UI.voteTypeResign,
-      offer_draw: UI.voteTypeOfferDraw,
-      accept_draw: UI.voteTypeAcceptDraw,
-    };
     voteBannerContent = (
-      <div className="vote-banner">
-        <div className="vote-banner-info">
-          <div className="vote-banner-title">
-            Vote: {titleMap[teamVote.type]}
-          </div>
-          <div className="vote-banner-meta">
-            {teamVote.yesVotes.length}/{teamVote.requiredVotes} &bull;{" "}
-            {teamVoteTimeLeft}s
-            {teamVote.yesVotes.length > 0 && (
-              <span className="vote-banner-yes-list">
-                {" "}
-                &bull; Yes: {teamVote.yesVotes.join(", ")}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="vote-banner-buttons">
-          <button
-            onClick={() => sendTeamVote("yes")}
-            disabled={!teamVote.myVoteEligible}
-            className="vote-yes-btn"
-          >
-            Yes ({teamVote.yesVotes.length})
-          </button>
-          <button
-            onClick={() => sendTeamVote("no")}
-            disabled={!teamVote.myVoteEligible}
-            className="vote-no-btn"
-          >
-            No
-          </button>
-        </div>
-      </div>
+      <VoteBanner
+        title={`Vote: ${teamVoteTitleMap[teamVote.type]}`}
+        yesVotes={teamVote.yesVotes}
+        requiredVotes={teamVote.requiredVotes}
+        timeLeft={teamVoteTimeLeft}
+        myVoteEligible={teamVote.myVoteEligible}
+        onYes={() => sendTeamVote("yes")}
+        onNo={() => sendTeamVote("no")}
+      />
     );
   } else if (resetVote.isActive) {
     voteBannerContent = (
-      <div className="vote-banner">
-        <div className="vote-banner-info">
-          <div className="vote-banner-title">{UI.voteResetGame}</div>
-          <div className="vote-banner-meta">
-            {resetVote.yesVotes.length}/{resetVote.requiredVotes} &bull;{" "}
-            {resetVoteTimeLeft}s
-            {resetVote.yesVotes.length > 0 && (
-              <span className="vote-banner-yes-list">
-                {" "}
-                &bull; Yes: {resetVote.yesVotes.join(", ")}
-              </span>
-            )}
-            {resetVote.noVotes.length > 0 && (
-              <span className="vote-banner-no-list">
-                {" "}
-                &bull; No: {resetVote.noVotes.join(", ")}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="vote-banner-buttons">
-          <button
-            onClick={() => sendResetVote("yes")}
-            disabled={
-              !resetVote.myVoteEligible || resetVote.myCurrentVote === "yes"
-            }
-            className="vote-yes-btn"
-          >
-            Yes ({resetVote.yesVotes.length})
-          </button>
-          <button
-            onClick={() => sendResetVote("no")}
-            disabled={
-              !resetVote.myVoteEligible || resetVote.myCurrentVote === "no"
-            }
-            className="vote-no-btn"
-          >
-            No ({resetVote.noVotes.length})
-          </button>
-        </div>
-      </div>
+      <VoteBanner
+        title={UI.voteResetGame}
+        yesVotes={resetVote.yesVotes}
+        noVotes={resetVote.noVotes}
+        requiredVotes={resetVote.requiredVotes}
+        timeLeft={resetVoteTimeLeft}
+        myVoteEligible={resetVote.myVoteEligible}
+        myCurrentVote={resetVote.myCurrentVote}
+        onYes={() => sendResetVote("yes")}
+        onNo={() => sendResetVote("no")}
+      />
     );
   }
 

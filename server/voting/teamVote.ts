@@ -6,6 +6,7 @@ import { TEAM_VOTE_DURATION_MS } from "../constants.js";
 import { sendSystemMessage } from "../utils/messaging.js";
 import { checkVotePrerequisites, createVoteState } from "../core/voteLogic.js";
 import { MSG } from "../shared_messages.js";
+import { voterNames } from "./voteHelpers.js";
 
 // Callback for ending the game (set by gameLogic to avoid circular dependency)
 let endGameCallback: ((reason: string, winner: string | null) => void) | null =
@@ -40,15 +41,11 @@ export function getTeamVoteClientData(
     };
   }
 
-  const yesNames = Array.from(vote.yesVoters).map(
-    (pid) => sessions.get(pid)?.name || "Unknown"
-  );
-
   return {
     isActive: true,
     type: vote.type,
     initiatorName: sessions.get(vote.initiatorId)?.name || "Unknown",
-    yesVotes: yesNames,
+    yesVotes: voterNames(vote.yesVoters, sessions),
     requiredVotes: vote.required,
     endTime: vote.endTime,
     myVoteEligible: vote.eligibleVoters.has(viewerPid),
