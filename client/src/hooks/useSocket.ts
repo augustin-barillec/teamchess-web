@@ -52,6 +52,7 @@ interface UseSocketReturn {
   teamVote: TeamVoteState;
   kickVote: KickVoteState;
   resetVote: ResetVoteState;
+  hasUnreadMessages: boolean;
   setHasUnreadMessages: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -127,7 +128,7 @@ export function useSocket({
     myVoteEligible: false,
     myCurrentVote: null,
   });
-  const [_hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const prevClocks = useRef({
     whiteTime: DEFAULT_CLOCK_TIME,
     blackTime: DEFAULT_CLOCK_TIME,
@@ -391,6 +392,7 @@ export function useSocket({
     teamVote,
     kickVote,
     resetVote,
+    hasUnreadMessages,
     setHasUnreadMessages,
   };
 }

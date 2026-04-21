@@ -57,6 +57,7 @@ export default function App() {
     teamVote,
     kickVote,
     resetVote,
+    hasUnreadMessages,
     setHasUnreadMessages,
   } = useSocket({ chess, isMobile, activeTabRef });
 
@@ -72,7 +73,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"chat" | "moves" | "players">(
     "players"
   );
-  const [hasUnreadMessages, setLocalHasUnreadMessages] = useState(false);
   const movesRef = useRef<HTMLDivElement>(null);
   const [isMobileInfoVisible, setIsMobileInfoVisible] = useState(false);
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
@@ -692,7 +692,6 @@ export default function App() {
           className={activeTab === "chat" ? "active" : ""}
           onClick={() => {
             setActiveTab("chat");
-            setLocalHasUnreadMessages(false);
             setHasUnreadMessages(false);
             setIsMobileInfoVisible(true);
           }}
