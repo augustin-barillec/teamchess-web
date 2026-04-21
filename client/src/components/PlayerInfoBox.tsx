@@ -29,7 +29,19 @@ export const PlayerInfoBox: React.FC<PlayerInfoBoxProps> = ({
         {String(clockTime % 60).padStart(2, "0")}
       </div>
       <div className="material-display">
-        <span>{lostPieces.join(" ")}</span>
+        <span className="material-pieces">
+          {lostPieces.map((s, i) => {
+            const xIdx = s.indexOf("x");
+            const figurine = xIdx === -1 ? s : s.slice(0, xIdx);
+            const count = xIdx === -1 ? "" : s.slice(xIdx);
+            return (
+              <span key={i} className="piece-group">
+                <span className="piece-figurine">{figurine}</span>
+                {count && <span className="piece-count">{count}</span>}
+              </span>
+            );
+          })}
+        </span>
         <span
           className="material-adv-label"
           style={{ visibility: materialAdv > 0 ? "visible" : "hidden" }}

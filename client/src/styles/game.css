@@ -40,6 +40,20 @@
   flex-grow: 1;
   color: var(--color-material-piece);
 }
+.material-pieces {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  line-height: 1;
+}
+.piece-group {
+  display: inline-flex;
+  align-items: center;
+}
+.piece-count {
+  font-size: 0.75em;
+  line-height: 1;
+}
 .material-adv-label {
   display: inline-block;
   min-width: 3ch;
