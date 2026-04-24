@@ -64,21 +64,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   </div>
                 );
               }
+              const isOwn = myId === msg.senderId;
               return (
                 <div
                   key={idx}
-                  className={
-                    "chat-message-item " +
-                    (myId === msg.senderId ? "own" : "other")
-                  }
+                  className={"chat-message-item " + (isOwn ? "own" : "other")}
                 >
-                  {" "}
-                  {myId === msg.senderId ? (
-                    <strong>{msg.sender}:</strong>
-                  ) : (
-                    <span>{msg.sender}:</span>
-                  )}{" "}
-                  {msg.message}{" "}
+                  {isOwn ? null : (
+                    <>
+                      <span>{msg.sender}:</span>{" "}
+                    </>
+                  )}
+                  {msg.message}
                 </div>
               );
             })}{" "}

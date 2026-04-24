@@ -39,13 +39,16 @@ export const MovesPanel: React.FC<MovesPanelProps> = ({
                   {t.proposals.map((p) => {
                     const isSel = t.selection!.lan === p.lan;
                     return (
-                      <li key={p.id}>
-                        {p.name}
-                        {p.id === myId && " (You)"}{" "}
-                        {isSel ? (
-                          <span className="moves-list-item">{p.san}</span>
-                        ) : (
-                          p.san
+                      <li
+                        key={p.id}
+                        className={
+                          "move-proposal-item" + (isSel ? " selected" : "")
+                        }
+                      >
+                        <span className="move-san-wrap">{p.san}</span>
+                        <span className="move-player-name">{p.name}</span>
+                        {p.id === myId && (
+                          <span className="move-you-tag">(You)</span>
                         )}
                       </li>
                     );

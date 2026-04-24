@@ -207,11 +207,17 @@
   font-size: 0.8em;
   margin-top: 6px;
   color: var(--color-vote-yes-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .vote-box-no-list {
   font-size: 0.8em;
   margin-top: 2px;
   color: var(--color-vote-no-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .vote-box-buttons .vote-yes-btn.cast {
   background: var(--color-vote-yes-bg-active);

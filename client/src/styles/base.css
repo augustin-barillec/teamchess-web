@@ -52,6 +52,29 @@ ul {
   margin: 0;
 }
 
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-2) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-1);
+  border-radius: var(--radius-sm);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-2);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 pre {
   width: 100%;
   padding: 10px;

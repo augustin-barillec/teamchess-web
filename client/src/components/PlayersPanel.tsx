@@ -170,17 +170,25 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
     return (
       <li key={p.id} className="player-list-item-column">
         <div className="player-entry">
+          {teamSide && hasPlayed(p.id, teamSide) && (
+            <span className="player-icon-slot">
+              <PlayedCheck />
+            </span>
+          )}
           {isMe ? (
             <button className="clickable-name" onClick={openNameModal}>
-              <span>{p.name}</span>
+              <span className="player-name-text">{p.name}</span>
               {p.name === DEFAULT_PLAYER_NAME && <PencilIcon />}
-              <span> (You)</span>
+              <span className="player-you-tag">(You)</span>
             </button>
           ) : (
-            <span>{p.name}</span>
+            <span className="player-name-text">{p.name}</span>
           )}
-          {disconnected && <DisconnectedIcon />}
-          {teamSide && hasPlayed(p.id, teamSide) && <PlayedCheck />}
+          {disconnected && (
+            <span className="player-icon-slot">
+              <DisconnectedIcon />
+            </span>
+          )}
           {showKickButton && (
             <button
               className="kick-btn"
