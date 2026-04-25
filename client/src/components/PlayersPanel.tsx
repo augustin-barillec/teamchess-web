@@ -21,24 +21,6 @@ interface PlayersPanelProps {
   autoAssign?: () => void;
 }
 
-const PlayedCheck: React.FC = () => (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-label="Played"
-    style={{ color: "var(--color-success)" }}
-  >
-    <title>Played</title>
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
-
 const PencilIcon: React.FC = () => (
   <svg
     width="14"
@@ -166,23 +148,20 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
     const disconnected = isMe ? amDisconnected : !p.connected;
     const showKickButton = !isMe && !kickVote.isActive;
     const isKickTarget = kickVote.isActive && kickVote.targetId === p.id;
+    const played = teamSide ? hasPlayed(p.id, teamSide) : false;
+    const nameClass = `player-name-text${played ? " player-name-text--played" : ""}`;
 
     return (
       <li key={p.id} className="player-list-item-column">
         <div className="player-entry">
-          {teamSide && hasPlayed(p.id, teamSide) && (
-            <span className="player-icon-slot">
-              <PlayedCheck />
-            </span>
-          )}
           {isMe ? (
             <button className="clickable-name" onClick={openNameModal}>
-              <span className="player-name-text">{p.name}</span>
+              <span className={nameClass}>{p.name}</span>
               {p.name === DEFAULT_PLAYER_NAME && <PencilIcon />}
               <span className="player-you-tag">(You)</span>
             </button>
           ) : (
-            <span className="player-name-text">{p.name}</span>
+            <span className={nameClass}>{p.name}</span>
           )}
           {disconnected && (
             <span className="player-icon-slot">

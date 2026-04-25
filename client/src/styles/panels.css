@@ -214,6 +214,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.player-name-text--played {
+  color: var(--color-success);
+}
 .player-you-tag {
   flex-shrink: 0;
   color: var(--color-text-secondary);
