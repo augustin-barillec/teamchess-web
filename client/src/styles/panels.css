@@ -260,7 +260,6 @@
   border-radius: var(--radius-sm);
   line-height: 1;
   margin: 0;
-  margin-left: auto;
   flex-shrink: 0;
 }
 .kick-btn:hover {

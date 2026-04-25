@@ -39,9 +39,9 @@ _Best for writing code. Features live updates (Hot Reload) for the frontend and 
     ```sh
     npm run client
     ```
-    _Runs the client on port 5173._
+    _Runs the client on port 5176._
 
-👉 **Access:** Open `http://localhost:5173`
+👉 **Access:** Open `http://localhost:5176`
 
 ### 2. Local Production (Testing 🏗️)
 
