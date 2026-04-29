@@ -535,10 +535,7 @@ export default function App() {
   }
 
   // --- Header icon buttons (reset + mute) ---
-  const showResetIcon =
-    gameStatus !== GameStatus.Setup &&
-    gameStatus !== GameStatus.Over &&
-    !resetVote.isActive;
+  const showResetIcon = gameStatus !== GameStatus.Setup && !resetVote.isActive;
   const headerActions = (
     <div className="header-actions">
       {showResetIcon && (
