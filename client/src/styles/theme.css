@@ -63,15 +63,14 @@
 
   /* Chat */
   --color-chat-own-bg: #004c8c;
-  /* Sender name palette: distinct hues, readable on --color-bg-surface */
-  --color-chat-name-1: #ff6b6b;
-  --color-chat-name-2: #ffa94d;
-  --color-chat-name-3: #a9e34b;
-  --color-chat-name-4: #69db7c;
-  --color-chat-name-5: #3bc9db;
-  --color-chat-name-6: #74c0fc;
-  --color-chat-name-7: #9775fa;
-  --color-chat-name-8: #f783ac;
+  /* Per-player identity palette: distinct hues, readable on
+     --color-bg-surface. No green — green signals selected/played. */
+  --color-player-1: #ff6b6b;
+  --color-player-2: #ffa94d;
+  --color-player-3: #3bc9db;
+  --color-player-4: #74c0fc;
+  --color-player-5: #9775fa;
+  --color-player-6: #f783ac;
 
   /* Overlays & shadows */
   --color-overlay-bg: rgba(0, 0, 0, 0.75);

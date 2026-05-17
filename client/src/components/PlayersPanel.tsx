@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Players, KickVoteState, GameStatus } from "../types";
 import { DisconnectedIcon } from "../DisconnectedIcon";
 import { DEFAULT_PLAYER_NAME, UI } from "../messages";
+import { colorForPlayer } from "../playerColors";
 
 interface PlayersPanelProps {
   activeTab: string;
@@ -149,19 +150,32 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
     const showKickButton = !isMe && !kickVote.isActive;
     const isKickTarget = kickVote.isActive && kickVote.targetId === p.id;
     const played = teamSide ? hasPlayed(p.id, teamSide) : false;
-    const nameClass = `player-name-text${played ? " player-name-text--played" : ""}`;
+    const nameStyle = { color: colorForPlayer(p.id) };
 
     return (
       <li key={p.id} className="player-list-item-column">
         <div className="player-entry">
           {isMe ? (
             <button className="clickable-name" onClick={openNameModal}>
-              <span className={nameClass}>{p.name}</span>
+              <span className="player-name-text" style={nameStyle}>
+                {p.name}
+              </span>
               {p.name === DEFAULT_PLAYER_NAME && <PencilIcon />}
               <span className="player-you-tag">(You)</span>
             </button>
           ) : (
-            <span className={nameClass}>{p.name}</span>
+            <span className="player-name-text" style={nameStyle}>
+              {p.name}
+            </span>
+          )}
+          {played && (
+            <span
+              className="player-played-check"
+              title={UI.playedThisTurn}
+              aria-label={UI.playedThisTurn}
+            >
+              ✓
+            </span>
           )}
           {disconnected && (
             <span className="player-icon-slot">

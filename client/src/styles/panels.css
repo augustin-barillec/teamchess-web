@@ -170,9 +170,13 @@
   flex-shrink: 0;
   color: var(--color-text-secondary);
 }
-.move-proposal-item.selected .move-san-wrap,
-.move-proposal-item.selected .move-player-name {
+.move-proposal-item.selected .move-san-wrap {
   color: var(--color-selected-move);
+  font-weight: bold;
+}
+/* Selected: SAN carries the green signal; the name keeps its identity
+   colour (set inline) and only goes bold to reinforce the selection. */
+.move-proposal-item.selected .move-player-name {
   font-weight: bold;
 }
 
@@ -220,8 +224,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.player-name-text--played {
+/* "Has played this turn" is signalled by a green check, so the player
+   name keeps its identity colour. */
+.player-played-check {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
   color: var(--color-success);
+  font-weight: bold;
 }
 .player-you-tag {
   flex-shrink: 0;

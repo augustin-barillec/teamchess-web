@@ -2,6 +2,7 @@ import { RefObject } from "react";
 import { Socket } from "socket.io-client";
 import { ChatMessage } from "../types";
 import { UI } from "../messages";
+import { colorForPlayer } from "../playerColors";
 
 interface ChatPanelProps {
   activeTab: string;
@@ -12,28 +13,6 @@ interface ChatPanelProps {
   chatInputRef: RefObject<HTMLInputElement | null>;
   socket: Socket | null;
 }
-
-// Distinct, theme-readable colours; a sender always maps to the same one.
-const SENDER_COLORS = [
-  "var(--color-chat-name-1)",
-  "var(--color-chat-name-2)",
-  "var(--color-chat-name-3)",
-  "var(--color-chat-name-4)",
-  "var(--color-chat-name-5)",
-  "var(--color-chat-name-6)",
-  "var(--color-chat-name-7)",
-  "var(--color-chat-name-8)",
-];
-
-// Hash the stable senderId (not the display name) so the same person always
-// gets the same colour and near-identical/empty names don't collide.
-const colorForSender = (senderId: string): string => {
-  let hash = 0;
-  for (let i = 0; i < senderId.length; i++) {
-    hash = (hash * 31 + senderId.charCodeAt(i)) | 0;
-  }
-  return SENDER_COLORS[Math.abs(hash) % SENDER_COLORS.length];
-};
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
   activeTab,
@@ -103,7 +82,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   {showName && (
                     <span
                       className="chat-sender"
-                      style={{ color: colorForSender(msg.senderId) }}
+                      style={{ color: colorForPlayer(msg.senderId) }}
                     >
                       {msg.sender}
                     </span>

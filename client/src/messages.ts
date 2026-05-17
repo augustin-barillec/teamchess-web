@@ -32,6 +32,7 @@ export const UI = {
   btnKick: "Kick",
   btnClose: "Close",
   btnJoin: "Join",
+  playedThisTurn: "Played this turn",
 
   // Icon-button labels & tooltips
   btnResignLabel: "Resign",

@@ -1,6 +1,7 @@
 import { RefObject } from "react";
 import { Turn } from "../types";
 import { UI } from "../messages";
+import { colorForPlayer } from "../playerColors";
 
 interface MovesPanelProps {
   activeTab: string;
@@ -46,7 +47,12 @@ export const MovesPanel: React.FC<MovesPanelProps> = ({
                         }
                       >
                         <span className="move-san-wrap">{p.san}</span>
-                        <span className="move-player-name">{p.name}</span>
+                        <span
+                          className="move-player-name"
+                          style={{ color: colorForPlayer(p.id) }}
+                        >
+                          {p.name}
+                        </span>
                         {p.id === myId && (
                           <span className="move-you-tag">(You)</span>
                         )}
