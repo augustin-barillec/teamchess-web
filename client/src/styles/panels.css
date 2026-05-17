@@ -101,6 +101,12 @@
   align-self: flex-end;
   background: var(--color-chat-own-bg);
 }
+.chat-sender {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85em;
+  margin-bottom: var(--space-1);
+}
 .chat-form {
   border-top: 1px solid var(--color-border-1);
   padding: var(--space-3);
