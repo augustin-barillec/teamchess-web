@@ -8,6 +8,10 @@ const PLAYER_COLORS = [
   "var(--color-player-4)",
   "var(--color-player-5)",
   "var(--color-player-6)",
+  "var(--color-player-7)",
+  "var(--color-player-8)",
+  "var(--color-player-9)",
+  "var(--color-player-10)",
 ];
 
 // Hash the stable senderId/playerId (not the display name) so the same person

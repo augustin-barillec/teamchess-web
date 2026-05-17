@@ -71,6 +71,10 @@
   --color-player-4: #74c0fc;
   --color-player-5: #9775fa;
   --color-player-6: #f783ac;
+  --color-player-7: #ffd43b;
+  --color-player-8: #5c7cfa;
+  --color-player-9: #da77f2;
+  --color-player-10: #f06595;
 
   /* Overlays & shadows */
   --color-overlay-bg: rgba(0, 0, 0, 0.75);
