@@ -103,7 +103,7 @@
 }
 .chat-sender {
   display: block;
-  font-weight: 600;
+  font-weight: 400;
   font-size: 0.85em;
   margin-bottom: var(--space-1);
 }
@@ -170,14 +170,10 @@
   flex-shrink: 0;
   color: var(--color-text-secondary);
 }
+/* Selected: the green SAN colour is the only selection signal —
+   no bold, so the row stays as light as the others. */
 .move-proposal-item.selected .move-san-wrap {
   color: var(--color-selected-move);
-  font-weight: bold;
-}
-/* Selected: SAN carries the green signal; the name keeps its identity
-   colour (set inline) and only goes bold to reinforce the selection. */
-.move-proposal-item.selected .move-player-name {
-  font-weight: bold;
 }
 
 .player-lists-container {

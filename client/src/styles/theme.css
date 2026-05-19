@@ -65,16 +65,16 @@
   --color-chat-own-bg: #004c8c;
   /* Per-player identity palette: distinct hues, readable on
      --color-bg-surface. No green — green signals selected/played. */
-  --color-player-1: #ff6b6b;
-  --color-player-2: #ffa94d;
-  --color-player-3: #3bc9db;
-  --color-player-4: #74c0fc;
-  --color-player-5: #9775fa;
-  --color-player-6: #f783ac;
-  --color-player-7: #ffd43b;
-  --color-player-8: #5c7cfa;
-  --color-player-9: #da77f2;
-  --color-player-10: #f06595;
+  --color-player-1: #6f9fcb;
+  --color-player-2: #7fb4d4;
+  --color-player-3: #5fb6ae;
+  --color-player-4: #8fa3b3;
+  --color-player-5: #8e96d6;
+  --color-player-6: #b58fd6;
+  --color-player-7: #d08cc0;
+  --color-player-8: #d88a93;
+  --color-player-9: #dda177;
+  --color-player-10: #cbb87a;
 
   /* Overlays & shadows */
   --color-overlay-bg: rgba(0, 0, 0, 0.75);
