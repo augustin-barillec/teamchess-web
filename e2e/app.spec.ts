@@ -124,10 +124,11 @@ test.describe("Game and Social", () => {
     await player1.click('.name-modal-dialog button:has-text("Save")');
     await player1.waitForTimeout(500);
 
-    // Assert: Player 1 sees their new name "toto1"
-    await expect(player1.locator("button.clickable-name")).toHaveText(
-      "toto1 (You)"
-    );
+    // Assert: Player 1 sees their new name "toto1" with the (You) marker.
+    // (You) is a sibling of the button (not a child), separated by the
+    // .player-entry flex gap — same structure as teamchess-steam.
+    await expect(player1.locator("button.clickable-name")).toHaveText("toto1");
+    await expect(player1.locator(".player-you-tag").first()).toBeVisible();
 
     // Assert: Player 2 sees "toto1" in the players list
     await expect(player2.locator(".players-panel")).toContainText("toto1");

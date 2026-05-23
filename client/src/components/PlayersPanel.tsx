@@ -161,13 +161,13 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
                 {p.name}
               </span>
               {p.name === DEFAULT_PLAYER_NAME && <PencilIcon />}
-              <span className="player-you-tag">(You)</span>
             </button>
           ) : (
             <span className="player-name-text" style={nameStyle}>
               {p.name}
             </span>
           )}
+          {isMe && <span className="player-you-tag">(You)</span>}
           {played && (
             <span
               className="player-played-check"
