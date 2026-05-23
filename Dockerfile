@@ -19,6 +19,18 @@ RUN npm run build:server
 # Prune development dependencies to keep the image small
 RUN npm prune --omit=dev
 
+# Slim Stockfish: the npm pkg ships 5 build variants (~140 MB of unused
+# wasm/js — lite, single, asm-js). We only use the multithreaded full build
+# (stockfish-18.{js,wasm}). Copying.txt is KEPT to honour GPLv3 attribution.
+# The test -f lines fail the build loudly if the pkg layout ever changes.
+RUN test -f node_modules/stockfish/bin/stockfish-18.js \
+ && test -f node_modules/stockfish/bin/stockfish-18.wasm \
+ && find node_modules/stockfish/bin -type f \
+        ! -name 'stockfish-18.js' \
+        ! -name 'stockfish-18.wasm' \
+        -delete \
+ && rm -rf node_modules/stockfish/scripts
+
 
 # ---- 2. Production Stage ----
 # This is the final, slim image

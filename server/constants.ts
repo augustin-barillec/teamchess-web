@@ -15,6 +15,6 @@ export const stockfishPath = path.join(
   process.cwd(),
   "node_modules",
   "stockfish",
-  "src",
-  "stockfish-nnue-16.js"
+  "bin",
+  "stockfish-18.js"
 );
