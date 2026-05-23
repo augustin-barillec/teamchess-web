@@ -33,7 +33,6 @@ export function getTeamVoteClientData(
     return {
       isActive: false,
       type: null,
-      initiatorName: "",
       yesVotes: [],
       requiredVotes: 0,
       endTime: 0,
@@ -44,7 +43,6 @@ export function getTeamVoteClientData(
   return {
     isActive: true,
     type: vote.type,
-    initiatorName: sessions.get(vote.initiatorId)?.name || "Unknown",
     yesVotes: voterNames(vote.yesVoters, sessions),
     requiredVotes: vote.required,
     endTime: vote.endTime,
@@ -92,7 +90,6 @@ export function startTeamVoteLogic(
   side: PlayerSide,
   type: VoteType,
   initiatorId: string,
-  initiatorName: string,
   ctx: IGameContext = globalContext
 ): void {
   const { gameState, io } = ctx;
@@ -138,7 +135,7 @@ export function startTeamVoteLogic(
 
       // Trigger vote for other side
       const otherSide = side === "white" ? "black" : "white";
-      startTeamVoteLogic(otherSide, "accept_draw", "system", "System", ctx);
+      startTeamVoteLogic(otherSide, "accept_draw", "system", ctx);
     } else if (type === "accept_draw") {
       if (endGameCallback) endGameCallback(EndReason.DrawAgreement, null);
     }

@@ -42,23 +42,6 @@ export function formatVoteType(type: VoteType): string {
 }
 
 // ============================================================
-// Vote Reason Strings (returned by pure logic)
-// ============================================================
-
-export const VOTE_REASONS = {
-  noValidDrawOffer: "No valid draw offer",
-  drawAlreadyOffered: "Draw already offered",
-  voteAlreadyInProgress: "Vote already in progress",
-  notEligibleToVote: "Not eligible to vote",
-  voteRejected: "Vote rejected",
-  alreadyVotedYes: "Already voted yes",
-  alreadyVotedNo: "Already voted no",
-  kickVoteInProgress: "A kick vote is already in progress",
-  cannotKickSelf: "You cannot vote to kick yourself",
-  resetVoteInProgress: "A reset vote is already in progress",
-} as const;
-
-// ============================================================
 // Server Messages (template functions for socket emits)
 // ============================================================
 
@@ -87,6 +70,9 @@ export const MSG = {
   errorNotEligible: "You are not eligible to vote.",
   errorJoinedLate: "You cannot vote — joined late.",
   errorTargetNotFound: "Target player not found.",
+  errorKickVoteInProgress: "A kick vote is already in progress",
+  errorCannotKickSelf: "You cannot vote to kick yourself",
+  errorResetVoteInProgress: "A reset vote is already in progress",
   errorOnlyWhiteStart: "Only the White team can start the game.",
   errorBothTeamsRequired: "Both teams must have at least one player to start.",
   errorNotAccepting: "Not accepting moves right now.",

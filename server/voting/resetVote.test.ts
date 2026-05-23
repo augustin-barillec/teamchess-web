@@ -7,7 +7,7 @@ describe("startResetVoteLogic", () => {
     const ctx = new MockGameContext();
     ctx.addPlayer("p1", "Alice", "white");
 
-    const result = startResetVoteLogic("p1", "Alice", ctx);
+    const result = startResetVoteLogic("p1", ctx);
 
     expect(result.passedImmediately).toBe(true);
     expect(ctx.gameState.resetVote).toBeUndefined();
@@ -18,7 +18,7 @@ describe("startResetVoteLogic", () => {
     ctx.addPlayer("p1", "Alice", "white");
     ctx.addPlayer("p2", "Bob", "black");
 
-    const result = startResetVoteLogic("p1", "Alice", ctx);
+    const result = startResetVoteLogic("p1", ctx);
 
     expect(result.passedImmediately).toBeUndefined();
     expect(result.error).toBeUndefined();
@@ -35,7 +35,7 @@ describe("startResetVoteLogic", () => {
       ctx.addPlayer("p2", "Bob", "black");
       ctx.addPlayer("p3", "Carol", "black");
 
-      startResetVoteLogic("p1", "Alice", ctx);
+      startResetVoteLogic("p1", ctx);
 
       expect(ctx.gameState.resetVote).toBeDefined();
 

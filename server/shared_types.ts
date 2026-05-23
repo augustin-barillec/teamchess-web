@@ -41,7 +41,6 @@ export type VoteType = "resign" | "offer_draw" | "accept_draw";
 export interface TeamVoteState {
   isActive: boolean;
   type: VoteType | null;
-  initiatorName: string;
   yesVotes: string[];
   requiredVotes: number;
   endTime: number;
@@ -59,7 +58,6 @@ export interface KickVoteState {
   isActive: boolean;
   targetId: string | null;
   targetName: string;
-  initiatorName: string;
   yesVotes: string[];
   noVotes: string[];
   requiredVotes: number;
@@ -72,7 +70,6 @@ export interface KickVoteState {
 
 export interface ResetVoteState {
   isActive: boolean;
-  initiatorName: string;
   yesVotes: string[];
   noVotes: string[];
   requiredVotes: number;

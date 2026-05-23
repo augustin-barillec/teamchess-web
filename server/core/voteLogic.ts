@@ -1,6 +1,5 @@
 import type { VoteType } from "../shared_types.js";
 import type { PlayerSide } from "../types.js";
-import { VOTE_REASONS } from "../shared_messages.js";
 
 export interface VoteState {
   type: VoteType;
@@ -13,7 +12,6 @@ export interface VoteState {
 export interface VotePrerequisiteResult {
   canStartVote: boolean;
   shouldAutoExecute: boolean;
-  reason?: string;
 }
 
 /**
@@ -30,29 +28,17 @@ export function checkVotePrerequisites(
 ): VotePrerequisiteResult {
   // Can't accept draw if no valid offer
   if (type === "accept_draw" && (!drawOffer || drawOffer === votingSide)) {
-    return {
-      shouldAutoExecute: false,
-      canStartVote: false,
-      reason: VOTE_REASONS.noValidDrawOffer,
-    };
+    return { shouldAutoExecute: false, canStartVote: false };
   }
 
   // Can't offer draw if already offered
   if (type === "offer_draw" && drawOffer) {
-    return {
-      shouldAutoExecute: false,
-      canStartVote: false,
-      reason: VOTE_REASONS.drawAlreadyOffered,
-    };
+    return { shouldAutoExecute: false, canStartVote: false };
   }
 
   // Can't start vote if one is in progress
   if (existingVote) {
-    return {
-      shouldAutoExecute: false,
-      canStartVote: false,
-      reason: VOTE_REASONS.voteAlreadyInProgress,
-    };
+    return { shouldAutoExecute: false, canStartVote: false };
   }
 
   // Auto-execute for single player (or no players) when not system triggered
@@ -66,7 +52,7 @@ export function checkVotePrerequisites(
 export interface VoteProcessResult {
   passed: boolean;
   failed: boolean;
-  reason?: string;
+  ineligible?: boolean;
   updatedYesVoters?: Set<string>;
 }
 
@@ -81,16 +67,12 @@ export function processVote(
 ): VoteProcessResult {
   // Check eligibility
   if (!vote.eligibleVoters.has(voterId)) {
-    return {
-      passed: false,
-      failed: false,
-      reason: VOTE_REASONS.notEligibleToVote,
-    };
+    return { passed: false, failed: false, ineligible: true };
   }
 
   // No vote = rejection
   if (voteChoice === "no") {
-    return { passed: false, failed: true, reason: VOTE_REASONS.voteRejected };
+    return { passed: false, failed: true };
   }
 
   // Yes vote - create new set with voter added
@@ -116,7 +98,7 @@ export interface MajorityVoteInput {
 export interface MajorityVoteResult {
   passed: boolean;
   failed: boolean;
-  reason?: string;
+  ineligible?: boolean;
   updatedYesVoters?: Set<string>;
   updatedNoVoters?: Set<string>;
 }
@@ -132,11 +114,7 @@ export function processMajorityVote(
   voteChoice: "yes" | "no"
 ): MajorityVoteResult {
   if (!vote.eligibleVoters.has(voterId)) {
-    return {
-      passed: false,
-      failed: false,
-      reason: VOTE_REASONS.notEligibleToVote,
-    };
+    return { passed: false, failed: false, ineligible: true };
   }
 
   const newYesVoters = new Set(vote.yesVoters);
@@ -144,11 +122,7 @@ export function processMajorityVote(
 
   if (voteChoice === "yes") {
     if (newYesVoters.has(voterId)) {
-      return {
-        passed: false,
-        failed: false,
-        reason: VOTE_REASONS.alreadyVotedYes,
-      };
+      return { passed: false, failed: false };
     }
     newNoVoters.delete(voterId);
     newYesVoters.add(voterId);
@@ -163,11 +137,7 @@ export function processMajorityVote(
     }
   } else {
     if (newNoVoters.has(voterId)) {
-      return {
-        passed: false,
-        failed: false,
-        reason: VOTE_REASONS.alreadyVotedNo,
-      };
+      return { passed: false, failed: false };
     }
     newYesVoters.delete(voterId);
     newNoVoters.add(voterId);

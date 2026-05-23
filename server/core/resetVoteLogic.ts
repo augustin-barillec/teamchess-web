@@ -1,4 +1,4 @@
-import { VOTE_REASONS } from "../shared_messages.js";
+import { MSG } from "../shared_messages.js";
 import { processMajorityVote, type MajorityVoteResult } from "./voteLogic.js";
 
 export interface ResetVoteState {
@@ -23,7 +23,7 @@ export function checkResetVotePrerequisites(
   existingResetVote: ResetVoteState | undefined
 ): ResetVotePrerequisiteResult {
   if (existingResetVote) {
-    return { canStart: false, reason: VOTE_REASONS.resetVoteInProgress };
+    return { canStart: false, reason: MSG.errorResetVoteInProgress };
   }
 
   return { canStart: true };

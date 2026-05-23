@@ -115,7 +115,7 @@ describe("teamVote", () => {
         ctx.addPlayer("p2", "Bob", "black");
         ctx.addPlayer("w1", "Charlie", "white");
 
-        startTeamVoteLogic("black", "resign", "p1", "Alice", ctx);
+        startTeamVoteLogic("black", "resign", "p1", ctx);
 
         expect(ctx.gameState.blackVote).toBeDefined();
         const failsBefore = ctx
@@ -141,7 +141,7 @@ describe("teamVote", () => {
         ctx.addPlayer("p1", "Alice", "black");
         ctx.addPlayer("p2", "Bob", "black");
 
-        startTeamVoteLogic("black", "accept_draw", "p1", "Alice", ctx);
+        startTeamVoteLogic("black", "accept_draw", "p1", ctx);
 
         expect(ctx.gameState.blackVote).toBeDefined();
 

@@ -4,7 +4,7 @@ import {
   createKickVoteState,
   processKickVote,
 } from "./kickVoteLogic.js";
-import { VOTE_REASONS } from "../shared_messages.js";
+import { MSG } from "../shared_messages.js";
 
 describe("kickVoteLogic", () => {
   describe("checkKickVotePrerequisites", () => {
@@ -26,13 +26,13 @@ describe("kickVoteLogic", () => {
 
       const result = checkKickVotePrerequisites(existingVote, "p2", "p4");
       expect(result.canStart).toBe(false);
-      expect(result.reason).toBe(VOTE_REASONS.kickVoteInProgress);
+      expect(result.reason).toBe(MSG.errorKickVoteInProgress);
     });
 
     it("rejects self-kick", () => {
       const result = checkKickVotePrerequisites(undefined, "p1", "p1");
       expect(result.canStart).toBe(false);
-      expect(result.reason).toBe(VOTE_REASONS.cannotKickSelf);
+      expect(result.reason).toBe(MSG.errorCannotKickSelf);
     });
   });
 
@@ -136,25 +136,31 @@ describe("kickVoteLogic", () => {
       const result = processKickVote(vote, "p6", "yes");
       expect(result.passed).toBe(false);
       expect(result.failed).toBe(false);
-      expect(result.reason).toBe(VOTE_REASONS.notEligibleToVote);
+      expect(result.ineligible).toBe(true);
     });
 
     it("rejects vote from target player", () => {
       const vote = makeVote();
       const result = processKickVote(vote, "p5", "yes");
-      expect(result.reason).toBe(VOTE_REASONS.notEligibleToVote);
+      expect(result.ineligible).toBe(true);
     });
 
-    it("rejects duplicate yes vote", () => {
+    it("ignores duplicate yes vote (no-op)", () => {
       const vote = makeVote();
       const result = processKickVote(vote, "p1", "yes");
-      expect(result.reason).toBe(VOTE_REASONS.alreadyVotedYes);
+      expect(result.passed).toBe(false);
+      expect(result.failed).toBe(false);
+      expect(result.updatedYesVoters).toBeUndefined();
+      expect(result.updatedNoVoters).toBeUndefined();
     });
 
-    it("rejects duplicate no vote", () => {
+    it("ignores duplicate no vote (no-op)", () => {
       const vote = makeVote({ noVoters: new Set(["p2"]) });
       const result = processKickVote(vote, "p2", "no");
-      expect(result.reason).toBe(VOTE_REASONS.alreadyVotedNo);
+      expect(result.passed).toBe(false);
+      expect(result.failed).toBe(false);
+      expect(result.updatedYesVoters).toBeUndefined();
+      expect(result.updatedNoVoters).toBeUndefined();
     });
 
     it("records yes vote without passing when below threshold", () => {

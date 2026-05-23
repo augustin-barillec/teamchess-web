@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  gameOverFallback,
-  formatVoteType,
-  VOTE_REASONS,
-  MSG,
-} from "./shared_messages.js";
+import { gameOverFallback, formatVoteType, MSG } from "./shared_messages.js";
 
 describe("shared_messages", () => {
   describe("gameOverFallback", () => {
@@ -37,21 +32,6 @@ describe("shared_messages", () => {
       const msg = MSG.teamVoteFailed("offer_draw");
       expect(msg).toContain("offer draw");
       expect(msg).toContain("failed");
-    });
-  });
-
-  describe("VOTE_REASONS", () => {
-    it("has all required reason strings", () => {
-      expect(VOTE_REASONS.noValidDrawOffer).toBeDefined();
-      expect(VOTE_REASONS.drawAlreadyOffered).toBeDefined();
-      expect(VOTE_REASONS.voteAlreadyInProgress).toBeDefined();
-      expect(VOTE_REASONS.notEligibleToVote).toBeDefined();
-      expect(VOTE_REASONS.voteRejected).toBeDefined();
-      expect(VOTE_REASONS.alreadyVotedYes).toBeDefined();
-      expect(VOTE_REASONS.alreadyVotedNo).toBeDefined();
-      expect(VOTE_REASONS.kickVoteInProgress).toBeDefined();
-      expect(VOTE_REASONS.cannotKickSelf).toBeDefined();
-      expect(VOTE_REASONS.resetVoteInProgress).toBeDefined();
     });
   });
 

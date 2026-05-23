@@ -5,7 +5,6 @@ import {
   createVoteState,
 } from "./voteLogic.js";
 import { formatVoteType } from "../shared_messages.js";
-import { VOTE_REASONS } from "../shared_messages.js";
 
 describe("voteLogic", () => {
   describe("checkVotePrerequisites", () => {
@@ -21,7 +20,6 @@ describe("voteLogic", () => {
 
       expect(result.canStartVote).toBe(false);
       expect(result.shouldAutoExecute).toBe(false);
-      expect(result.reason).toBe(VOTE_REASONS.noValidDrawOffer);
     });
 
     it("rejects accept_draw when offer is from same side", () => {
@@ -63,7 +61,6 @@ describe("voteLogic", () => {
       );
 
       expect(result.canStartVote).toBe(false);
-      expect(result.reason).toBe(VOTE_REASONS.drawAlreadyOffered);
     });
 
     it("rejects when vote already in progress", () => {
@@ -85,7 +82,6 @@ describe("voteLogic", () => {
       );
 
       expect(result.canStartVote).toBe(false);
-      expect(result.reason).toBe(VOTE_REASONS.voteAlreadyInProgress);
     });
 
     it("auto-executes for single player when not system triggered", () => {
@@ -145,7 +141,7 @@ describe("voteLogic", () => {
 
       expect(result.passed).toBe(false);
       expect(result.failed).toBe(false);
-      expect(result.reason).toBe(VOTE_REASONS.notEligibleToVote);
+      expect(result.ineligible).toBe(true);
     });
 
     it("fails vote when player votes no", () => {
@@ -161,7 +157,6 @@ describe("voteLogic", () => {
 
       expect(result.passed).toBe(false);
       expect(result.failed).toBe(true);
-      expect(result.reason).toBe(VOTE_REASONS.voteRejected);
     });
 
     it("records yes vote without passing when below threshold", () => {

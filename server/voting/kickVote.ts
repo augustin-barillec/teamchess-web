@@ -26,7 +26,6 @@ export function getKickVoteClientData(
       isActive: false,
       targetId: null,
       targetName: "",
-      initiatorName: "",
       yesVotes: [],
       noVotes: [],
       requiredVotes: 0,
@@ -42,7 +41,6 @@ export function getKickVoteClientData(
     isActive: true,
     targetId: vote.targetId,
     targetName: vote.targetName,
-    initiatorName: vote.initiatorName,
     yesVotes: voterNames(vote.yesVoters, sessions),
     noVotes: voterNames(vote.noVoters, sessions),
     requiredVotes: vote.required,
@@ -85,7 +83,6 @@ export function clearKickVote(ctx: IGameContext = globalContext): void {
  */
 export function startKickVoteLogic(
   initiatorId: string,
-  initiatorName: string,
   targetId: string,
   targetName: string,
   ctx: IGameContext = globalContext
@@ -125,7 +122,6 @@ export function startKickVoteLogic(
   const voteState: InternalKickVoteState = {
     ...pureState,
     targetName,
-    initiatorName,
     endTime,
     timer: setTimeout(() => {
       sendSystemMessage(MSG.kickVoteFailed(targetName), ctx);

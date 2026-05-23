@@ -4,7 +4,7 @@ import {
   createResetVoteState,
   processResetVote,
 } from "./resetVoteLogic.js";
-import { VOTE_REASONS } from "../shared_messages.js";
+import { MSG } from "../shared_messages.js";
 
 describe("resetVoteLogic", () => {
   describe("checkResetVotePrerequisites", () => {
@@ -25,7 +25,7 @@ describe("resetVoteLogic", () => {
 
       const result = checkResetVotePrerequisites(existingVote);
       expect(result.canStart).toBe(false);
-      expect(result.reason).toBe(VOTE_REASONS.resetVoteInProgress);
+      expect(result.reason).toBe(MSG.errorResetVoteInProgress);
     });
   });
 
@@ -110,19 +110,25 @@ describe("resetVoteLogic", () => {
       const result = processResetVote(vote, "p4", "yes");
       expect(result.passed).toBe(false);
       expect(result.failed).toBe(false);
-      expect(result.reason).toBe(VOTE_REASONS.notEligibleToVote);
+      expect(result.ineligible).toBe(true);
     });
 
-    it("rejects duplicate yes vote", () => {
+    it("ignores duplicate yes vote (no-op)", () => {
       const vote = makeVote();
       const result = processResetVote(vote, "p1", "yes");
-      expect(result.reason).toBe(VOTE_REASONS.alreadyVotedYes);
+      expect(result.passed).toBe(false);
+      expect(result.failed).toBe(false);
+      expect(result.updatedYesVoters).toBeUndefined();
+      expect(result.updatedNoVoters).toBeUndefined();
     });
 
-    it("rejects duplicate no vote", () => {
+    it("ignores duplicate no vote (no-op)", () => {
       const vote = makeVote({ noVoters: new Set(["p2"]) });
       const result = processResetVote(vote, "p2", "no");
-      expect(result.reason).toBe(VOTE_REASONS.alreadyVotedNo);
+      expect(result.passed).toBe(false);
+      expect(result.failed).toBe(false);
+      expect(result.updatedYesVoters).toBeUndefined();
+      expect(result.updatedNoVoters).toBeUndefined();
     });
 
     it("records yes vote without passing when below threshold", () => {

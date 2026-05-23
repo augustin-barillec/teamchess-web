@@ -1,4 +1,4 @@
-import { VOTE_REASONS } from "../shared_messages.js";
+import { MSG } from "../shared_messages.js";
 import { processMajorityVote, type MajorityVoteResult } from "./voteLogic.js";
 
 export interface KickVoteState {
@@ -26,11 +26,11 @@ export function checkKickVotePrerequisites(
   targetId: string
 ): KickVotePrerequisiteResult {
   if (existingKickVote) {
-    return { canStart: false, reason: VOTE_REASONS.kickVoteInProgress };
+    return { canStart: false, reason: MSG.errorKickVoteInProgress };
   }
 
   if (initiatorId === targetId) {
-    return { canStart: false, reason: VOTE_REASONS.cannotKickSelf };
+    return { canStart: false, reason: MSG.errorCannotKickSelf };
   }
 
   return { canStart: true };

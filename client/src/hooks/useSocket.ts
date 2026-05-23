@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { Chess } from "chess.js";
 import { toast } from "react-hot-toast";
@@ -14,7 +14,7 @@ import {
   ResetVoteState,
 } from "../types";
 import { Turn } from "../types";
-import { DEFAULT_CLOCK_TIME, STORAGE_KEYS } from "../constants";
+import { STORAGE_KEYS } from "../constants";
 import {
   reasonMessages,
   gameOverFallback,
@@ -97,7 +97,6 @@ export function useSocket({
   const [teamVote, setTeamVote] = useState<TeamVoteState>({
     isActive: false,
     type: null,
-    initiatorName: "",
     yesVotes: [],
     requiredVotes: 0,
     endTime: 0,
@@ -107,7 +106,6 @@ export function useSocket({
     isActive: false,
     targetId: null,
     targetName: "",
-    initiatorName: "",
     yesVotes: [],
     noVotes: [],
     requiredVotes: 0,
@@ -119,7 +117,6 @@ export function useSocket({
   });
   const [resetVote, setResetVote] = useState<ResetVoteState>({
     isActive: false,
-    initiatorName: "",
     yesVotes: [],
     noVotes: [],
     requiredVotes: 0,
@@ -129,10 +126,6 @@ export function useSocket({
     myCurrentVote: null,
   });
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
-  const prevClocks = useRef({
-    whiteTime: DEFAULT_CLOCK_TIME,
-    blackTime: DEFAULT_CLOCK_TIME,
-  });
 
   // Socket initialization
   useEffect(() => {
@@ -212,11 +205,6 @@ export function useSocket({
         setLastMoveSquares(null);
         setDrawOffer(null);
 
-        prevClocks.current = {
-          whiteTime: DEFAULT_CLOCK_TIME,
-          blackTime: DEFAULT_CLOCK_TIME,
-        };
-
         sounds.play("start");
       }
     );
@@ -230,17 +218,10 @@ export function useSocket({
       setClocks({ whiteTime: 0, blackTime: 0 });
       setLastMoveSquares(null);
       setDrawOffer(null);
-      prevClocks.current = {
-        whiteTime: DEFAULT_CLOCK_TIME,
-        blackTime: DEFAULT_CLOCK_TIME,
-      };
       sounds.play("reset");
     });
 
     socket.on("clock_update", ({ whiteTime, blackTime }) => {
-      const prev = prevClocks.current;
-
-      prevClocks.current = { whiteTime, blackTime };
       setClocks({ whiteTime, blackTime });
     });
 

@@ -25,7 +25,6 @@ export interface InternalKickVoteState {
   targetId: string;
   targetName: string;
   initiatorId: string;
-  initiatorName: string;
   yesVoters: Set<string>;
   noVoters: Set<string>;
   eligibleVoters: Set<string>;
@@ -37,7 +36,6 @@ export interface InternalKickVoteState {
 
 export interface InternalResetVoteState {
   initiatorId: string;
-  initiatorName: string;
   yesVoters: Set<string>;
   noVoters: Set<string>;
   eligibleVoters: Set<string>;

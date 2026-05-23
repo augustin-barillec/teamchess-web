@@ -28,7 +28,7 @@ import {
   broadcastResetVote,
 } from "../voting/resetVote.js";
 import { DEFAULT_CLOCK_TIME } from "../constants.js";
-import { MSG, VOTE_REASONS } from "../shared_messages.js";
+import { MSG } from "../shared_messages.js";
 
 export function handleSetName(
   socket: Socket,
@@ -83,7 +83,6 @@ export function handleJoinSide(
     socket.emit("team_vote_update", {
       isActive: false,
       type: null,
-      initiatorName: "",
       yesVotes: [],
       requiredVotes: 0,
       endTime: 0,
@@ -99,7 +98,7 @@ export function handleResetGame(
   cb?: (res: { success?: boolean; error?: string }) => void,
   ctx: IGameContext = globalContext
 ): void {
-  const result = startResetVoteLogic(socket.data.pid, socket.data.name, ctx);
+  const result = startResetVoteLogic(socket.data.pid, ctx);
 
   if (result.error) {
     return cb?.({ error: result.error });
@@ -156,12 +155,10 @@ export function handleVoteReset(
     vote
   );
 
-  if (voteResult.reason === VOTE_REASONS.notEligibleToVote) {
+  if (voteResult.ineligible) {
     socket.emit("error", { message: MSG.errorNotEligible });
     return;
   }
-
-  if (voteResult.reason) return;
 
   if (voteResult.updatedYesVoters)
     currentVote.yesVoters = voteResult.updatedYesVoters;
@@ -174,7 +171,7 @@ export function handleVoteReset(
   } else if (voteResult.failed) {
     clearResetVote(ctx);
     sendSystemMessage(MSG.resetVoteFailed, ctx);
-  } else {
+  } else if (voteResult.updatedYesVoters || voteResult.updatedNoVoters) {
     broadcastResetVote(ctx);
   }
 }
@@ -279,13 +276,7 @@ export function handleStartTeamVote(
   if (socket.data.side !== "white" && socket.data.side !== "black") return;
   if (gameState.status !== GameStatus.AwaitingProposals) return;
 
-  startTeamVoteLogic(
-    socket.data.side,
-    type,
-    socket.data.pid,
-    socket.data.name,
-    ctx
-  );
+  startTeamVoteLogic(socket.data.side, type, socket.data.pid, ctx);
 }
 
 export function handleVoteTeam(
@@ -316,7 +307,7 @@ export function handleVoteTeam(
     vote
   );
 
-  if (voteResult.reason === VOTE_REASONS.notEligibleToVote) {
+  if (voteResult.ineligible) {
     socket.emit("error", { message: MSG.errorJoinedLate });
     return;
   }
@@ -346,7 +337,7 @@ export function handleVoteTeam(
 
         // Trigger vote for other side
         const otherSide = side === "white" ? "black" : "white";
-        startTeamVoteLogic(otherSide, "accept_draw", "system", "System", ctx);
+        startTeamVoteLogic(otherSide, "accept_draw", "system", ctx);
       } else if (currentVote.type === "accept_draw") {
         endGame(EndReason.DrawAgreement, null, ctx);
       }
@@ -373,7 +364,6 @@ export function handleStartKickVote(
 
   const result = startKickVoteLogic(
     initiatorPid,
-    socket.data.name,
     targetId,
     targetSess.name,
     ctx
@@ -409,13 +399,10 @@ export function handleKickVote(
     vote
   );
 
-  if (voteResult.reason === VOTE_REASONS.notEligibleToVote) {
+  if (voteResult.ineligible) {
     socket.emit("error", { message: MSG.errorNotEligible });
     return;
   }
-
-  // "Already voted yes" / "Already voted no" — silently ignore (no-op)
-  if (voteResult.reason) return;
 
   // Update internal state
   if (voteResult.updatedYesVoters)
@@ -432,7 +419,7 @@ export function handleKickVote(
     const targetName = currentVote.targetName;
     clearKickVote(ctx);
     sendSystemMessage(MSG.kickVoteFailed(targetName), ctx);
-  } else {
+  } else if (voteResult.updatedYesVoters || voteResult.updatedNoVoters) {
     broadcastKickVote(ctx);
   }
 }

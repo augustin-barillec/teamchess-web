@@ -24,7 +24,6 @@ export function getResetVoteClientData(
   if (!vote) {
     return {
       isActive: false,
-      initiatorName: "",
       yesVotes: [],
       noVotes: [],
       requiredVotes: 0,
@@ -37,7 +36,6 @@ export function getResetVoteClientData(
 
   return {
     isActive: true,
-    initiatorName: vote.initiatorName,
     yesVotes: voterNames(vote.yesVoters, sessions),
     noVotes: voterNames(vote.noVoters, sessions),
     requiredVotes: vote.required,
@@ -80,7 +78,6 @@ export function clearResetVote(ctx: IGameContext = globalContext): void {
  */
 export function startResetVoteLogic(
   initiatorId: string,
-  initiatorName: string,
   ctx: IGameContext = globalContext
 ): { error?: string; passedImmediately?: boolean } {
   const { gameState } = ctx;
@@ -114,7 +111,6 @@ export function startResetVoteLogic(
 
   const voteState: InternalResetVoteState = {
     ...pureState,
-    initiatorName,
     endTime,
     timer: setTimeout(() => {
       sendSystemMessage(MSG.resetVoteFailed, ctx);
