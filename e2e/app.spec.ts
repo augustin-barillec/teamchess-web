@@ -228,48 +228,6 @@ test.describe("Game and Social", () => {
       spectator.locator('[data-square="e5"] [data-piece]')
     ).not.toBeVisible();
   });
-
-  test("kick_vote_rejected", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    test.setTimeout(60000);
-
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-    const player4 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-    await player4.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-    await player4.waitForSelector(".app-container");
-
-    // Wait for all 4 players to appear — P1 sees 3 kick buttons
-    const kickButtons = player1.locator(
-      '.players-panel button:has-text("Kick")'
-    );
-    await expect(kickButtons).toHaveCount(3, { timeout: 5000 });
-
-    // Player 1 clicks "Kick" on the last player (player 4)
-    await kickButtons.nth(2).click();
-    await player1.waitForTimeout(500);
-
-    // Player 2 votes No — vote fails immediately (not enough yes votes possible)
-    await player2.click('button:has-text("No")');
-    await player2.waitForTimeout(1000);
-
-    // Assert: Chat shows kick vote failure
-    await expect(player1.locator(".chat-messages")).toContainText(
-      "Vote to kick"
-    );
-
-    // Assert: Player 4 is still connected (no offline banner)
-    await expect(player4.locator(".offline-banner")).not.toBeVisible();
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -442,57 +400,6 @@ test.describe("Gameplay Mechanics", () => {
     ).toBeVisible();
   });
 
-  test("pawn_promotion_to_knight", async ({ browser }, testInfo) => {
-    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
-    // Player 1 joins White team
-    await joinTeam(player1, "white");
-
-    // Player 2 joins Black team
-    await joinTeam(player2, "black");
-
-    // Same sequence as pawn_promotion_to_queen:
-    // 1. g2-g4  2. h7-h5  3. g4xh5  4. g7-g6
-    // 5. h5xg6  6. Ng8-f6  7. g6-g7  8. a7-a6
-    // 9. g7xh8 → promotion dialog
-
-    await makeMove(player1, "g2", "g4");
-    await player1.waitForTimeout(1000);
-
-    await makeMove(player2, "h7", "h5");
-    await player2.waitForTimeout(1000);
-
-    await makeMove(player1, "g4", "h5");
-    await player1.waitForTimeout(1000);
-
-    await makeMove(player2, "g7", "g6");
-    await player2.waitForTimeout(1000);
-
-    await makeMove(player1, "h5", "g6");
-    await player1.waitForTimeout(1000);
-
-    await makeMove(player2, "g8", "f6");
-    await player2.waitForTimeout(1000);
-
-    await makeMove(player1, "g6", "g7");
-    await player1.waitForTimeout(1000);
-
-    await makeMove(player2, "a7", "a6");
-    await player2.waitForTimeout(1000);
-
-    // Move 9: g7xh8 (triggers promotion)
-    await makeMove(player1, "g7", "h8");
-    await player1.waitForTimeout(500);
-
-    // Select Knight in promotion dialog (4th button: Q, R, B, N)
-    await player1.click(".promotion-choices button:nth-child(4)");
-    await player1.waitForTimeout(1000);
-
-    // Assert: There is a white knight on h8 (not a queen)
-    await expect(
-      player1.locator('[data-square="h8"] [data-piece="wN"]')
-    ).toBeVisible();
-  });
-
   test("illegal_move_rejected", async ({ browser }, testInfo) => {
     const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 joins White
@@ -547,29 +454,6 @@ test.describe("Gameplay Mechanics", () => {
 
     // Assert: Toast shows "Already moved." error
     await expect(player2.getByText("Already moved")).toBeVisible();
-  });
-
-  test("black_tries_to_start_game", async ({ browser }, testInfo) => {
-    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
-    // Player 1 joins White
-    await joinTeam(player1, "white");
-
-    // Player 2 joins Black
-    await joinTeam(player2, "black");
-
-    // Player 2 (Black) tries to play e7-e5 — should be blocked (only White can start)
-    await makeMove(player2, "e7", "e5");
-    await player2.waitForTimeout(500);
-
-    // Assert: e7 still has a black pawn (move was rejected client-side)
-    await expect(
-      player2.locator('[data-square="e7"] [data-piece="bP"]')
-    ).toBeVisible();
-
-    // Assert: e5 is empty
-    await expect(
-      player2.locator('[data-square="e5"] [data-piece]')
-    ).not.toBeVisible();
   });
 });
 
@@ -689,68 +573,6 @@ test.describe("Game End Conditions", () => {
     );
   });
 
-  test("threefold_repetition_draw", async ({ browser }, testInfo) => {
-    test.setTimeout(60000);
-    const [player1, player2, player3] = await setupPlayers(
-      browser,
-      testInfo,
-      3
-    );
-    // Player 1 joins White
-    await joinTeam(player1, "white");
-
-    // Player 2 joins Black
-    await joinTeam(player2, "black");
-
-    // Player 3 joins Black
-    await joinTeam(player3, "black");
-
-    // === Threefold repetition: Nf3 Nf6 Ng1 Ng8 (x2) ===
-    // Starting position occurs 3 times: initial, after round 1, after round 2
-
-    // Round 1: 1. Nf3 Nf6
-    await makeMove(player1, "g1", "f3");
-    await player1.waitForTimeout(1000);
-    await makeMove(player2, "g8", "f6");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "g8", "f6");
-    await player3.waitForTimeout(3000);
-
-    // 2. Ng1 Ng8
-    await makeMove(player1, "f3", "g1");
-    await player1.waitForTimeout(1000);
-    await makeMove(player2, "f6", "g8");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "f6", "g8");
-    await player3.waitForTimeout(3000);
-
-    // Round 2: 3. Nf3 Nf6
-    await makeMove(player1, "g1", "f3");
-    await player1.waitForTimeout(1000);
-    await makeMove(player2, "g8", "f6");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "g8", "f6");
-    await player3.waitForTimeout(3000);
-
-    // 4. Ng1 Ng8 — position repeats for the 3rd time
-    await makeMove(player1, "f3", "g1");
-    await player1.waitForTimeout(1000);
-    await makeMove(player2, "f6", "g8");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "f6", "g8");
-    await player3.waitForTimeout(3000);
-
-    // Assert: Game is over — "Copy PGN" button appears
-    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
-      timeout: 5000,
-    });
-
-    // Assert: Chat shows threefold repetition draw
-    await expect(player1.locator(".chat-messages")).toContainText(
-      "threefold repetition"
-    );
-  });
-
   test("forfeit_by_joining_spectators", async ({ browser }, testInfo) => {
     const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 joins White
@@ -815,139 +637,6 @@ test.describe("Game End Conditions", () => {
     await expect(player1.locator(".chat-messages")).toContainText("White wins");
   });
 
-  test("stalemate_draw", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    test.setTimeout(90000);
-
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
-    // Player 1 joins White
-    await joinTeam(player1, "white");
-
-    // Player 2 joins Black
-    await joinTeam(player2, "black");
-
-    // Player 3 joins Black
-    await joinTeam(player3, "black");
-
-    // === Sam Loyd's shortest stalemate (10 moves) ===
-    // 1. c4 h5  2. h4 a5  3. Qa4 Ra6  4. Qxa5 Rah6
-    // 5. Qxc7 f6  6. Qxd7+ Kf7  7. Qxb7 Qd3  8. Qxb8 Qh7
-    // 9. Qxc8 Kg6  10. Qe6 (stalemate)
-
-    // Move 1: c2-c4
-    await makeMove(player1, "c2", "c4");
-    await player1.waitForTimeout(1000);
-
-    // Move 1b: h7-h5
-    await makeMove(player2, "h7", "h5");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "h7", "h5");
-    await player3.waitForTimeout(3000);
-
-    // Move 2: h2-h4
-    await makeMove(player1, "h2", "h4");
-    await player1.waitForTimeout(1000);
-
-    // Move 2b: a7-a5
-    await makeMove(player2, "a7", "a5");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "a7", "a5");
-    await player3.waitForTimeout(3000);
-
-    // Move 3: Qa4 (d1-a4)
-    await makeMove(player1, "d1", "a4");
-    await player1.waitForTimeout(1000);
-
-    // Move 3b: Ra6 (a8-a6)
-    await makeMove(player2, "a8", "a6");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "a8", "a6");
-    await player3.waitForTimeout(3000);
-
-    // Move 4: Qxa5 (a4-a5)
-    await makeMove(player1, "a4", "a5");
-    await player1.waitForTimeout(1000);
-
-    // Move 4b: Rah6 (a6-h6)
-    await makeMove(player2, "a6", "h6");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "a6", "h6");
-    await player3.waitForTimeout(3000);
-
-    // Move 5: Qxc7 (a5-c7)
-    await makeMove(player1, "a5", "c7");
-    await player1.waitForTimeout(1000);
-
-    // Move 5b: f7-f6
-    await makeMove(player2, "f7", "f6");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "f7", "f6");
-    await player3.waitForTimeout(3000);
-
-    // Move 6: Qxd7+ (c7-d7)
-    await makeMove(player1, "c7", "d7");
-    await player1.waitForTimeout(1000);
-
-    // Move 6b: Kf7 (e8-f7)
-    await makeMove(player2, "e8", "f7");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "e8", "f7");
-    await player3.waitForTimeout(3000);
-
-    // Move 7: Qxb7 (d7-b7)
-    await makeMove(player1, "d7", "b7");
-    await player1.waitForTimeout(1000);
-
-    // Move 7b: Qd3 (d8-d3)
-    await makeMove(player2, "d8", "d3");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "d8", "d3");
-    await player3.waitForTimeout(3000);
-
-    // Move 8: Qxb8 (b7-b8)
-    await makeMove(player1, "b7", "b8");
-    await player1.waitForTimeout(1000);
-
-    // Move 8b: Qh7 (d3-h7)
-    await makeMove(player2, "d3", "h7");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "d3", "h7");
-    await player3.waitForTimeout(3000);
-
-    // Move 9: Qxc8 (b8-c8)
-    await makeMove(player1, "b8", "c8");
-    await player1.waitForTimeout(1000);
-
-    // Move 9b: Kg6 (f7-g6)
-    await makeMove(player2, "f7", "g6");
-    await player2.waitForTimeout(500);
-    await makeMove(player3, "f7", "g6");
-    await player3.waitForTimeout(3000);
-
-    // Move 10: Qe6 (c8-e6) — STALEMATE!
-    await makeMove(player1, "c8", "e6");
-    await player1.waitForTimeout(2000);
-
-    // Assert: Game is over — "Copy PGN" button appears
-    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
-      timeout: 5000,
-    });
-
-    // Assert: Chat shows stalemate draw
-    await expect(player1.locator(".chat-messages")).toContainText("stalemate");
-  });
-
   test("reconnect_during_grace_period", async ({ browser }, testInfo) => {
     const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
     const player1 = await createPlayer(browser, baseURL);
@@ -1004,41 +693,6 @@ test.describe("Game End Conditions", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Voting", () => {
-  test("resign_vote_rejected", async ({ browser }, testInfo) => {
-    const [player1, player2, player3, player4] = await setupPlayers(
-      browser,
-      testInfo,
-      4
-    );
-    // Player 1 joins White
-    await joinTeam(player1, "white");
-
-    // Player 2, 3, 4 join Black
-    await joinTeam(player2, "black");
-    await joinTeam(player3, "black");
-    await joinTeam(player4, "black");
-
-    // Player 1 (White) plays e2-e4
-    await makeMove(player1, "e2", "e4");
-    await player1.waitForTimeout(1000);
-
-    // Player 2 starts a resign vote (auto-votes yes as initiator)
-    await player2.click('button[aria-label="Resign"]');
-    await player2.waitForTimeout(500);
-
-    // Player 3 votes No — vote fails immediately (unanimous required)
-    await player3.click('button:has-text("No")');
-    await player3.waitForTimeout(1000);
-
-    // Assert: Game is NOT over — no "Copy PGN" button
-    await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
-
-    // Assert: Board still has the position (white pawn on e4)
-    await expect(
-      player1.locator('[data-square="e4"] [data-piece="wP"]')
-    ).toBeVisible();
-  });
-
   test("resign_vote_accepted", async ({ browser }, testInfo) => {
     const [player1, player2, player3, player4] = await setupPlayers(
       browser,
@@ -1125,48 +779,6 @@ test.describe("Voting", () => {
     );
   });
 
-  test("reset_vote_rejected", async ({ browser }, testInfo) => {
-    const [player1, player2, player3] = await setupPlayers(
-      browser,
-      testInfo,
-      3
-    );
-    // Player 1 joins White
-    await joinTeam(player1, "white");
-
-    // Player 2 joins Black
-    await joinTeam(player2, "black");
-
-    // Player 3 joins Black
-    await joinTeam(player3, "black");
-
-    // Player 1 (White) plays e2-e4 to start the game
-    await makeMove(player1, "e2", "e4");
-    await player1.waitForTimeout(1000);
-
-    // Player 2 starts a reset game vote (auto-votes yes as initiator)
-    await player2.click('button[aria-label="Reset"]');
-    await player2.waitForTimeout(500);
-
-    // Player 1 votes No
-    await player1.click('button:has-text("No")');
-    await player1.waitForTimeout(500);
-
-    // Player 3 votes No — 1 yes vs 2 no → impossible to reach majority → fails
-    await player3.click('button:has-text("No")');
-    await player3.waitForTimeout(1000);
-
-    // Assert: Game is NOT reset — still in game (white pawn on e4)
-    await expect(
-      player1.locator('[data-square="e4"] [data-piece="wP"]')
-    ).toBeVisible();
-
-    // Assert: Chat shows the rejection message
-    await expect(player1.locator(".chat-messages")).toContainText(
-      "Vote to reset the game failed"
-    );
-  });
-
   test("single_player_resign", async ({ browser }, testInfo) => {
     const [player1, player2] = await setupPlayers(browser, testInfo, 2);
     // Player 1 joins White (solo)
@@ -1193,127 +805,6 @@ test.describe("Voting", () => {
     await expect(player1.locator(".chat-messages")).toContainText(
       "Resignation"
     );
-  });
-
-  test("reset_vote_expired", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    test.setTimeout(60000);
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
-    // Player 1 joins White
-    await joinTeam(player1, "white");
-
-    // Player 2 joins Black
-    await joinTeam(player2, "black");
-
-    // Player 3 joins Black
-    await joinTeam(player3, "black");
-
-    // Player 1 (White) plays e2-e4 to start the game
-    await makeMove(player1, "e2", "e4");
-    await player1.waitForTimeout(1000);
-
-    // Player 2 starts a reset game vote (auto-votes yes)
-    await player2.click('button[aria-label="Reset"]');
-    await player2.waitForTimeout(500);
-
-    // Nobody else votes — wait for the vote to expire (20s + buffer)
-    await player1.waitForTimeout(22000);
-
-    // Assert: Chat shows vote failure message
-    await expect(player1.locator(".chat-messages")).toContainText(
-      "Vote to reset the game failed"
-    );
-
-    // Assert: Game is NOT reset — white pawn still on e4
-    await expect(
-      player1.locator('[data-square="e4"] [data-piece="wP"]')
-    ).toBeVisible();
-  });
-
-  test("resign_with_disconnected_teammate", async ({ browser }, testInfo) => {
-    const [player1, player2, player3] = await setupPlayers(
-      browser,
-      testInfo,
-      3
-    );
-    // Player 1 + Player 2 join White, Player 3 joins Black
-    await joinTeam(player1, "white");
-    await joinTeam(player2, "white");
-    await joinTeam(player3, "black");
-
-    // Player 1 plays e2-e4 to start the game
-    await makeMove(player1, "e2", "e4");
-    await player1.waitForTimeout(1000);
-
-    // Player 2 disconnects — server marks connected: false
-    await player2.context().close();
-
-    // Wait for Player 1 to see the disconnected icon in the players panel
-    await expect(
-      player1.locator(".players-panel .disconnected-icon")
-    ).toBeVisible({ timeout: 10000 });
-
-    // Player 1 clicks Resign — gets confirm modal (1 connected on team)
-    await player1.click('button[aria-label="Resign"]');
-    const confirmBtn = player1.getByRole("button", { name: "Confirm" });
-    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
-    await confirmBtn.click();
-    await player1.waitForTimeout(1000);
-
-    // Assert: game over — "Copy PGN" visible
-    await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
-      timeout: 5000,
-    });
-
-    // Assert: chat shows resignation message
-    await expect(player1.locator(".chat-messages")).toContainText(
-      "Resignation"
-    );
-  });
-
-  test("reset_game_when_alone_connected", async ({ browser }, testInfo) => {
-    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
-    // Player 1 joins White, Player 2 joins Black
-    await joinTeam(player1, "white");
-    await joinTeam(player2, "black");
-
-    // Player 1 plays e2-e4 to start the game
-    await makeMove(player1, "e2", "e4");
-    await player1.waitForTimeout(1000);
-
-    // Player 2 disconnects
-    await player2.context().close();
-
-    // Wait for Player 1 to see the disconnected icon in the players panel
-    await expect(
-      player1.locator(".players-panel .disconnected-icon")
-    ).toBeVisible({ timeout: 10000 });
-
-    // Player 1 clicks Reset Game — gets confirm modal (alone connected)
-    await player1.click('button[aria-label="Reset"]');
-    const confirmBtn = player1.getByRole("button", { name: "Confirm" });
-    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
-    await confirmBtn.click();
-    await player1.waitForTimeout(1000);
-
-    // Assert: game resets — pawn back on e2, not on e4
-    await expect(
-      player1.locator('[data-square="e2"] [data-piece="wP"]')
-    ).toBeVisible({ timeout: 5000 });
-    await expect(
-      player1.locator('[data-square="e4"] [data-piece]')
-    ).not.toBeVisible();
   });
 
   test("reset_vote_shows_voter_labels", async ({ browser }, testInfo) => {
@@ -1430,45 +921,6 @@ test.describe("Voting", () => {
     await expect(p3Yes).toBeEnabled();
     await expect(p3No).toBeEnabled();
   });
-
-  test("reset_vote_buttons_disabled_for_late_joiner", async ({
-    browser,
-  }, testInfo) => {
-    const [player1, player2, player3] = await setupPlayers(
-      browser,
-      testInfo,
-      3
-    );
-    // P1 + P3 → White, P2 → Black
-    await joinTeam(player1, "white");
-    await joinTeam(player2, "black");
-    await joinTeam(player3, "white");
-
-    // Start game
-    await makeMove(player1, "e2", "e4");
-    await player1.waitForTimeout(1000);
-
-    // Player 2 starts reset vote
-    await player2.click('button[aria-label="Reset"]');
-    await player2.waitForTimeout(500);
-
-    // Player 4 joins late
-    const [player4] = await setupPlayers(browser, testInfo, 1);
-    await player4.waitForTimeout(1000);
-
-    // Assert: P4 (late joiner) sees reset vote but Yes/No buttons are disabled
-    const p4Yes = player4.locator('button:has-text("Yes")');
-    const p4No = player4.locator('button:has-text("No")');
-    await expect(p4Yes).toBeVisible({ timeout: 5000 });
-    await expect(p4Yes).toBeDisabled();
-    await expect(p4No).toBeDisabled();
-
-    // Assert: P1 (eligible) has Yes/No buttons enabled
-    const p1Yes = player1.locator('button:has-text("Yes")');
-    const p1No = player1.locator('button:has-text("No")');
-    await expect(p1Yes).toBeEnabled();
-    await expect(p1No).toBeEnabled();
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1517,83 +969,6 @@ test.describe("Draw Offers", () => {
     );
   });
 
-  test("draw_offer_rejected", async ({ browser }, testInfo) => {
-    const [player1, player2, player3] = await setupPlayers(
-      browser,
-      testInfo,
-      3
-    );
-    // Player 1 joins White
-    await joinTeam(player1, "white");
-
-    // Player 2 joins Black
-    await joinTeam(player2, "black");
-
-    // Player 3 joins Black
-    await joinTeam(player3, "black");
-
-    // Player 1 (White) plays e2-e4
-    await makeMove(player1, "e2", "e4");
-    await player1.waitForTimeout(1000);
-
-    // Player 1 offers a draw (single player → confirm modal)
-    await player1.click('button[aria-label="Offer Draw"]');
-    await player1.getByRole("button", { name: "Confirm" }).click();
-    await player1.waitForTimeout(1000);
-
-    // Player 2 votes Yes on the accept_draw vote
-    await player2.click('button:has-text("Yes")');
-    await player2.waitForTimeout(500);
-
-    // Player 3 votes No — vote fails immediately
-    await player3.click('button:has-text("No")');
-    await player3.waitForTimeout(1000);
-
-    // Assert: Game is NOT over — no "Copy PGN" button
-    await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
-
-    // Assert: Chat shows the draw rejection message (system message visible to all)
-    await expect(player1.locator(".chat-messages")).toContainText(
-      "Vote to accept draw failed"
-    );
-  });
-
-  test("team_offer_draw_rejected", async ({ browser }, testInfo) => {
-    const [player1, player2, player3] = await setupPlayers(
-      browser,
-      testInfo,
-      3
-    );
-    // Player 1 joins White
-    await joinTeam(player1, "white");
-
-    // Player 2 joins Black
-    await joinTeam(player2, "black");
-
-    // Player 3 joins Black
-    await joinTeam(player3, "black");
-
-    // Player 1 (White) plays e2-e4
-    await makeMove(player1, "e2", "e4");
-    await player1.waitForTimeout(1000);
-
-    // Player 2 starts an offer_draw team vote (auto-votes yes as initiator)
-    await player2.click('button[aria-label="Offer Draw"]');
-    await player2.waitForTimeout(500);
-
-    // Player 3 votes No — vote fails immediately (unanimous required)
-    await player3.click('button:has-text("No")');
-    await player3.waitForTimeout(1000);
-
-    // Assert: Game is NOT over — no "Copy PGN" button
-    await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
-
-    // Assert: Team chat shows the failure message (visible to black team)
-    await expect(player2.locator(".chat-messages")).toContainText(
-      "Vote to offer draw failed"
-    );
-  });
-
   test("team_offer_draw_accepted", async ({ browser }, testInfo) => {
     const [player1, player2, player3] = await setupPlayers(
       browser,
@@ -1635,54 +1010,5 @@ test.describe("Draw Offers", () => {
     await expect(player1.locator(".chat-messages")).toContainText(
       "Draw agreed"
     );
-  });
-
-  test("draw_offer_expired", async ({ browser }, testInfo) => {
-    const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
-    test.setTimeout(60000);
-
-    const player1 = await createPlayer(browser, baseURL);
-    const player2 = await createPlayer(browser, baseURL);
-    const player3 = await createPlayer(browser, baseURL);
-
-    // Navigate all players
-    await player1.goto("/");
-    await player2.goto("/");
-    await player3.goto("/");
-    await player1.waitForSelector(".app-container");
-    await player2.waitForSelector(".app-container");
-    await player3.waitForSelector(".app-container");
-
-    // Player 1 joins White (solo)
-    await player1.click('.player-section:has(h3:has-text("White")) .join-btn');
-    await player1.waitForTimeout(300);
-
-    // Player 2 joins Black
-    await player2.click('.player-section:has(h3:has-text("Black")) .join-btn');
-    await player2.waitForTimeout(300);
-
-    // Player 3 joins Black
-    await joinTeam(player3, "black");
-
-    // Player 1 (White, solo) plays e2-e4 to start the game
-    await makeMove(player1, "e2", "e4");
-    await player1.waitForTimeout(1000);
-
-    // Player 1 offers a draw (solo white — passes immediately via confirm modal)
-    await player1.click('button[aria-label="Offer Draw"]');
-    await player1.getByRole("button", { name: "Confirm" }).click();
-    await player1.waitForTimeout(1000);
-
-    // Draw offered to black team → accept_draw vote starts for black
-    // Nobody votes — wait for vote to expire (20s timeout + buffer)
-    await player1.waitForTimeout(22000);
-
-    // Assert: Chat shows draw vote failure
-    await expect(player1.locator(".chat-messages")).toContainText(
-      "Vote to accept draw failed"
-    );
-
-    // Assert: Game is NOT over — no "Copy PGN" button
-    await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
   });
 });

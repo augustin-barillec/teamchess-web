@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { getTeamVoteClientData, broadcastTeamVote } from "./teamVote.js";
+import { describe, it, expect, vi } from "vitest";
+import {
+  getTeamVoteClientData,
+  broadcastTeamVote,
+  startTeamVoteLogic,
+} from "./teamVote.js";
 import { MockGameContext } from "../context/MockGameContext.js";
 
 describe("teamVote", () => {
@@ -99,6 +103,58 @@ describe("teamVote", () => {
       ).toBe(false);
 
       clearTimeout(ctx.gameState.whiteVote!.timer);
+    });
+  });
+
+  describe("vote expiration", () => {
+    it("clears the vote and emits a failed chat_message after the 20s timeout", () => {
+      vi.useFakeTimers();
+      try {
+        const ctx = new MockGameContext();
+        ctx.addPlayer("p1", "Alice", "black");
+        ctx.addPlayer("p2", "Bob", "black");
+        ctx.addPlayer("w1", "Charlie", "white");
+
+        startTeamVoteLogic("black", "resign", "p1", "Alice", ctx);
+
+        expect(ctx.gameState.blackVote).toBeDefined();
+        const failsBefore = ctx
+          .getEmittedData<{ message: string }>("chat_message")
+          .filter((m) => m.message.includes("failed")).length;
+
+        vi.advanceTimersByTime(20_000);
+
+        expect(ctx.gameState.blackVote).toBeUndefined();
+        const failsAfter = ctx
+          .getEmittedData<{ message: string }>("chat_message")
+          .filter((m) => m.message.includes("failed")).length;
+        expect(failsAfter).toBeGreaterThan(failsBefore);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("clears the draw offer when accept_draw vote times out", () => {
+      vi.useFakeTimers();
+      try {
+        const ctx = new MockGameContext({ drawOffer: "white" });
+        ctx.addPlayer("p1", "Alice", "black");
+        ctx.addPlayer("p2", "Bob", "black");
+
+        startTeamVoteLogic("black", "accept_draw", "p1", "Alice", ctx);
+
+        expect(ctx.gameState.blackVote).toBeDefined();
+
+        vi.advanceTimersByTime(20_000);
+
+        expect(ctx.gameState.drawOffer).toBeUndefined();
+        const offerEvents = ctx.getEmittedData<{ side: string | null }>(
+          "draw_offer_update"
+        );
+        expect(offerEvents.some((e) => e.side === null)).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });
