@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import type { Socket } from "socket.io";
 import { GameStatus, EndReason } from "../shared_types.js";
 import { MSG } from "../shared_messages.js";
-import { DISCONNECT_GRACE_MS } from "../constants.js";
+import { TEAM_EMPTY_FORFEIT_MS } from "../constants.js";
 import { TestGame, type FakeSocket } from "../testUtils.js";
 import { getLeadId } from "../state.js";
 import { broadcastPlayers } from "../utils/messaging.js";
@@ -52,25 +52,25 @@ describe("the lead", () => {
     expect(update?.leadId).toBe("p1");
   });
 
-  it("keeps the role while merely disconnected, and hands it over once the session expires", () => {
-    vi.useFakeTimers();
-    try {
-      game = new TestGame();
-      const s1 = game.addPlayer("p1", "Alice", "white");
-      game.addPlayer("p2", "Bob", "black");
+  it("hands the role over the moment the lead drops off, and takes it back on return", () => {
+    // Mid-game, so the seat survives the disconnection and only presence moves
+    game = new TestGame({ status: GameStatus.AwaitingProposals });
+    const s1 = game.addPlayer("p1", "Alice", "white");
+    game.addPlayer("p2", "Bob", "black");
 
-      leave(asSocket(s1));
-      game.disconnectSocket("p1");
-      expect(getLeadId()).toBe("p1"); // grace period: still the lead
+    // A session now outlives a disconnection, so the crown follows presence
+    // rather than mere existence — otherwise a player who quit would keep it
+    // and nobody could kick or reset.
+    game.disconnectSocket("p1");
+    leave(asSocket(s1));
 
-      vi.advanceTimersByTime(DISCONNECT_GRACE_MS);
+    expect(getLeadId()).toBe("p2");
+    expect(game.getLastEmittedData<{ leadId: string }>("players")?.leadId).toBe(
+      "p2"
+    );
 
-      expect(getLeadId()).toBe("p2");
-      const update = game.getLastEmittedData<{ leadId: string }>("players");
-      expect(update?.leadId).toBe("p2");
-    } finally {
-      vi.useRealTimers();
-    }
+    game.reconnectSocket("p1");
+    expect(getLeadId()).toBe("p1");
   });
 });
 
@@ -124,21 +124,32 @@ describe("handleKickPlayer", () => {
     );
   });
 
-  it("ends the game by abandonment when the kicked player was the last of their team", () => {
-    game = new TestGame({ status: GameStatus.AwaitingProposals });
-    const s1 = game.addPlayer("p1", "Alice", "white");
-    game.addPlayer("p2", "Bob", "white");
-    game.addPlayer("p3", "Charlie", "black"); // last black player
+  it("counts the emptied team down when the kicked player was its last member", () => {
+    vi.useFakeTimers();
+    try {
+      game = new TestGame({ status: GameStatus.AwaitingProposals });
+      const s1 = game.addPlayer("p1", "Alice", "white");
+      game.addPlayer("p2", "Bob", "white");
+      game.addPlayer("p3", "Charlie", "black"); // last black player
 
-    handleKickPlayer(asSocket(s1), "p3");
+      handleKickPlayer(asSocket(s1), "p3");
 
-    expect(game.sessions.has("p3")).toBe(false);
-    expect(game.gameState.status).toBe(GameStatus.Over);
-    const over = game.getLastEmittedData<{ reason: string; winner: string }>(
-      "game_over"
-    );
-    expect(over?.reason).toBe(EndReason.Abandonment);
-    expect(over?.winner).toBe("white");
+      // A kick is a decision, not a suspicion: the seat goes immediately...
+      expect(game.sessions.has("p3")).toBe(false);
+      // ...but the team it empties is owed the same chance as any other
+      expect(game.gameState.status).toBe(GameStatus.AwaitingProposals);
+
+      vi.advanceTimersByTime(TEAM_EMPTY_FORFEIT_MS);
+
+      expect(game.gameState.status).toBe(GameStatus.Over);
+      const over = game.getLastEmittedData<{ reason: string; winner: string }>(
+        "game_over"
+      );
+      expect(over?.reason).toBe(EndReason.Abandonment);
+      expect(over?.winner).toBe("white");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

@@ -56,6 +56,16 @@ export interface TeamVoteState {
   myCurrentVote: "yes" | null;
 }
 
+/**
+ * A team has nobody connected and will lose when the clock runs out, unless the
+ * missing player comes back or anyone else joins that side. `side` is the empty
+ * team, or null when both are empty and the game is heading for a draw.
+ */
+export interface ForfeitCountdown {
+  side: "white" | "black" | null;
+  endTime: number;
+}
+
 export enum GameStatus {
   Setup = "Setup",
   AwaitingProposals = "AwaitingProposals",

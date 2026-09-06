@@ -51,11 +51,6 @@ export function setupConnectionHandler(): void {
       };
       sessions.set(pid, sess);
     } else {
-      if (sess.reconnectTimer) {
-        clearTimeout(sess.reconnectTimer);
-        sess.reconnectTimer = undefined;
-      }
-
       if (providedName) sess.name = providedName;
     }
 

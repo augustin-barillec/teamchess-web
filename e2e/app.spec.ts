@@ -581,12 +581,17 @@ test.describe("Game End Conditions", () => {
     await makeMove(player1, "e2", "e4");
     await waitForMovePlayed(player2, "e4");
 
-    // Player 2 joins spectators — black team is now empty
+    // Player 2 joins spectators — black team is now empty. Every way of emptying
+    // a team is the same rule now: 30s to get someone back, then forfeit.
+    test.setTimeout(60000);
     await joinSpectators(player2);
+
+    await expect(player1.locator(".forfeit-banner")).toBeVisible();
+    await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
 
     // Assert: Game is over — "Copy PGN" button appears (only visible when game is Over)
     await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
-      timeout: 5000,
+      timeout: 40_000,
     });
 
     // Assert: Chat contains the forfeit message indicating White wins
@@ -619,11 +624,13 @@ test.describe("Game End Conditions", () => {
     // Player 2 leaves the website (close page)
     await player2.close();
 
-    // Assert: once DISCONNECT_GRACE_MS (20s) elapses, the game is over. Waiting on
-    // the button rather than sleeping past the grace period means the test ends the
-    // moment the forfeit lands instead of always paying the full 25s.
+    // Player 2's seat is theirs to the end of the game, so their leaving forfeits
+    // nothing by itself: what runs is the countdown on the team they left empty,
+    // and it is shown to the player still there. Waiting on the button rather than
+    // sleeping past it means the test ends the moment the forfeit lands.
+    await expect(player1.locator(".forfeit-banner")).toBeVisible();
     await expect(player1.locator('button[title="Copy PGN"]')).toBeVisible({
-      timeout: 30_000,
+      timeout: 40_000,
     });
 
     // Assert: Chat contains the forfeit message indicating White wins
@@ -631,7 +638,7 @@ test.describe("Game End Conditions", () => {
     await expect(player1.locator(".chat-messages")).toContainText("White wins");
   });
 
-  test("reconnect_during_grace_period", async ({ browser }, testInfo) => {
+  test("reconnect_keeps_your_side", async ({ browser }, testInfo) => {
     const baseURL = `http://localhost:${workerPort(testInfo.workerIndex)}`;
     const player1 = await createPlayer(browser, baseURL);
     // Player 2 needs same context for reconnect — create manually
@@ -662,8 +669,8 @@ test.describe("Game End Conditions", () => {
     // Player 2 disconnects (close page)
     await player2.close();
 
-    // Genuinely time-based: the point is to sit inside the 20s grace period and
-    // prove no forfeit fires, so there is no state change to wait for.
+    // The countdown on the emptied black team starts at once, and says so
+    await expect(player1.locator(".forfeit-banner")).toBeVisible();
     await player1.waitForTimeout(5000);
 
     // Player 2 reconnects — open new page in same context (preserves localStorage/PID)
@@ -682,7 +689,15 @@ test.describe("Game End Conditions", () => {
       player2Reconnected.locator(".offline-banner")
     ).not.toBeVisible();
 
-    // Assert: Game is NOT over — no "Copy PGN" button (no forfeit happened)
+    // Assert: back on Black, not demoted to spectator — the seat was held
+    await expect(
+      player2Reconnected.locator(
+        '.player-section:has(h3:has-text("Black")) .player-list li'
+      )
+    ).toHaveCount(1);
+
+    // Assert: the countdown was called off and no forfeit fired
+    await expect(player1.locator(".forfeit-banner")).not.toBeVisible();
     await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
   });
 });

@@ -1,11 +1,12 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import type { Socket } from "socket.io";
-import { ENGINE_MOVE_TIMEOUT_MS } from "../constants.js";
+import { ENGINE_MOVE_TIMEOUT_MS, TEAM_EMPTY_FORFEIT_MS } from "../constants.js";
 import { MSG } from "../shared_messages.js";
 import { TestGame, type FakeSocket } from "../testUtils.js";
 import { GameStatus, EndReason } from "../shared_types.js";
+import type { ForfeitCountdown } from "../types.js";
 import { handlePlayMove, handleJoinSide } from "../socket/eventHandlers.js";
-import { endGame, executeGameReset } from "./gameLogic.js";
+import { endGame, executeGameReset, endIfOneSided } from "./gameLogic.js";
 import { leave } from "../players/playerManager.js";
 
 // executeGameReset builds a real engine; keep it from spawning a process in tests
@@ -193,5 +194,139 @@ describe("turn finalization invariant", () => {
     leave(asSocket(leavingSocket));
 
     expect(wasFinalized(game)).toBe(true);
+  });
+});
+
+/**
+ * Going quiet costs a player nothing: their seat is theirs for the whole game, so a
+ * dropped connection can never lose one by itself. Only an empty team is a problem,
+ * and it gets a visible countdown to fix itself. These tests pin both halves.
+ */
+describe("empty-team forfeit countdown", () => {
+  /** Drops a player's socket and runs the disconnection path, as io would. */
+  function dropOffline(game: TestGame, socket: FakeSocket): void {
+    game.disconnectSocket(socket.data.pid!);
+    leave(asSocket(socket));
+  }
+
+  function lastCountdown(game: TestGame): ForfeitCountdown | null | undefined {
+    const events = game.getEmittedData<ForfeitCountdown | null>(
+      "forfeit_countdown"
+    );
+    return events[events.length - 1];
+  }
+
+  it("does not forfeit an emptied team on the spot", () => {
+    vi.useFakeTimers();
+    try {
+      const { game, blacks } = setupAwaitingProposals(2, 1);
+      lastGame = game;
+
+      dropOffline(game, blacks[0]); // the only black player
+      vi.advanceTimersByTime(TEAM_EMPTY_FORFEIT_MS - 1000);
+
+      expect(game.gameState.status).toBe(GameStatus.AwaitingProposals);
+      expect(game.hasEmitted("game_over")).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("announces the countdown so everyone can see it running", () => {
+    vi.useFakeTimers();
+    try {
+      const { game, blacks } = setupAwaitingProposals(2, 1);
+      lastGame = game;
+
+      dropOffline(game, blacks[0]);
+
+      expect(lastCountdown(game)).toEqual({
+        side: "black",
+        endTime: Date.now() + TEAM_EMPTY_FORFEIT_MS,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the seat, so a returning player walks back into the same side", () => {
+    vi.useFakeTimers();
+    try {
+      const { game, blacks } = setupAwaitingProposals(2, 1);
+      lastGame = game;
+      const pid = blacks[0].data.pid!;
+
+      dropOffline(game, blacks[0]);
+      vi.advanceTimersByTime(TEAM_EMPTY_FORFEIT_MS / 2);
+
+      expect(game.sessions.get(pid)?.side).toBe("black");
+      expect(game.gameState.blackIds.has(pid)).toBe(true);
+
+      game.reconnectSocket(pid);
+      endIfOneSided();
+      vi.advanceTimersByTime(TEAM_EMPTY_FORFEIT_MS * 2);
+
+      // The countdown was called off, not merely postponed
+      expect(lastCountdown(game)).toBeNull();
+      expect(game.hasEmitted("game_over")).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("lets anyone else take the empty seat to save the game", () => {
+    vi.useFakeTimers();
+    try {
+      const { game, blacks } = setupAwaitingProposals(2, 1);
+      lastGame = game;
+      const spectator = game.addPlayer("s1", "Dave", "spectator");
+
+      dropOffline(game, blacks[0]);
+      vi.advanceTimersByTime(TEAM_EMPTY_FORFEIT_MS / 2);
+
+      // Dave steps in — the rescue the old design had no room for
+      handleJoinSide(asSocket(spectator), "black");
+      vi.advanceTimersByTime(TEAM_EMPTY_FORFEIT_MS * 2);
+
+      expect(game.hasEmitted("game_over")).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("forfeits once the countdown runs out", () => {
+    vi.useFakeTimers();
+    try {
+      const { game, blacks } = setupAwaitingProposals(2, 1);
+      lastGame = game;
+
+      dropOffline(game, blacks[0]);
+      vi.advanceTimersByTime(TEAM_EMPTY_FORFEIT_MS);
+
+      expect(game.gameState.status).toBe(GameStatus.Over);
+      const over = game.getLastEmittedData<{ reason: string; winner: string }>(
+        "game_over"
+      );
+      expect(over?.reason).toBe(EndReason.Abandonment);
+      expect(over?.winner).toBe("white");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives up the seats of players still missing when the next game is set up", () => {
+    vi.useFakeTimers();
+    try {
+      const { game, blacks } = setupAwaitingProposals(2, 1);
+      lastGame = game;
+      const pid = blacks[0].data.pid!;
+
+      dropOffline(game, blacks[0]);
+      executeGameReset();
+
+      expect(game.sessions.has(pid)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

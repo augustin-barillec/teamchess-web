@@ -17,6 +17,7 @@ export type {
   Selection,
   VoteType,
   TeamVoteState,
+  ForfeitCountdown,
 } from "../../server/shared_types";
 
 export { GameStatus } from "../../server/shared_types";

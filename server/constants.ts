@@ -1,6 +1,15 @@
 import path from "path";
 
-export const DISCONNECT_GRACE_MS = 20000;
+/**
+ * How long a team with nobody connected has to get someone back before it loses.
+ *
+ * This is the whole safety net, and it is deliberately the only one: a player is
+ * never dropped from their team for going quiet, so a dropped connection cannot
+ * cost anything by itself. Only an empty team is a problem, and it gets this long
+ * — counted down in front of everyone — for the missing player to return or for
+ * anyone else to take the seat.
+ */
+export const TEAM_EMPTY_FORFEIT_MS = 30000;
 export const STOCKFISH_SEARCH_DEPTH = 15;
 /** How long a search may run before the engine is considered unusable for this turn. */
 export const ENGINE_MOVE_TIMEOUT_MS = 10000;

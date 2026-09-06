@@ -8,7 +8,6 @@ export type Session = {
   pid: string;
   name: string;
   side: Side;
-  reconnectTimer?: NodeJS.Timeout;
 };
 
 // `eligibleVoters` is the vote's frozen electorate: pid -> name as of vote creation.
@@ -53,6 +52,9 @@ export interface GameState {
   endMessage?: string;
   drawOffer?: "white" | "black";
   activeVote?: InternalTeamVote;
+  /** Armed while a team has nobody connected. See armForfeitCountdown. */
+  forfeitTimer?: NodeJS.Timeout;
+  forfeitEndTime: number;
   blacklist: Set<string>;
 }
 
@@ -61,6 +63,7 @@ export type {
   PlayersUpdate,
   Proposal,
   VoteType,
+  ForfeitCountdown,
 } from "./shared_types.js";
 
 export { GameStatus, EndReason } from "./shared_types.js";

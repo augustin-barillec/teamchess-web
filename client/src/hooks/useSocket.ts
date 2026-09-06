@@ -11,6 +11,7 @@ import {
   ChatMessage,
   GameStatus,
   TeamVoteState,
+  ForfeitCountdown,
 } from "../types";
 import { Turn } from "../types";
 import { STORAGE_KEYS } from "../constants";
@@ -44,6 +45,7 @@ interface UseSocketReturn {
   lastMoveSquares: { from: string; to: string } | null;
   drawOffer: "white" | "black" | null;
   activeVote: TeamVoteState | null;
+  forfeitCountdown: ForfeitCountdown | null;
 }
 
 export function useSocket({ chess }: UseSocketProps): UseSocketReturn {
@@ -82,6 +84,8 @@ export function useSocket({ chess }: UseSocketProps): UseSocketReturn {
   } | null>(null);
   const [drawOffer, setDrawOffer] = useState<"white" | "black" | null>(null);
   const [activeVote, setActiveVote] = useState<TeamVoteState | null>(null);
+  const [forfeitCountdown, setForfeitCountdown] =
+    useState<ForfeitCountdown | null>(null);
 
   // Socket initialization
   useEffect(() => {
@@ -265,6 +269,10 @@ export function useSocket({ chess }: UseSocketProps): UseSocketReturn {
       setActiveVote(state);
     });
 
+    socket.on("forfeit_countdown", (state: ForfeitCountdown | null) => {
+      setForfeitCountdown(state);
+    });
+
     socket.on("kicked", () => {
       toast.error(UI.toastKicked);
       socket.disconnect();
@@ -297,5 +305,6 @@ export function useSocket({ chess }: UseSocketProps): UseSocketReturn {
     lastMoveSquares,
     drawOffer,
     activeVote,
+    forfeitCountdown,
   };
 }

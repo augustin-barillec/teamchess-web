@@ -4,7 +4,13 @@ import {
   getActiveTeamPids,
   resetGameState,
 } from "../state.js";
-import { GameStatus, EndReason, Proposal } from "../types.js";
+import {
+  GameStatus,
+  EndReason,
+  Proposal,
+  PlayerSide,
+  ForfeitCountdown,
+} from "../types.js";
 import { reasonMessages, MSG } from "../shared_messages.js";
 import { getCleanPgn } from "../utils/pgn.js";
 import { broadcastPlayers, sendSystemMessage } from "../utils/messaging.js";
@@ -18,7 +24,7 @@ import {
   resolveSelectedMove,
 } from "../core/turnLogic.js";
 import { shouldEndDueToAbandonment } from "../core/playerLogic.js";
-import { DEFAULT_CLOCK_TIME } from "../constants.js";
+import { DEFAULT_CLOCK_TIME, TEAM_EMPTY_FORFEIT_MS } from "../constants.js";
 
 /**
  * Ends the game with a given reason and optional winner.
@@ -34,6 +40,7 @@ export function endGame(reason: EndReason, winner: string | null = null): void {
 
   // A team vote is meaningless once the game is over
   clearActiveVote();
+  clearForfeitCountdown();
 
   gameState.engine.quit();
   gameState.status = GameStatus.Over;
@@ -209,7 +216,10 @@ export function tryFinalizeTurn(): void {
 }
 
 /**
- * Ends the game if one side has no remaining players.
+ * An abandoned team does not lose on the spot: it gets TEAM_EMPTY_FORFEIT_MS,
+ * counted down in front of everyone, for the missing player to come back or for
+ * anyone else to take the seat. Call after anything that can change who is
+ * connected on a side; it arms, refreshes or cancels the countdown accordingly.
  */
 export function endIfOneSided(): void {
   const gameState = getGameState();
@@ -217,15 +227,77 @@ export function endIfOneSided(): void {
   if (
     gameState.status === GameStatus.Setup ||
     gameState.status === GameStatus.Over
-  )
+  ) {
+    clearForfeitCountdown();
     return;
+  }
 
+  const empty = emptySides();
+  if (empty.length === 0) {
+    clearForfeitCountdown();
+    return;
+  }
+
+  // Both empty means the game is heading for a draw rather than a winner
+  const side = empty.length === 2 ? null : empty[0];
+
+  // A team emptying while another countdown runs shares its deadline: the clock
+  // started when the game first lost a side, and that is the one that matters.
+  if (!gameState.forfeitTimer) {
+    gameState.forfeitEndTime = Date.now() + TEAM_EMPTY_FORFEIT_MS;
+    gameState.forfeitTimer = setTimeout(() => {
+      gameState.forfeitTimer = undefined;
+      executeForfeit();
+    }, TEAM_EMPTY_FORFEIT_MS);
+  }
+
+  getIO().emit("forfeit_countdown", {
+    side,
+    endTime: gameState.forfeitEndTime,
+  });
+}
+
+/** The countdown ran out. Recomputed from scratch: a side may have filled up since. */
+function executeForfeit(): void {
   const result = shouldEndDueToAbandonment(
-    gameState.whiteIds,
-    gameState.blackIds
+    getActiveTeamPids("white"),
+    getActiveTeamPids("black")
   );
 
   if (result.shouldEnd) {
     endGame(EndReason.Abandonment, result.winner ?? null);
+  } else {
+    clearForfeitCountdown();
   }
+}
+
+export function clearForfeitCountdown(): void {
+  const gameState = getGameState();
+
+  if (gameState.forfeitTimer) {
+    clearTimeout(gameState.forfeitTimer);
+    gameState.forfeitTimer = undefined;
+  }
+  if (gameState.forfeitEndTime === 0) return;
+  gameState.forfeitEndTime = 0;
+  getIO().emit("forfeit_countdown", null);
+}
+
+export function getForfeitCountdown(): ForfeitCountdown | null {
+  const gameState = getGameState();
+  if (!gameState.forfeitTimer) return null;
+
+  const empty = emptySides();
+  return {
+    side: empty.length === 2 ? null : empty[0],
+    endTime: gameState.forfeitEndTime,
+  };
+}
+
+/** Sides with nobody connected. A held seat does not count: it cannot play. */
+function emptySides(): PlayerSide[] {
+  const sides: PlayerSide[] = [];
+  if (getActiveTeamPids("white").size === 0) sides.push("white");
+  if (getActiveTeamPids("black").size === 0) sides.push("black");
+  return sides;
 }

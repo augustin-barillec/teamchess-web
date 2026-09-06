@@ -52,6 +52,7 @@ export default function App() {
     lastMoveSquares,
     drawOffer,
     activeVote,
+    forfeitCountdown,
   } = useSocket({ chess });
 
   const amILead = !!myId && myId === leadId;
@@ -126,6 +127,17 @@ export default function App() {
   const voteTimeLeft = Math.max(
     0,
     Math.ceil(((activeVote?.endTime ?? 0) - voteNow) / 1000)
+  );
+
+  const [forfeitNow, setForfeitNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!forfeitCountdown) return;
+    const interval = setInterval(() => setForfeitNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [forfeitCountdown]);
+  const forfeitTimeLeft = Math.max(
+    0,
+    Math.ceil(((forfeitCountdown?.endTime ?? 0) - forfeitNow) / 1000)
   );
 
   const joinSide = (s: "white" | "black" | "spectator") => {
@@ -617,6 +629,21 @@ export default function App() {
           <div className="bottom-clock-row">
             {renderBottomPlayerInfoBox(bottomActionSlot)}
           </div>
+          {forfeitCountdown && (
+            <div className="vote-row">
+              <div className="forfeit-banner" role="status">
+                {forfeitCountdown.side
+                  ? UI.forfeitCountdown(
+                      forfeitCountdown.side === "white"
+                        ? UI.headingWhite
+                        : UI.headingBlack,
+                      forfeitTimeLeft
+                    )
+                  : UI.forfeitCountdownBoth(forfeitTimeLeft)}
+              </div>
+            </div>
+          )}
+
           {voteBannerContent && (
             <div className="vote-row">{voteBannerContent}</div>
           )}

@@ -45,6 +45,10 @@ export const UI = {
   // Status
   noMovesYet: "No moves played yet.",
   offlineBanner: "You\u2019re offline. Trying to reconnect\u2026",
+  forfeitCountdown: (team: string, seconds: number) =>
+    `${team} has nobody left \u2014 forfeits in ${seconds}s unless someone joins`,
+  forfeitCountdownBoth: (seconds: number) =>
+    `Nobody left on either side \u2014 draw in ${seconds}s unless someone joins`,
 
   // Chat
   chatPlaceholder: "Type a message...",

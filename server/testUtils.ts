@@ -99,10 +99,20 @@ export class TestGame {
 
   /**
    * Simulates a socket disconnection: the socket leaves io but the session and
-   * team membership survive (grace period).
+   * team membership survive — the seat is held for the whole game.
    */
   disconnectSocket(pid: string): void {
     this.fakeSockets.delete(pid);
+  }
+
+  /** Simulates a reconnection: a socket comes back for a session that never left. */
+  reconnectSocket(pid: string): void {
+    const sess = sessions.get(pid);
+    if (!sess) return;
+    this.fakeSockets.set(
+      pid,
+      createFakeSocket(pid, { pid, side: sess.side, name: sess.name })
+    );
   }
 
   hasEmitted(event: string): boolean {
@@ -129,7 +139,7 @@ export class TestGame {
 
   /**
    * Clears any live timer held by the state (clock interval, vote timer,
-   * reconnect grace timers) so nothing leaks into the next test.
+   * empty-team forfeit countdown) so nothing leaks into the next test.
    */
   cleanup(): void {
     if (this.gameState.timerInterval) {
@@ -140,8 +150,9 @@ export class TestGame {
       clearTimeout(this.gameState.activeVote.timer);
       this.gameState.activeVote = undefined;
     }
-    for (const sess of sessions.values()) {
-      if (sess.reconnectTimer) clearTimeout(sess.reconnectTimer);
+    if (this.gameState.forfeitTimer) {
+      clearTimeout(this.gameState.forfeitTimer);
+      this.gameState.forfeitTimer = undefined;
     }
   }
 }

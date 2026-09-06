@@ -49,6 +49,8 @@ export function createInitialGameState(engine: Engine): GameState {
     endMessage: undefined,
     drawOffer: undefined,
     activeVote: undefined,
+    forfeitTimer: undefined,
+    forfeitEndTime: 0,
     blacklist: new Set(),
   };
 }
@@ -63,6 +65,15 @@ export function createInitialGameState(engine: Engine): GameState {
 export function resetGameState(engine: Engine): void {
   if (gameState.timerInterval) clearInterval(gameState.timerInterval);
   if (gameState.activeVote) clearTimeout(gameState.activeVote.timer);
+  if (gameState.forfeitTimer) clearTimeout(gameState.forfeitTimer);
+
+  // A seat is held for the length of a game, not for ever: whoever is still
+  // missing when the next one is set up gives theirs up. Without this a player
+  // who quit for good would sit in their team until the server restarts.
+  const online = getOnlinePids();
+  for (const pid of [...sessions.keys()]) {
+    if (!online.has(pid)) sessions.delete(pid);
+  }
 
   const fresh = createInitialGameState(engine);
   fresh.generation = gameState.generation + 1;
@@ -75,15 +86,21 @@ export function resetGameState(engine: Engine): void {
 /**
  * The lead — the player who may kick others and reset the game.
  *
- * It is not stored: it is simply the oldest session, `sessions` being insertion
- * ordered by arrival. So the first player to connect leads, and when they leave
- * (their session is dropped, after the reconnection grace period) the next
- * longest-present player takes over, with no bookkeeping to keep in sync. A lead
- * who is merely disconnected keeps the role until their grace period expires.
+ * It is not stored: it is simply the oldest connected session, `sessions` being
+ * insertion ordered by arrival. So the first player to connect leads, and the
+ * moment they drop off the next longest-present player takes over, with no
+ * bookkeeping to keep in sync — and hands it straight back when they return.
+ *
+ * Connected, not merely present: a session outlives a disconnection now (the seat
+ * is held for the whole game), so keying off presence alone would leave a player
+ * who quit holding the crown, and nobody able to kick or reset.
  */
 export function getLeadId(): string | null {
-  const first = sessions.keys().next();
-  return first.done ? null : first.value;
+  const online = getOnlinePids();
+  for (const pid of sessions.keys()) {
+    if (online.has(pid)) return pid;
+  }
+  return null;
 }
 
 export function isLead(pid: string): boolean {
