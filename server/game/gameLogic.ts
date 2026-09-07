@@ -4,13 +4,7 @@ import {
   getActiveTeamPids,
   resetGameState,
 } from "../state.js";
-import {
-  GameStatus,
-  EndReason,
-  Proposal,
-  PlayerSide,
-  ForfeitCountdown,
-} from "../types.js";
+import { GameStatus, EndReason, Proposal, PlayerSide } from "../types.js";
 import { reasonMessages, MSG } from "../shared_messages.js";
 import { getCleanPgn } from "../utils/pgn.js";
 import { broadcastPlayers, sendSystemMessage } from "../utils/messaging.js";
@@ -281,17 +275,6 @@ export function clearForfeitCountdown(): void {
   if (gameState.forfeitEndTime === 0) return;
   gameState.forfeitEndTime = 0;
   getIO().emit("forfeit_countdown", null);
-}
-
-export function getForfeitCountdown(): ForfeitCountdown | null {
-  const gameState = getGameState();
-  if (!gameState.forfeitTimer) return null;
-
-  const empty = emptySides();
-  return {
-    side: empty.length === 2 ? null : empty[0],
-    endTime: gameState.forfeitEndTime,
-  };
 }
 
 /** Sides with nobody connected. A held seat does not count: it cannot play. */
