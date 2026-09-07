@@ -132,11 +132,22 @@
   width: 100%;
   min-width: 0;
 }
+/* The deadline row under the board, shared by everything that runs on a clock of
+   its own: a team vote and the empty-team countdown are independent and do
+   overlap in time. They stack here rather than collide — as two grid items
+   assigned this one cell they used to draw on top of each other. Order matters:
+   --non-board-height budgets a single banner, so two of them on a short viewport
+   push the last one past an `overflow: hidden` edge, and the countdown is the
+   one that can afford to be clipped. It only says something; the vote banner is
+   the only place Yes/No exists. */
 .vote-row {
   grid-column: 2;
   grid-row: 3;
   width: 100%;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .board-wrapper {

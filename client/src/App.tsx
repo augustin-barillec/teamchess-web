@@ -629,23 +629,23 @@ export default function App() {
           <div className="bottom-clock-row">
             {renderBottomPlayerInfoBox(bottomActionSlot)}
           </div>
-          {forfeitCountdown && (
+          {/* One row for both banners, and the vote takes the top: see .vote-row. */}
+          {(voteBannerContent || forfeitCountdown) && (
             <div className="vote-row">
-              <div className="forfeit-banner" role="status">
-                {forfeitCountdown.side
-                  ? UI.forfeitCountdown(
-                      forfeitCountdown.side === "white"
-                        ? UI.headingWhite
-                        : UI.headingBlack,
-                      forfeitTimeLeft
-                    )
-                  : UI.forfeitCountdownBoth(forfeitTimeLeft)}
-              </div>
+              {voteBannerContent}
+              {forfeitCountdown && (
+                <div className="forfeit-banner" role="status">
+                  {forfeitCountdown.side
+                    ? UI.forfeitCountdown(
+                        forfeitCountdown.side === "white"
+                          ? UI.headingWhite
+                          : UI.headingBlack,
+                        forfeitTimeLeft
+                      )
+                    : UI.forfeitCountdownBoth(forfeitTimeLeft)}
+                </div>
+              )}
             </div>
-          )}
-
-          {voteBannerContent && (
-            <div className="vote-row">{voteBannerContent}</div>
           )}
         </div>
       </div>

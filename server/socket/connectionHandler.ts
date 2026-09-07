@@ -8,7 +8,7 @@ import {
   sendPrivateSystemMessage,
 } from "../utils/messaging.js";
 import { MSG, DEFAULT_PLAYER_NAME } from "../shared_messages.js";
-import { tryFinalizeTurn } from "../game/gameLogic.js";
+import { endIfOneSided, tryFinalizeTurn } from "../game/gameLogic.js";
 import { getVoteClientData } from "../voting.js";
 import { leave } from "../players/playerManager.js";
 import {
@@ -111,6 +111,13 @@ export function setupConnectionHandler(): void {
 
     broadcastPlayers();
     tryFinalizeTurn();
+    // A connection changes who is on a side, so the countdown has to be
+    // reconsidered here like anywhere else. Coming back is the whole point of
+    // the 30s grace period, and without this the seat refilled while the timer
+    // it was meant to stop kept running to the forfeit. It also re-emits a
+    // countdown that is still legitimately running, which is how an arriving
+    // client learns about one that started before it connected.
+    endIfOneSided();
 
     // Event handlers
     socket.on("set_name", (name: string) => handleSetName(socket, name));

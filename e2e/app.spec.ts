@@ -971,6 +971,46 @@ test.describe("Voting", () => {
     await expect(player1.locator(".vote-banner")).not.toBeVisible();
     await expect(player3.locator('button[aria-label="Resign"]')).toBeVisible();
   });
+
+  test("forfeit_countdown_and_vote_banner_stack", async ({
+    browser,
+  }, testInfo) => {
+    // The countdown (TEAM_EMPTY_FORFEIT_MS, 30s) is served in real time here.
+    test.setTimeout(90000);
+
+    const [player1, player2, player3] = await setupPlayers(
+      browser,
+      testInfo,
+      3
+    );
+    await joinTeam(player1, "white");
+    await joinTeam(player2, "black");
+    await joinTeam(player3, "black");
+
+    await makeMove(player1, "e2", "e4");
+    await waitForMovePlayed(player2, "e4");
+
+    // White empties itself, arming the forfeit countdown. Black is untouched by
+    // that and stays free to open a vote, so both deadlines run at once.
+    await joinSpectators(player1);
+    await expect(player2.locator(".forfeit-banner")).toBeVisible();
+
+    await player2.click('button[aria-label="Resign"]');
+    await expect(player2.locator(".vote-banner")).toBeVisible();
+
+    // The two banners share one row and stack inside it. As separate grid items
+    // assigned that single cell they were drawn one on top of the other.
+    const vote = await player2.locator(".vote-banner").boundingBox();
+    const forfeit = await player2.locator(".forfeit-banner").boundingBox();
+    if (!vote || !forfeit) throw new Error("both banners should be laid out");
+    expect(forfeit.y).toBeGreaterThanOrEqual(vote.y + vote.height);
+
+    // What the order buys: Yes/No stays reachable, so the vote can still be
+    // settled while the countdown runs.
+    await player3.click('button:has-text("No")');
+    await expect(player2.locator(".vote-banner")).not.toBeVisible();
+    await expect(player2.locator(".forfeit-banner")).toBeVisible();
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -3,10 +3,14 @@
 FROM node:22-alpine AS builder
 WORKDIR /usr/src/app
 
-# Copy package.json first to cache dependencies
-COPY package.json .
-# Install ALL dependencies (for client + server build)
-RUN npm install
+# Copy the manifest *and* the lockfile first, to cache dependencies. The lockfile
+# is not optional: on package.json alone `npm install` re-resolves the whole tree
+# against the registry on every build, so the image drifts from what is tested
+# here — and a resolution npm cannot complete (it has died on `edgesOut` of a
+# null node) fails a build that changed nothing locally.
+COPY package.json package-lock.json ./
+# Install ALL dependencies (for client + server build), exactly as locked.
+RUN npm ci
 
 # Copy the rest of the source code
 COPY . .
