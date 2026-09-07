@@ -700,6 +700,45 @@ test.describe("Game End Conditions", () => {
     await expect(player1.locator(".forfeit-banner")).not.toBeVisible();
     await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
   });
+
+  test("offline_blip_cancels_forfeit", async ({ browser }, testInfo) => {
+    // The countdown the blip arms is served in real time here.
+    test.setTimeout(90000);
+
+    const [player1, player2] = await setupPlayers(browser, testInfo, 2);
+    await joinTeam(player1, "white");
+    await joinTeam(player2, "black");
+
+    await makeMove(player1, "e2", "e4");
+    await waitForMovePlayed(player2, "e4");
+
+    // A hiccup, not a departure: the page keeps running and keeps its state,
+    // only the link goes away. reconnect_keeps_your_side closes the page and
+    // opens another, which is a reload — a new socket and a new React tree.
+    // This is the failure a flaky wifi actually produces.
+    await player2.context().setOffline(true);
+
+    // Both ends are on a 5s ping (server/index.ts), so a severed link is noticed
+    // within ~10s even if nothing closes the socket outright.
+    await expect(player2.locator(".offline-banner")).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(player1.locator(".forfeit-banner")).toBeVisible({
+      timeout: 20_000,
+    });
+
+    // socket.io reconnects on its own, under the same pid, so the seat is
+    // refilled and the countdown has to be called off with it.
+    await player2.context().setOffline(false);
+
+    await expect(player2.locator(".offline-banner")).not.toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(player1.locator(".forfeit-banner")).not.toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
+  });
 });
 
 // ---------------------------------------------------------------------------
