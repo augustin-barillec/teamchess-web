@@ -701,7 +701,10 @@ test.describe("Game End Conditions", () => {
     await expect(player1.locator('button[title="Copy PGN"]')).not.toBeVisible();
   });
 
-  test("offline_blip_cancels_forfeit", async ({ browser }, testInfo) => {
+  // Same name as its teamchess-steam twin: the two suites are meant to diff.
+  test("blip_cancels_forfeit_when_the_link_comes_back", async ({
+    browser,
+  }, testInfo) => {
     // The countdown the blip arms is served in real time here.
     test.setTimeout(90000);
 
