@@ -149,8 +149,11 @@ export default function App() {
   };
 
   const autoAssign = () => {
-    const whiteCount = players.whitePlayers.length;
-    const blackCount = players.blackPlayers.length;
+    // Balance on who is actually there: a held seat proposes nothing. A side with nobody
+    // connected is also the one running a forfeit countdown, and it wins the comparison
+    // outright — auto-assign sends the newcomer to the seat that needs taking.
+    const whiteCount = players.whitePlayers.filter((p) => p.connected).length;
+    const blackCount = players.blackPlayers.filter((p) => p.connected).length;
     let chosen: "white" | "black";
     if (whiteCount < blackCount) chosen = "white";
     else if (blackCount < whiteCount) chosen = "black";
