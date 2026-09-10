@@ -37,7 +37,12 @@ export type Proposal = {
   san?: string;
 };
 
-export type Selection = Proposal & {
+/**
+ * The move a turn settled on. Deliberately not a whole Proposal: a winning move can have
+ * several authors, and the moves panel marks them all by matching lan, so naming one of
+ * them here would say something the UI never claims.
+ */
+export type Selection = Omit<Proposal, "id" | "name"> & {
   fen: string;
   candidates: Proposal[];
 };

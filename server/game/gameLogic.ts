@@ -163,13 +163,7 @@ export function tryFinalizeTurn(): void {
         blackTime: gameState.blackTime,
       });
 
-      const winnerEntry = allEntries.find(([, val]) => val.lan === selLan);
-      const winnerId = winnerEntry ? winnerEntry[0] : "unknown";
-      const winnerName = winnerEntry ? winnerEntry[1].name : "TeamChess";
-
       io.emit("move_selected", {
-        id: winnerId,
-        name: winnerName,
         moveNumber: gameState.moveNumber,
         side: gameState.side,
         lan: selLan,
