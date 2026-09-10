@@ -122,7 +122,7 @@ export function setupConnectionHandler(): void {
     // Event handlers
     socket.on("set_name", (name: string) => handleSetName(socket, name));
 
-    socket.on("join_side", ({ side }, cb) => handleJoinSide(socket, side, cb));
+    socket.on("join_side", ({ side }) => handleJoinSide(socket, side));
 
     socket.on("reset_game", (cb) => handleResetGame(socket, cb));
 

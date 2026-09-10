@@ -30,9 +30,6 @@ interface UseSocketReturn {
   nameInput: string;
   setNameInput: React.Dispatch<React.SetStateAction<string>>;
   side: "spectator" | "white" | "black";
-  setSide: React.Dispatch<
-    React.SetStateAction<"spectator" | "white" | "black">
-  >;
   players: Players;
   /** The player who may kick and reset — the longest-present one. */
   leadId: string | null;
@@ -293,7 +290,6 @@ export function useSocket({ chess }: UseSocketProps): UseSocketReturn {
     nameInput,
     setNameInput,
     side,
-    setSide,
     players,
     leadId,
     gameStatus,

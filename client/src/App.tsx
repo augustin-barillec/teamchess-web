@@ -14,7 +14,6 @@ import {
   PieceHandlerArgs,
 } from "react-chessboard";
 import { GameStatus, VoteType } from "./types";
-import { STORAGE_KEYS } from "./constants";
 import { UI } from "./messages";
 import { calculateMaterial } from "./materialCalc";
 import { shouldConfirmTeamAction } from "./confirmUtils";
@@ -40,7 +39,6 @@ export default function App() {
     nameInput,
     setNameInput,
     side,
-    setSide,
     players,
     leadId,
     gameStatus,
@@ -140,12 +138,9 @@ export default function App() {
     Math.ceil(((forfeitCountdown?.endTime ?? 0) - forfeitNow) / 1000)
   );
 
+  /** The seat is the server's: its `players` broadcast is what moves us. */
   const joinSide = (s: "white" | "black" | "spectator") => {
-    socket?.emit("join_side", { side: s }, (res: { error?: string }) => {
-      if (res.error) toast.error(res.error);
-      else setSide(s);
-      localStorage.setItem(STORAGE_KEYS.side, s);
-    });
+    socket?.emit("join_side", { side: s });
   };
 
   const autoAssign = () => {

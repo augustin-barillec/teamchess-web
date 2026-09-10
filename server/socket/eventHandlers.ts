@@ -27,10 +27,13 @@ export function handleSetName(socket: Socket, name: string): void {
   }
 }
 
+/**
+ * Taking a seat cannot fail, so there is no ack: the `players` broadcast below
+ * is the whole answer, and the client reads its own side back from it.
+ */
 export function handleJoinSide(
   socket: Socket,
-  side: "white" | "black" | "spectator",
-  cb?: (res: { success?: boolean; error?: string }) => void
+  side: "white" | "black" | "spectator"
 ): void {
   const pid = socket.data.pid;
   const gameState = getGameState();
@@ -53,8 +56,6 @@ export function handleJoinSide(
 
   broadcastPlayers();
   tryFinalizeTurn();
-
-  cb?.({ success: true });
 }
 
 /** Resetting the game is a lead power: it takes effect immediately, no vote. */
