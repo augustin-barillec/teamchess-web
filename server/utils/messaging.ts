@@ -1,24 +1,18 @@
 import type { Socket } from "socket.io";
 import type { Player, PlayersUpdate } from "../types.js";
-import { sessions, getIO, getOnlinePids, getLeadId } from "../state.js";
+import { sessions, getIO, getLeadId } from "../state.js";
 import { SENDER_SYSTEM } from "../shared_messages.js";
 
 /**
  * Broadcasts the current player list — and who leads — to all clients.
  */
 export function broadcastPlayers(): void {
-  const onlinePids = getOnlinePids();
-
   const spectators: Player[] = [];
   const whitePlayers: Player[] = [];
   const blackPlayers: Player[] = [];
 
   for (const sess of sessions.values()) {
-    const p: Player = {
-      id: sess.pid,
-      name: sess.name,
-      connected: onlinePids.has(sess.pid),
-    };
+    const p: Player = { id: sess.pid, name: sess.name };
     if (sess.side === "white") whitePlayers.push(p);
     else if (sess.side === "black") blackPlayers.push(p);
     else spectators.push(p);

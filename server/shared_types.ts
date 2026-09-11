@@ -1,7 +1,6 @@
 export interface Player {
   id: string;
   name: string;
-  connected: boolean;
 }
 
 export type Players = {
@@ -62,8 +61,8 @@ export interface TeamVoteState {
 }
 
 /**
- * A team has nobody connected and will lose when the clock runs out, unless the
- * missing player comes back or anyone else joins that side. `side` is the empty
+ * A team is empty and will lose when the clock runs out, unless the player who
+ * left comes back or anyone else joins that side. `side` is the empty
  * team, or null when both are empty and the game is heading for a draw.
  */
 export interface ForfeitCountdown {

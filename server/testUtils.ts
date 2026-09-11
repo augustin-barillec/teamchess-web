@@ -97,22 +97,30 @@ export class TestGame {
     this.gameState.blackIds.delete(pid);
   }
 
-  /**
-   * Simulates a socket disconnection: the socket leaves io but the session and
-   * team membership survive — the seat is held for the whole game.
-   */
+  /** The socket goes away. Pair it with leave() for a real drop. */
   disconnectSocket(pid: string): void {
     this.fakeSockets.delete(pid);
   }
 
-  /** Simulates a reconnection: a socket comes back for a session that never left. */
-  reconnectSocket(pid: string): void {
-    const sess = sessions.get(pid);
-    if (!sess) return;
-    this.fakeSockets.set(
+  /**
+   * Simulates a reconnection. A player who dropped left no session behind, so this is
+   * the handshake: a socket plus a fresh spectator session, as connectionHandler would
+   * build them. Claiming a side back is then the client's own job.
+   */
+  reconnectSocket(pid: string, name = pid): FakeSocket {
+    const sess = sessions.get(pid) ?? {
       pid,
-      createFakeSocket(pid, { pid, side: sess.side, name: sess.name })
-    );
+      name,
+      side: "spectator" as Side,
+    };
+    sessions.set(pid, sess);
+    const socket = createFakeSocket(pid, {
+      pid,
+      side: sess.side,
+      name: sess.name,
+    });
+    this.fakeSockets.set(pid, socket);
+    return socket;
   }
 
   hasEmitted(event: string): boolean {

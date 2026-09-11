@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { Chess } from "chess.js";
 import { toast } from "react-hot-toast";
@@ -30,6 +30,7 @@ interface UseSocketReturn {
   nameInput: string;
   setNameInput: React.Dispatch<React.SetStateAction<string>>;
   side: "spectator" | "white" | "black";
+  rememberSide: (s: "spectator" | "white" | "black") => void;
   players: Players;
   /** The player who may kick and reset — the longest-present one. */
   leadId: string | null;
@@ -63,6 +64,23 @@ export function useSocket({ chess }: UseSocketProps): UseSocketReturn {
       | "white"
       | "black") || "spectator"
   );
+  /**
+   * The side we last asked for, as opposed to the one the server currently grants us.
+   * It outlives a reload, and it is what we claim back after a drop: the server holds
+   * no seat for an absent player, so coming back means asking for it again.
+   */
+  const chosenSide = useRef<"spectator" | "white" | "black">(
+    (localStorage.getItem(STORAGE_KEYS.side) as
+      | "spectator"
+      | "white"
+      | "black") || "spectator"
+  );
+
+  const rememberSide = useCallback((s: "spectator" | "white" | "black") => {
+    chosenSide.current = s;
+    localStorage.setItem(STORAGE_KEYS.side, s);
+  }, []);
+
   const [players, setPlayers] = useState<Players>({
     spectators: [],
     whitePlayers: [],
@@ -112,12 +130,19 @@ export function useSocket({ chess }: UseSocketProps): UseSocketReturn {
       : players.blackPlayers.some((p) => p.id === myId)
         ? "black"
         : "spectator";
-    if (serverSide !== side) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSide(serverSide);
-      localStorage.setItem(STORAGE_KEYS.side, serverSide);
+    if (serverSide === side) return;
+
+    // The server drops whoever disconnects, so a blink takes our seat with it and
+    // hands us back as a spectator. Claim back the side we chose rather than accept
+    // the demotion — joining the spectators for real moves chosenSide with it, so a
+    // deliberate move out of a team never lands here.
+    if (serverSide === "spectator" && chosenSide.current !== "spectator") {
+      socket?.emit("join_side", { side: chosenSide.current });
+      return;
     }
-  }, [players, myId, side]);
+
+    setSide(serverSide);
+  }, [players, myId, side, socket]);
 
   // Socket event handlers
   useEffect(() => {
@@ -290,6 +315,7 @@ export function useSocket({ chess }: UseSocketProps): UseSocketReturn {
     nameInput,
     setNameInput,
     side,
+    rememberSide,
     players,
     leadId,
     gameStatus,

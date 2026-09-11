@@ -6,7 +6,7 @@ import { TestGame, type FakeSocket } from "../testUtils.js";
 import { GameStatus, EndReason } from "../shared_types.js";
 import type { ForfeitCountdown } from "../types.js";
 import { handlePlayMove, handleJoinSide } from "../socket/eventHandlers.js";
-import { endGame, executeGameReset, endIfOneSided } from "./gameLogic.js";
+import { endGame, executeGameReset } from "./gameLogic.js";
 import { leave } from "../players/playerManager.js";
 
 // executeGameReset builds a real engine; keep it from spawning a process in tests
@@ -185,9 +185,8 @@ describe("turn finalization invariant", () => {
     handlePlayMove(asSocket(whites[0]), "e2e4");
     expect(wasFinalized(game)).toBe(false);
 
-    // Simulate socket disconnection: socket leaves io.sockets but session /
-    // whiteIds remain during the grace period. leave() then fires an immediate
-    // tryFinalizeTurn that sees only whites[0] as online & having proposed.
+    // Simulate a disconnection: the socket goes, then leave() drops the session and
+    // the seat, and fires a tryFinalizeTurn that sees only whites[0] — who proposed.
     const leavingSocket = whites[1];
     game.disconnectSocket(leavingSocket.data.pid!);
 
@@ -198,9 +197,9 @@ describe("turn finalization invariant", () => {
 });
 
 /**
- * Going quiet costs a player nothing: their seat is theirs for the whole game, so a
- * dropped connection can never lose one by itself. Only an empty team is a problem,
- * and it gets a visible countdown to fix itself. These tests pin both halves.
+ * A seat goes the moment its owner does — nothing is held for an absent player. What
+ * makes a blink survivable is the countdown an emptied team gets instead: long enough
+ * for the client to come back and claim its side, or for anyone else to take it.
  */
 describe("empty-team forfeit countdown", () => {
   /** Drops a player's socket and runs the disconnection path, as io would. */
@@ -249,7 +248,7 @@ describe("empty-team forfeit countdown", () => {
     }
   });
 
-  it("keeps the seat, so a returning player walks back into the same side", () => {
+  it("gives the seat up at once, and lets the returning player take it again", () => {
     vi.useFakeTimers();
     try {
       const { game, blacks } = setupAwaitingProposals(2, 1);
@@ -259,13 +258,16 @@ describe("empty-team forfeit countdown", () => {
       dropOffline(game, blacks[0]);
       vi.advanceTimersByTime(TEAM_EMPTY_FORFEIT_MS / 2);
 
-      expect(game.sessions.get(pid)?.side).toBe("black");
-      expect(game.gameState.blackIds.has(pid)).toBe(true);
+      // Nothing is held for an absent player: the seat is free immediately.
+      expect(game.sessions.has(pid)).toBe(false);
+      expect(game.gameState.blackIds.has(pid)).toBe(false);
 
-      game.reconnectSocket(pid);
-      endIfOneSided();
+      // Coming back is a fresh spectator session; the client asks for its side back.
+      const back = game.reconnectSocket(pid);
+      handleJoinSide(asSocket(back), "black");
       vi.advanceTimersByTime(TEAM_EMPTY_FORFEIT_MS * 2);
 
+      expect(game.gameState.blackIds.has(pid)).toBe(true);
       // The countdown was called off, not merely postponed
       expect(lastCountdown(game)).toBeNull();
       expect(game.hasEmitted("game_over")).toBe(false);

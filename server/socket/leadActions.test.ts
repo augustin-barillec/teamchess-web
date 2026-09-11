@@ -52,15 +52,13 @@ describe("the lead", () => {
     expect(update?.leadId).toBe("p1");
   });
 
-  it("hands the role over the moment the lead drops off, and takes it back on return", () => {
-    // Mid-game, so the seat survives the disconnection and only presence moves
+  it("hands the role over the moment the lead leaves, and does not hand it back", () => {
     game = new TestGame({ status: GameStatus.AwaitingProposals });
     const s1 = game.addPlayer("p1", "Alice", "white");
     game.addPlayer("p2", "Bob", "black");
 
-    // A session now outlives a disconnection, so the crown follows presence
-    // rather than mere existence — otherwise a player who quit would keep it
-    // and nobody could kick or reset.
+    // Leaving takes the session with it, so the crown is simply arrival order
+    // among whoever is still here.
     game.disconnectSocket("p1");
     leave(asSocket(s1));
 
@@ -69,8 +67,9 @@ describe("the lead", () => {
       "p2"
     );
 
+    // Coming back is coming back as a newcomer: Bob keeps it.
     game.reconnectSocket("p1");
-    expect(getLeadId()).toBe("p1");
+    expect(getLeadId()).toBe("p2");
   });
 });
 

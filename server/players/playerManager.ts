@@ -1,6 +1,5 @@
 import { Socket } from "socket.io";
 import { sessions, getGameState, getAllSockets } from "../state.js";
-import { GameStatus } from "../shared_types.js";
 
 import { broadcastPlayers, sendSystemMessage } from "../utils/messaging.js";
 import { endIfOneSided, tryFinalizeTurn } from "../game/gameLogic.js";
@@ -26,15 +25,13 @@ export function leave(socket: Socket): void {
   const sess = sessions.get(pid);
   if (!sess) return;
 
-  if (sess.side === "spectator" || gameState.status === GameStatus.Setup) {
-    gameState.whiteIds.delete(pid);
-    gameState.blackIds.delete(pid);
-    sessions.delete(pid);
-  }
+  gameState.whiteIds.delete(pid);
+  gameState.blackIds.delete(pid);
+  sessions.delete(pid);
 
   broadcastPlayers();
-  // Teammates never wait on someone who is not there: getActiveTeamPids already
-  // counts online sockets only, so the turn can finalize without them right away.
+  // Teammates never wait on someone who is not there, and there is no offline state
+  // to hold a seat open: a client that comes back claims its side again itself.
   tryFinalizeTurn();
   endIfOneSided();
 }

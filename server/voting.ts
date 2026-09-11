@@ -7,7 +7,7 @@ import {
   getGameState,
   getIO,
   getAllSockets,
-  getActiveTeamPids,
+  getTeamPids,
 } from "./state.js";
 import { sendSystemMessage } from "./utils/messaging.js";
 import { MSG } from "./shared_messages.js";
@@ -171,8 +171,8 @@ export function startTeamVote(
     return {};
   }
 
-  // Snapshot connected team members (pid -> name) as the vote's frozen electorate
-  const teamRoster = rosterOf(getActiveTeamPids(side));
+  // Snapshot the team (pid -> name) as the vote's frozen electorate
+  const teamRoster = rosterOf(getTeamPids(side));
 
   // Solo team: skip the vote and execute directly
   if (teamRoster.size <= 1 && !isSystemTriggered) {

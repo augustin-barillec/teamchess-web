@@ -1,12 +1,6 @@
 import { Socket } from "socket.io";
 import { Chess } from "chess.js";
-import {
-  sessions,
-  getGameState,
-  getIO,
-  isLead,
-  getOnlinePids,
-} from "../state.js";
+import { sessions, getGameState, getIO, isLead } from "../state.js";
 import { GameStatus, VoteType } from "../types.js";
 import { broadcastPlayers } from "../utils/messaging.js";
 import {
@@ -91,14 +85,9 @@ export function handlePlayMove(
       return cb?.({ error: MSG.errorOnlyWhiteStart });
     }
 
-    // Connected seats only, like every other team count. Setup holds no ghosts —
-    // a drop before the game starts deletes the session outright — so this changes
-    // nothing today; it just spares the next reader having to know that.
-    const online = getOnlinePids();
     const whites = new Set<string>();
     const blacks = new Set<string>();
     for (const s of sessions.values()) {
-      if (!online.has(s.pid)) continue;
       if (s.side === "white") whites.add(s.pid);
       else if (s.side === "black") blacks.add(s.pid);
     }

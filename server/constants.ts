@@ -1,13 +1,12 @@
 import path from "path";
 
 /**
- * How long a team with nobody connected has to get someone back before it loses.
+ * How long an empty team has to get someone back before it loses.
  *
- * This is the whole safety net, and it is deliberately the only one: a player is
- * never dropped from their team for going quiet, so a dropped connection cannot
- * cost anything by itself. Only an empty team is a problem, and it gets this long
- * — counted down in front of everyone — for the missing player to return or for
- * anyone else to take the seat.
+ * This is the whole safety net, and it is deliberately the only one: disconnecting
+ * gives up the seat at once, so this window is what makes a blink survivable. A
+ * client that comes back inside it claims its side again by itself, and anyone else
+ * is free to take the seat meanwhile — counted down in front of everyone.
  */
 export const TEAM_EMPTY_FORFEIT_MS = 30000;
 export const STOCKFISH_SEARCH_DEPTH = 15;

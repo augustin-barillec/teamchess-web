@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Players, GameStatus } from "../types";
+import { Player, Players, GameStatus } from "../types";
 import { DisconnectedIcon } from "../DisconnectedIcon";
 import { DEFAULT_PLAYER_NAME, UI } from "../messages";
 import { colorForPlayer } from "../playerColors";
@@ -91,13 +91,11 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
   };
   const showAutoAssign = gameStatus !== GameStatus.Over && side === "spectator";
 
-  const renderPlayerEntry = (
-    p: { id: string; name: string; connected: boolean },
-    teamSide?: "white" | "black"
-  ) => {
+  const renderPlayerEntry = (p: Player, teamSide?: "white" | "black") => {
     const isMe = p.id === myId;
     const isLead = p.id === leadId;
-    const disconnected = isMe ? amDisconnected : !p.connected;
+    // Only about our own link: a teammate who is gone is gone from the list.
+    const disconnected = isMe && amDisconnected;
     const showKickButton = amILead && !isMe;
     const played = teamSide ? hasPlayed(p.id, teamSide) : false;
     const nameStyle = { color: colorForPlayer(p.id) };
@@ -154,7 +152,7 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
   const renderSection = (
     target: "white" | "black" | "spectator",
     label: string,
-    list: { id: string; name: string; connected: boolean }[]
+    list: Player[]
   ) => {
     const joinable = canJoin(target);
     const teamSide = target === "spectator" ? undefined : target;

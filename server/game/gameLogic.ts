@@ -1,9 +1,4 @@
-import {
-  getGameState,
-  getIO,
-  getActiveTeamPids,
-  resetGameState,
-} from "../state.js";
+import { getGameState, getIO, getTeamPids, resetGameState } from "../state.js";
 import { GameStatus, EndReason, Proposal, PlayerSide } from "../types.js";
 import { reasonMessages, MSG } from "../shared_messages.js";
 import { getCleanPgn } from "../utils/pgn.js";
@@ -80,13 +75,9 @@ export function tryFinalizeTurn(): void {
   const gameState = getGameState();
   const io = getIO();
 
-  const activeTeamPids = getActiveTeamPids(gameState.side);
+  const teamPids = getTeamPids(gameState.side);
   if (
-    !shouldFinalizeTurn(
-      gameState.status,
-      activeTeamPids,
-      gameState.proposals.keys()
-    )
+    !shouldFinalizeTurn(gameState.status, teamPids, gameState.proposals.keys())
   ) {
     return;
   }
@@ -206,8 +197,8 @@ export function tryFinalizeTurn(): void {
 /**
  * An abandoned team does not lose on the spot: it gets TEAM_EMPTY_FORFEIT_MS,
  * counted down in front of everyone, for the missing player to come back or for
- * anyone else to take the seat. Call after anything that can change who is
- * connected on a side; it arms, refreshes or cancels the countdown accordingly.
+ * anyone else to take the seat. Call after anything that can change who is on a
+ * side; it arms, refreshes or cancels the countdown accordingly.
  */
 export function endIfOneSided(): void {
   const gameState = getGameState();
@@ -248,8 +239,8 @@ export function endIfOneSided(): void {
 /** The countdown ran out. Recomputed from scratch: a side may have filled up since. */
 function executeForfeit(): void {
   const result = shouldEndDueToAbandonment(
-    getActiveTeamPids("white"),
-    getActiveTeamPids("black")
+    getTeamPids("white"),
+    getTeamPids("black")
   );
 
   if (result.shouldEnd) {
@@ -271,10 +262,10 @@ export function clearForfeitCountdown(): void {
   getIO().emit("forfeit_countdown", null);
 }
 
-/** Sides with nobody connected. A held seat does not count: it cannot play. */
+/** Sides with nobody on them. */
 function emptySides(): PlayerSide[] {
   const sides: PlayerSide[] = [];
-  if (getActiveTeamPids("white").size === 0) sides.push("white");
-  if (getActiveTeamPids("black").size === 0) sides.push("black");
+  if (getTeamPids("white").size === 0) sides.push("white");
+  if (getTeamPids("black").size === 0) sides.push("black");
   return sides;
 }

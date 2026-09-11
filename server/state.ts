@@ -67,14 +67,6 @@ export function resetGameState(engine: Engine): void {
   if (gameState.activeVote) clearTimeout(gameState.activeVote.timer);
   if (gameState.forfeitTimer) clearTimeout(gameState.forfeitTimer);
 
-  // A seat is held for the length of a game, not for ever: whoever is still
-  // missing when the next one is set up gives theirs up. Without this a player
-  // who quit for good would sit in their team until the server restarts.
-  const online = getOnlinePids();
-  for (const pid of [...sessions.keys()]) {
-    if (!online.has(pid)) sessions.delete(pid);
-  }
-
   const fresh = createInitialGameState(engine);
   fresh.generation = gameState.generation + 1;
   fresh.blacklist = gameState.blacklist;
@@ -86,20 +78,13 @@ export function resetGameState(engine: Engine): void {
 /**
  * The lead — the player who may kick others and reset the game.
  *
- * It is not stored: it is simply the oldest connected session, `sessions` being
- * insertion ordered by arrival. So the first player to connect leads, and the
- * moment they drop off the next longest-present player takes over, with no
- * bookkeeping to keep in sync — and hands it straight back when they return.
- *
- * Connected, not merely present: a session outlives a disconnection now (the seat
- * is held for the whole game), so keying off presence alone would leave a player
- * who quit holding the crown, and nobody able to kick or reset.
+ * It is not stored: it is simply the oldest session, `sessions` being insertion
+ * ordered by arrival and holding only people who are here. So the first player to
+ * connect leads, and the moment they drop off the next longest-present player takes
+ * over, with no bookkeeping to keep in sync.
  */
 export function getLeadId(): string | null {
-  const online = getOnlinePids();
-  for (const pid of sessions.keys()) {
-    if (online.has(pid)) return pid;
-  }
+  for (const pid of sessions.keys()) return pid;
   return null;
 }
 
@@ -107,20 +92,8 @@ export function isLead(pid: string): boolean {
   return getLeadId() === pid;
 }
 
-// --- Presence helpers ---
-
-export function getOnlinePids(): Set<string> {
-  const pids = new Set<string>();
-  for (const socket of io.sockets.sockets.values()) {
-    if (socket.data.pid) pids.add(socket.data.pid);
-  }
-  return pids;
-}
-
-export function getActiveTeamPids(side: PlayerSide): Set<string> {
-  const onlinePids = getOnlinePids();
-  const teamIds = side === "white" ? gameState.whiteIds : gameState.blackIds;
-  return new Set([...teamIds].filter((pid) => onlinePids.has(pid)));
+export function getTeamPids(side: PlayerSide): Set<string> {
+  return side === "white" ? gameState.whiteIds : gameState.blackIds;
 }
 
 export function getAllSockets(): Socket[] {

@@ -52,7 +52,7 @@ export interface GameState {
   endMessage?: string;
   drawOffer?: "white" | "black";
   activeVote?: InternalTeamVote;
-  /** Armed while a team has nobody connected. See endIfOneSided. */
+  /** Armed while a team has nobody on it. See endIfOneSided. */
   forfeitTimer?: NodeJS.Timeout;
   forfeitEndTime: number;
   blacklist: Set<string>;

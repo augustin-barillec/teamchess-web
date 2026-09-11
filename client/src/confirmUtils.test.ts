@@ -2,36 +2,25 @@ import { describe, it, expect } from "vitest";
 import { shouldConfirmTeamAction } from "./confirmUtils";
 import type { Player } from "./types";
 
-const player = (connected: boolean): Player => ({
+const player = (): Player => ({
   id: Math.random().toString(),
   name: "Player",
-  connected,
 });
 
 describe("shouldConfirmTeamAction", () => {
-  it("returns true when solo connected player", () => {
-    expect(shouldConfirmTeamAction([player(true)])).toBe(true);
+  it("returns true when alone on the team", () => {
+    expect(shouldConfirmTeamAction([player()])).toBe(true);
   });
 
-  it("returns false when 2 connected players", () => {
-    expect(shouldConfirmTeamAction([player(true), player(true)])).toBe(false);
+  it("returns false with a teammate, since the server opens a vote instead", () => {
+    expect(shouldConfirmTeamAction([player(), player()])).toBe(false);
   });
 
-  it("returns true when 1 connected + 1 disconnected (ad264df regression)", () => {
-    expect(shouldConfirmTeamAction([player(true), player(false)])).toBe(true);
+  it("returns false for a bigger team", () => {
+    expect(shouldConfirmTeamAction([player(), player(), player()])).toBe(false);
   });
 
-  it("returns true when 3 players but only 1 connected", () => {
-    expect(
-      shouldConfirmTeamAction([player(true), player(false), player(false)])
-    ).toBe(true);
-  });
-
-  it("returns false when 0 connected players", () => {
-    expect(shouldConfirmTeamAction([player(false), player(false)])).toBe(false);
-  });
-
-  it("returns false for empty array", () => {
+  it("returns false for an empty team", () => {
     expect(shouldConfirmTeamAction([])).toBe(false);
   });
 });

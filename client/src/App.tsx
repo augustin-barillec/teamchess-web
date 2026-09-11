@@ -39,6 +39,7 @@ export default function App() {
     nameInput,
     setNameInput,
     side,
+    rememberSide,
     players,
     leadId,
     gameStatus,
@@ -140,15 +141,15 @@ export default function App() {
 
   /** The seat is the server's: its `players` broadcast is what moves us. */
   const joinSide = (s: "white" | "black" | "spectator") => {
+    rememberSide(s);
     socket?.emit("join_side", { side: s });
   };
 
   const autoAssign = () => {
-    // Balance on who is actually there: a held seat proposes nothing. A side with nobody
-    // connected is also the one running a forfeit countdown, and it wins the comparison
-    // outright — auto-assign sends the newcomer to the seat that needs taking.
-    const whiteCount = players.whitePlayers.filter((p) => p.connected).length;
-    const blackCount = players.blackPlayers.filter((p) => p.connected).length;
+    // An empty side wins the comparison outright, and it is also the one running a
+    // forfeit countdown — auto-assign sends the newcomer to the seat that needs taking.
+    const whiteCount = players.whitePlayers.length;
+    const blackCount = players.blackPlayers.length;
     let chosen: "white" | "black";
     if (whiteCount < blackCount) chosen = "white";
     else if (blackCount < whiteCount) chosen = "black";
