@@ -152,9 +152,9 @@ describe("stale engine answers", () => {
 
 /**
  * The event-driven finalization relies on tryFinalizeTurn() being called after
- * every event that can change (activeCount, movesCount). These tests lock that
- * invariant so adding a new event path without wiring it up won't silently
- * break turn progression.
+ * every event that can change who is on the side to move or what they proposed.
+ * These tests lock that invariant so adding a new event path without wiring it
+ * up won't silently break turn progression.
  */
 describe("turn finalization invariant", () => {
   it("finalizes after play_move when the proposer is the only active team member", () => {
@@ -286,7 +286,7 @@ describe("empty-team forfeit countdown", () => {
       dropOffline(game, blacks[0]);
       vi.advanceTimersByTime(TEAM_EMPTY_FORFEIT_MS / 2);
 
-      // Dave steps in — the rescue the old design had no room for
+      // Dave steps in for the missing black player
       handleJoinSide(asSocket(spectator), "black");
       vi.advanceTimersByTime(TEAM_EMPTY_FORFEIT_MS * 2);
 

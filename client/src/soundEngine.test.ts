@@ -40,13 +40,14 @@ const localStorageMock = {
   }),
 };
 
-// Set up globals before module import.
-// AudioContext must be a regular function (constructible with `new`).
-// Vitest 4 no longer wraps arrow-fn implementations into constructible mocks,
-// so `vi.fn(() => x)` breaks `new AudioContext()` with "is not a constructor".
+// AudioContext must be constructible with `new`. Vitest 4 no longer wraps
+// arrow-fn implementations into constructible mocks, so `vi.fn(() => x)` breaks
+// `new AudioContext()` with "is not a constructor" — hence a real function.
 function MockAudioContext(this: unknown) {
   return mockAudioContext;
 }
+
+// Stubbed before the module under test is imported.
 vi.stubGlobal("localStorage", localStorageMock);
 vi.stubGlobal("AudioContext", MockAudioContext);
 vi.stubGlobal("window", {

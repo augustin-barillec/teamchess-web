@@ -59,9 +59,9 @@ describe("voting", () => {
     });
 
     it("still names a yes voter whose session is gone", () => {
-      // Alice opens the vote (auto-yes) then vanishes: disconnect grace expired, or
-      // kicked. Her yes still counts, so she must still be named — the electorate is
-      // frozen, and names come from it rather than from the live sessions map.
+      // Alice opens the vote (auto-yes) then vanishes — she left, or was kicked.
+      // Her yes still counts, so she must still be named: the electorate is frozen,
+      // and names come from it rather than from the live sessions map.
       game = new TestGame();
       game.addPlayer("p1", "Alice", "white");
       game.addPlayer("p2", "Bob", "white");

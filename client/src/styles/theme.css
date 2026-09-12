@@ -78,7 +78,7 @@
   --color-overlay-bg: rgba(0, 0, 0, 0.75);
   --color-overlay-scrim: rgba(0, 0, 0, 0.6);
   --color-shadow: rgba(0, 0, 0, 0.5);
-  /* The surface every modal shares — promotion dialog and confirm dialog alike. */
+  /* The surface the promotion and confirm dialogs share. */
   --color-dialog-bg: rgba(40, 40, 40, 0.95);
   --color-dialog-border: #777;
   --color-overlay-hover: rgba(255, 255, 255, 0.1);

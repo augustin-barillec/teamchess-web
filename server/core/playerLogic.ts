@@ -5,10 +5,6 @@ export interface AbandonmentResult {
   winner?: PlayerSide | null;
 }
 
-/**
- * Determines if the game should end due to team abandonment.
- * Pure function - no side effects.
- */
 export function shouldEndDueToAbandonment(
   whiteIds: Set<string>,
   blackIds: Set<string>

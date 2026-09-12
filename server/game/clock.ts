@@ -2,9 +2,6 @@ import { getGameState, getIO } from "../state.js";
 import { GameStatus, EndReason } from "../shared_types.js";
 import { endGame } from "./gameLogic.js";
 
-/**
- * Starts the game clock.
- */
 export function startClock(): void {
   const gameState = getGameState();
   const io = getIO();
@@ -37,9 +34,6 @@ export function startClock(): void {
   }, 1000);
 }
 
-/**
- * Stops the game clock.
- */
 export function stopClock(): void {
   const gameState = getGameState();
   if (gameState.timerInterval) {

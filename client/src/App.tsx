@@ -392,7 +392,6 @@ export default function App() {
     />
   );
 
-  // --- Action slot (under-board icons) ---
   const showBoardActions =
     gameStatus === GameStatus.AwaitingProposals &&
     (side === "white" || side === "black") &&
@@ -448,7 +447,6 @@ export default function App() {
     </button>
   ) : null;
 
-  // --- Vote banner: the single active team vote ---
   const teamVoteTitleMap = {
     resign: UI.voteTypeResign,
     offer_draw: UI.voteTypeOfferDraw,
@@ -467,7 +465,6 @@ export default function App() {
     />
   ) : null;
 
-  // --- Header icon buttons (reset + mute) ---
   const showResetIcon = amILead && gameStatus !== GameStatus.Setup;
   const headerActions = (
     <div className="header-actions">

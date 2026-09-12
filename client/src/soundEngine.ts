@@ -60,10 +60,8 @@ class SoundEngine {
     } else if (type === "check") {
       this.tone(t, 400, "triangle", 0.2, 0.2);
     } else if (type === "start") {
-      // Gentle ascending chord
       this.chord(t, [300, 400, 500], "sine", 0.8);
     } else if (type === "end") {
-      // Descending chord
       this.chord(t, [500, 400, 300], "sine", 1.2);
     } else if (type === "reset") {
       // The Wooden Clatter

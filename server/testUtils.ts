@@ -73,9 +73,7 @@ export class TestGame {
     return sessions;
   }
 
-  /**
-   * Adds a player: session, fake socket, and team membership.
-   */
+  /** Adds a player: session, fake socket, and team membership. */
   addPlayer(pid: string, name: string, side: Side): FakeSocket {
     sessions.set(pid, { pid, name, side });
     const socket = createFakeSocket(pid, { pid, side, name });
@@ -87,9 +85,7 @@ export class TestGame {
     return socket;
   }
 
-  /**
-   * Removes a player entirely (session + socket + team membership).
-   */
+  /** Removes a player entirely (session + socket + team membership). */
   removePlayer(pid: string): void {
     sessions.delete(pid);
     this.fakeSockets.delete(pid);

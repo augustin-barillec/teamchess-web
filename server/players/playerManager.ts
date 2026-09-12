@@ -6,16 +6,10 @@ import { endIfOneSided, tryFinalizeTurn } from "../game/gameLogic.js";
 import { MSG } from "../shared_messages.js";
 
 /**
- * Handles a player disconnecting.
- *
- * Once a game is under way their seat is theirs to the end: going quiet costs a
- * player nothing by itself, so a dropped connection can never lose a game on its
- * own. Only an empty team is a problem, and endIfOneSided gives it a visible
- * countdown to fix itself. The session stays, so a reconnection with the same pid
- * walks straight back into the same side.
- *
- * A seat is only worth holding for someone who has one, so spectators — and
- * anyone at all before the game starts — are dropped on the spot instead.
+ * Gives up a seat for good: nothing is held for an absent player, whatever the
+ * game state. What makes a blink survivable is the countdown endIfOneSided arms
+ * on the team this empties — long enough for the client to come back and claim
+ * its side, or for anyone else to take it.
  */
 export function leave(socket: Socket): void {
   const pid = socket.data.pid as string | undefined;
@@ -30,22 +24,17 @@ export function leave(socket: Socket): void {
   sessions.delete(pid);
 
   broadcastPlayers();
-  // Teammates never wait on someone who is not there, and there is no offline state
-  // to hold a seat open: a client that comes back claims its side again itself.
+  // Teammates never wait on someone who is not there.
   tryFinalizeTurn();
   endIfOneSided();
 }
 
-/**
- * Executes a kick: adds target to blacklist, disconnects them.
- */
+/** Blacklists the target so they stay kicked across reconnects, then drops them. */
 export function executeKick(targetPid: string, targetName: string): void {
   const gameState = getGameState();
 
-  // Add to blacklist
   gameState.blacklist.add(targetPid);
 
-  // Find and disconnect the target's socket
   for (const socket of getAllSockets()) {
     if (socket.data.pid === targetPid) {
       socket.emit("kicked", { message: MSG.youHaveBeenKicked });
@@ -53,7 +42,6 @@ export function executeKick(targetPid: string, targetName: string): void {
     }
   }
 
-  // Clean up session
   const sess = sessions.get(targetPid);
   if (sess) {
     if (sess.side === "white") gameState.whiteIds.delete(targetPid);

@@ -1,4 +1,4 @@
-/** Wi-Fi off. Marks a player who is gone but still holds their seat (see DISCONNECT_GRACE_MS). */
+/** Wi-Fi off. Only ever drawn on our own row: a teammate who drops leaves the list. */
 export const DisconnectedIcon = () => (
   <svg
     viewBox="0 0 24 24"

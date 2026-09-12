@@ -17,12 +17,12 @@ describe("constants", () => {
 
   describe("pieceToFigurineWhite", () => {
     it("maps all white pieces to correct Unicode symbols", () => {
-      expect(pieceToFigurineWhite["K"]).toBe("\u2654"); // White King
-      expect(pieceToFigurineWhite["Q"]).toBe("\u2655"); // White Queen
-      expect(pieceToFigurineWhite["R"]).toBe("\u2656"); // White Rook
-      expect(pieceToFigurineWhite["B"]).toBe("\u2657"); // White Bishop
-      expect(pieceToFigurineWhite["N"]).toBe("\u2658"); // White Knight
-      expect(pieceToFigurineWhite["P"]).toBe("\u2659"); // White Pawn
+      expect(pieceToFigurineWhite["K"]).toBe("\u2654");
+      expect(pieceToFigurineWhite["Q"]).toBe("\u2655");
+      expect(pieceToFigurineWhite["R"]).toBe("\u2656");
+      expect(pieceToFigurineWhite["B"]).toBe("\u2657");
+      expect(pieceToFigurineWhite["N"]).toBe("\u2658");
+      expect(pieceToFigurineWhite["P"]).toBe("\u2659");
     });
 
     it("has entries for all 6 piece types", () => {
@@ -32,12 +32,12 @@ describe("constants", () => {
 
   describe("pieceToFigurineBlack", () => {
     it("maps all black pieces to correct Unicode symbols", () => {
-      expect(pieceToFigurineBlack["K"]).toBe("\u265A"); // Black King
-      expect(pieceToFigurineBlack["Q"]).toBe("\u265B"); // Black Queen
-      expect(pieceToFigurineBlack["R"]).toBe("\u265C"); // Black Rook
-      expect(pieceToFigurineBlack["B"]).toBe("\u265D"); // Black Bishop
-      expect(pieceToFigurineBlack["N"]).toBe("\u265E"); // Black Knight
-      expect(pieceToFigurineBlack["P"]).toBe("\u265F"); // Black Pawn
+      expect(pieceToFigurineBlack["K"]).toBe("\u265A");
+      expect(pieceToFigurineBlack["Q"]).toBe("\u265B");
+      expect(pieceToFigurineBlack["R"]).toBe("\u265C");
+      expect(pieceToFigurineBlack["B"]).toBe("\u265D");
+      expect(pieceToFigurineBlack["N"]).toBe("\u265E");
+      expect(pieceToFigurineBlack["P"]).toBe("\u265F");
     });
 
     it("has entries for all 6 piece types", () => {

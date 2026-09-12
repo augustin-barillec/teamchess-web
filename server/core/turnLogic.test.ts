@@ -53,8 +53,8 @@ describe("turnLogic", () => {
       ).toBe(true);
     });
 
-    it("ignores proposals from offline players", () => {
-      // p3 proposed then went offline; p2 is online and has not proposed yet
+    it("ignores proposals from players who have left", () => {
+      // p3 proposed then left; p2 is still here and has not proposed yet
       expect(
         shouldFinalizeTurn(
           GameStatus.AwaitingProposals,

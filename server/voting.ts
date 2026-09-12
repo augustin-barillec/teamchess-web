@@ -45,10 +45,6 @@ function voterNames(
   return [...pids].map((pid) => roster.get(pid) || "Unknown");
 }
 
-/**
- * Gets the active vote formatted for a specific client, or null when no vote is
- * running. Personalizes `myVoteEligible` and `myCurrentVote`.
- */
 export function getVoteClientData(viewerPid: string): TeamVoteState | null {
   const vote = getGameState().activeVote;
   if (!vote) return null;
@@ -64,10 +60,7 @@ export function getVoteClientData(viewerPid: string): TeamVoteState | null {
   };
 }
 
-/**
- * Broadcasts the active vote (or its absence) to all connected sockets.
- * Each client gets a personalized view.
- */
+/** Broadcasts the active vote (or its absence) to everyone, personalized per viewer. */
 export function broadcastVote(): void {
   for (const socket of getAllSockets()) {
     const pid = socket.data.pid;
@@ -77,9 +70,6 @@ export function broadcastVote(): void {
   }
 }
 
-/**
- * Clears the active vote.
- */
 export function clearActiveVote(): void {
   const gameState = getGameState();
   const vote = gameState.activeVote;
@@ -159,8 +149,8 @@ export function startTeamVote(
     return { error: MSG.errorVoteInProgress };
   }
 
-  // Prerequisites: a draw can only be accepted against a live offer from the
-  // other side, and only offered once.
+  // A draw can only be accepted against a live offer from the other side, and
+  // only offered once.
   if (
     type === "accept_draw" &&
     (!gameState.drawOffer || gameState.drawOffer === side)
@@ -171,10 +161,8 @@ export function startTeamVote(
     return {};
   }
 
-  // Snapshot the team (pid -> name) as the vote's frozen electorate
   const teamRoster = rosterOf(getTeamPids(side));
 
-  // Solo team: skip the vote and execute directly
   if (teamRoster.size <= 1 && !isSystemTriggered) {
     executeTeamVoteResult(side, type);
     return {};

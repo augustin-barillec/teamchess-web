@@ -43,7 +43,6 @@ describe("materialCalc", () => {
   });
 
   describe("calculateMaterial", () => {
-    // Helper to create a board piece
     const wp = (type: string) => ({ type, color: "w" as const });
     const bp = (type: string) => ({ type, color: "b" as const });
 
@@ -174,9 +173,7 @@ describe("materialCalc", () => {
 
       const result = calculateMaterial(board);
       expect(result.materialBalance).toBe(2);
-      // White has extra Q and R
       expect(result.whiteMaterialDiff).toEqual(["♛", "♜"]);
-      // Black has extra 2 bishops and 2 knights
       expect(result.blackMaterialDiff).toEqual(["♝x2", "♞x2"]);
     });
 

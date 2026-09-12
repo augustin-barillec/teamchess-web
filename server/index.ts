@@ -17,40 +17,34 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   console.log("Starting TeamChess server...");
-  // Create Express app and HTTP server
   const app = express();
   const server = http.createServer(app);
 
-  // Create Socket.io server
+  // Both ends on a 5s ping, so a severed link is noticed within ~10s even when
+  // nothing closes the socket outright.
   const io = new Server(server, {
     cors: { origin: "*" },
     pingInterval: 5000,
     pingTimeout: 5000,
   });
-  // Set global IO instance
   setIO(io);
 
-  // Initialize game state
   const engine = createEngine();
   setGameState(createInitialGameState(engine));
 
-  // Setup socket connection handler
   setupConnectionHandler();
 
-  // Serve static files
   const publicPath = path.join(__dirname, "../client/dist");
   app.use(express.static(publicPath));
   app.get(/.*/, (req, res) => {
     res.sendFile(path.join(publicPath, "index.html"));
   });
 
-  // Start server
   const PORT = process.env.PORT || 3001;
   server.listen(PORT, () => {
     console.log(`🚀 Server listening on port ${PORT}`);
   });
 
-  // Graceful shutdown
   const shutdown = () => {
     console.log("Shutting down...");
     getGameState().engine.quit();

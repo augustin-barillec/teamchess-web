@@ -22,16 +22,14 @@ import {
   handleCastVote,
 } from "./eventHandlers.js";
 
-/**
- * Sets up the socket connection handler.
- */
 export function setupConnectionHandler(): void {
   getIO().on("connection", (socket: Socket) => {
     const gameState = getGameState();
     const { pid: providedPid, name: providedName } =
       (socket.handshake.auth as { pid?: string; name?: string }) || {};
 
-    // Blacklist check: reject kicked players
+    // A kick outlives the socket it was served on: the blacklist is what keeps
+    // the kicked player out when they come back with the same pid.
     if (providedPid && gameState.blacklist.has(providedPid)) {
       socket.emit("kicked", { message: MSG.youHaveBeenKicked });
       socket.disconnect(true);
@@ -102,7 +100,8 @@ export function setupConnectionHandler(): void {
       }
     }
 
-    // Send active vote state (late joiners see it with myVoteEligible: false)
+    // Everyone sees the banner; a late joiner is outside the frozen electorate,
+    // so it reaches them with myVoteEligible: false.
     socket.emit("vote_update", getVoteClientData(pid));
 
     if (isNewPlayer) {
@@ -111,15 +110,13 @@ export function setupConnectionHandler(): void {
 
     broadcastPlayers();
     tryFinalizeTurn();
-    // A connection changes who is on a side, so the countdown has to be
-    // reconsidered here like anywhere else. Coming back is the whole point of
-    // the 30s grace period, and without this the seat refilled while the timer
-    // it was meant to stop kept running to the forfeit. It also re-emits a
-    // countdown that is still legitimately running, which is how an arriving
-    // client learns about one that started before it connected.
+    // A connection changes who is on a side, so the countdown is reconsidered
+    // here like anywhere else: without this the seat refilled while the timer it
+    // was meant to stop kept running to the forfeit. It also re-emits a countdown
+    // that is still legitimately running, which is how an arriving client learns
+    // about one that started before it connected.
     endIfOneSided();
 
-    // Event handlers
     socket.on("set_name", (name: string) => handleSetName(socket, name));
 
     socket.on("join_side", ({ side }) => handleJoinSide(socket, side));

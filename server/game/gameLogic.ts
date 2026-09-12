@@ -15,15 +15,13 @@ import {
 import { shouldEndDueToAbandonment } from "../core/playerLogic.js";
 import { DEFAULT_CLOCK_TIME, TEAM_EMPTY_FORFEIT_MS } from "../constants.js";
 
-/**
- * Ends the game with a given reason and optional winner.
- */
 export function endGame(reason: EndReason, winner: string | null = null): void {
   const gameState = getGameState();
   const io = getIO();
 
   if (gameState.status === GameStatus.Over) return;
-  // Invalidate any in-flight engine callback (see tryFinalizeTurn)
+  // Retires the turn in flight: a finalizeTurn suspended on the engine sees the
+  // bump when it wakes up and drops its answer (see tryFinalizeTurn).
   gameState.generation++;
   stopClock();
 
@@ -48,9 +46,6 @@ export function endGame(reason: EndReason, winner: string | null = null): void {
   io.emit("draw_offer_update", { side: null });
 }
 
-/**
- * Resets the game in place (same GameState object) with a fresh engine.
- */
 export function executeGameReset(): void {
   const gameState = getGameState();
   const io = getIO();
@@ -68,9 +63,6 @@ export function executeGameReset(): void {
   broadcastVote();
 }
 
-/**
- * Attempts to finalize the current turn if all active players have submitted moves.
- */
 export function tryFinalizeTurn(): void {
   const gameState = getGameState();
   const io = getIO();

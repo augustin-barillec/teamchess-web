@@ -1,10 +1,6 @@
 import { EndReason } from "./shared_types.js";
 import type { VoteType } from "./shared_types.js";
 
-// ============================================================
-// Game End Messages
-// ============================================================
-
 const cap = (s: string | null) =>
   s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 
@@ -29,47 +25,30 @@ export const reasonMessages: Record<
     `🚪 Forfeit!\n${cap(winner)} wins — opposing team is empty.`,
 };
 
-// ============================================================
-// Sender Names & Defaults
-// ============================================================
-
 export const SENDER_SYSTEM = "System";
 export const DEFAULT_PLAYER_NAME = "Player";
-
-// ============================================================
-// Vote Display Formatters
-// ============================================================
 
 export function formatVoteType(type: VoteType): string {
   return type.replace("_", " ");
 }
 
-// ============================================================
-// Server Messages (template functions for socket emits)
-// ============================================================
-
 export const MSG = {
-  // Team vote failure messages (simplified — no reason details)
   teamVoteFailed: (type: VoteType) =>
     `❌ Vote to ${formatVoteType(type)} failed.`,
 
-  // Kick messages (a lead power)
   playerKicked: (name: string) => `${name} has been kicked.`,
   youHaveBeenKicked: "You have been kicked from the game.",
 
-  // Reset message (a lead power)
   gameReset: "🔄 Game has been reset.",
 
-  // Welcome message for new players
   welcomeMessage: `Welcome to TeamChess!\n\nHow it works:\n• Each player on a team proposes a move\n• Stockfish 18 picks the strongest proposal\n\nTime control:\n• 10 min per side\n• +10s added at the end of each turn when under 1 min\n\nJoin White or Black to play!`,
 
-  // Game flow
   systemError:
     "⚠️ System error: move could not be processed. Please resubmit your moves.",
   engineFallback:
     "⚠️ Stockfish could not pick a move — a proposal was played at random.",
 
-  // Error messages (sent to individual sockets)
+  // Sent to one socket, never broadcast.
   errorNotEligible: "You are not eligible to vote.",
   errorTargetNotFound: "Target player not found.",
   errorVoteInProgress: "Another vote is already in progress.",

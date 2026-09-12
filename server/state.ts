@@ -73,8 +73,6 @@ export function resetGameState(engine: Engine): void {
   Object.assign(gameState, fresh);
 }
 
-// --- Lead ---
-
 /**
  * The lead — the player who may kick others and reset the game.
  *

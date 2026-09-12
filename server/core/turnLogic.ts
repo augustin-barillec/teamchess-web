@@ -4,10 +4,10 @@ import type { PlayerSide } from "../types.js";
 import { INCREMENT_THRESHOLD, TIME_INCREMENT } from "../constants.js";
 
 /**
- * Determines if a turn should be finalized: every online member of the team to
- * move has proposed. Proposals from players who since went offline still exist
- * but do not count toward the threshold.
- * Pure function - no side effects.
+ * Every member of the team to move has proposed. A proposal from someone who has
+ * since left still exists — nothing purges it, and it stays playable — but it must
+ * not count toward the threshold: otherwise the turn would finalize on their move
+ * without ever waiting for the teammates still here.
  */
 export function shouldFinalizeTurn(
   status: GameStatus,
@@ -17,17 +17,13 @@ export function shouldFinalizeTurn(
   if (status !== GameStatus.AwaitingProposals) return false;
   if (activeTeamPids.size === 0) return false;
 
-  let onlineProposalCount = 0;
+  let activeProposalCount = 0;
   for (const pid of proposalPids) {
-    if (activeTeamPids.has(pid)) onlineProposalCount++;
+    if (activeTeamPids.has(pid)) activeProposalCount++;
   }
-  return onlineProposalCount === activeTeamPids.size;
+  return activeProposalCount === activeTeamPids.size;
 }
 
-/**
- * Calculates time increment based on current time.
- * Returns 10 seconds if time is 60 or less, 0 otherwise.
- */
 export function calculateIncrement(currentTime: number): number {
   return currentTime <= INCREMENT_THRESHOLD ? TIME_INCREMENT : 0;
 }
@@ -46,7 +42,7 @@ export interface SelectedMove {
  * move that is not one of the proposals — a candidate is drawn at random and `fallback` is
  * set so the caller can warn the players. Returns null when there is nothing to play.
  *
- * Pure function - `rng` is injected for testing.
+ * `rng` is injected so a test can pin which candidate the fallback draws.
  */
 export function resolveSelectedMove(
   engineMove: string | null,
@@ -73,10 +69,6 @@ export interface GameOverResult {
   winner?: PlayerSide | null;
 }
 
-/**
- * Detects if the game is over and determines the reason/winner.
- * Pure function - only reads from chess instance.
- */
 export function detectGameOver(
   chess: Chess,
   currentSide: PlayerSide

@@ -94,7 +94,6 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
   const renderPlayerEntry = (p: Player, teamSide?: "white" | "black") => {
     const isMe = p.id === myId;
     const isLead = p.id === leadId;
-    // Only about our own link: a teammate who is gone is gone from the list.
     const disconnected = isMe && amDisconnected;
     const showKickButton = amILead && !isMe;
     const played = teamSide ? hasPlayed(p.id, teamSide) : false;

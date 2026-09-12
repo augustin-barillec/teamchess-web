@@ -102,7 +102,6 @@ export function useSocket({ chess }: UseSocketProps): UseSocketReturn {
   const [forfeitCountdown, setForfeitCountdown] =
     useState<ForfeitCountdown | null>(null);
 
-  // Socket initialization
   useEffect(() => {
     const s = io({
       auth: {
@@ -122,7 +121,6 @@ export function useSocket({ chess }: UseSocketProps): UseSocketReturn {
     };
   }, []);
 
-  // Sync side with server state
   useEffect(() => {
     if (!myId) return;
     const serverSide = players.whitePlayers.some((p) => p.id === myId)
@@ -144,7 +142,6 @@ export function useSocket({ chess }: UseSocketProps): UseSocketReturn {
     setSide(serverSide);
   }, [players, myId, side, socket]);
 
-  // Socket event handlers
   useEffect(() => {
     if (!socket) return;
 
