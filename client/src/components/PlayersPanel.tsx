@@ -81,6 +81,9 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
   const canJoin = (target: "white" | "black" | "spectator") => {
     if (gameStatus === GameStatus.Over) return false;
     if (side === target) return false;
+    // Switching straight from one team to the other is a Setup-only move: once the
+    // game is running you have to pass through the spectators. This is the only
+    // thing enforcing it — the server accepts a join_side for any side at any time.
     if (
       (target === "white" || target === "black") &&
       side !== "spectator" &&
