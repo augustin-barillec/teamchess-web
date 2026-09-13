@@ -1,23 +1,23 @@
 import { useState } from "react";
-import { Player, Players, GameStatus } from "../types";
+import { Player, PlayerSide, Side, GameStatus } from "../types";
 import { DisconnectedIcon } from "../DisconnectedIcon";
 import { DEFAULT_PLAYER_NAME, UI } from "../messages";
 import { colorForPlayer } from "../playerColors";
 import { ConfirmModal } from "./ConfirmModal";
 
 interface PlayersPanelProps {
-  players: Players;
+  players: Player[];
   myId: string;
   /** The lead kicks players and resets the game; everyone else sees neither. */
   amILead: boolean;
   leadId: string | null;
   amDisconnected: boolean;
   openNameModal: () => void;
-  hasPlayed: (playerId: string, teamSide: "white" | "black") => boolean;
+  hasPlayed: (playerId: string, teamSide: PlayerSide) => boolean;
   onKickPlayer: (targetId: string) => void;
-  side: "white" | "black" | "spectator";
+  side: Side;
   gameStatus: GameStatus;
-  joinSide: (target: "white" | "black" | "spectator") => void;
+  joinSide: (target: Side) => void;
   autoAssign: () => void;
 }
 
@@ -78,23 +78,19 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
   } | null>(null);
 
   const isSetup = gameStatus === GameStatus.Setup;
-  const canJoin = (target: "white" | "black" | "spectator") => {
+  const canJoin = (target: Side) => {
     if (gameStatus === GameStatus.Over) return false;
     if (side === target) return false;
     // Switching straight from one team to the other is a Setup-only move: once the
     // game is running you have to pass through the spectators. This is the only
-    // thing enforcing it — the server accepts a join_side for any side at any time.
-    if (
-      (target === "white" || target === "black") &&
-      side !== "spectator" &&
-      !isSetup
-    )
+    // thing enforcing it — the server accepts a JOIN_SIDE for any side at any time.
+    if (target !== "spectator" && side !== "spectator" && !isSetup)
       return false;
     return true;
   };
   const showAutoAssign = gameStatus !== GameStatus.Over && side === "spectator";
 
-  const renderPlayerEntry = (p: Player, teamSide?: "white" | "black") => {
+  const renderPlayerEntry = (p: Player, teamSide?: PlayerSide) => {
     const isMe = p.id === myId;
     const isLead = p.id === leadId;
     const disconnected = isMe && amDisconnected;
@@ -151,13 +147,10 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
     );
   };
 
-  const renderSection = (
-    target: "white" | "black" | "spectator",
-    label: string,
-    list: Player[]
-  ) => {
+  const renderSection = (target: Side, label: string) => {
     const joinable = canJoin(target);
     const teamSide = target === "spectator" ? undefined : target;
+    const list = players.filter((p) => p.side === target);
     return (
       <div className="player-section">
         <div className="player-section-heading">
@@ -178,7 +171,7 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
   return (
     <div className="tab-panel players-panel">
       <div className="player-lists-container">
-        {renderSection("spectator", UI.headingSpectators, players.spectators)}
+        {renderSection("spectator", UI.headingSpectators)}
         {showAutoAssign && (
           <button
             className="auto-assign-btn"
@@ -204,8 +197,8 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
             </svg>
           </button>
         )}
-        {renderSection("white", UI.headingWhite, players.whitePlayers)}
-        {renderSection("black", UI.headingBlack, players.blackPlayers)}
+        {renderSection("white", UI.headingWhite)}
+        {renderSection("black", UI.headingBlack)}
       </div>
       {pendingKick && (
         <ConfirmModal

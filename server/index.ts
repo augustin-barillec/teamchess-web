@@ -3,19 +3,14 @@ import express from "express";
 import { Server } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
-import {
-  setIO,
-  setGameState,
-  getGameState,
-  createInitialGameState,
-} from "./state.js";
+import { Game } from "./Game.js";
 import { createEngine } from "./engine/stockfish.js";
-import { setupConnectionHandler } from "./socket/connectionHandler.js";
+import { attach, hooksFor } from "./socket/connectionHandler.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function startServer() {
+function startServer() {
   console.log("Starting TeamChess server...");
   const app = express();
   const server = http.createServer(app);
@@ -27,12 +22,9 @@ async function startServer() {
     pingInterval: 5000,
     pingTimeout: 5000,
   });
-  setIO(io);
 
-  const engine = createEngine();
-  setGameState(createInitialGameState(engine));
-
-  setupConnectionHandler();
+  const game = new Game(createEngine, hooksFor(io));
+  attach(io, game);
 
   const publicPath = path.join(__dirname, "../client/dist");
   app.use(express.static(publicPath));
@@ -47,7 +39,7 @@ async function startServer() {
 
   const shutdown = () => {
     console.log("Shutting down...");
-    getGameState().engine.quit();
+    game.destroy();
     server.close(() => process.exit(0));
     // Force exit if close hangs (e.g. open WebSocket connections)
     setTimeout(() => process.exit(0), 1000);

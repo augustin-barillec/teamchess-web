@@ -13,7 +13,7 @@ import {
   PieceDropHandlerArgs,
   PieceHandlerArgs,
 } from "react-chessboard";
-import { GameStatus, VoteType } from "./types";
+import { GameState, GameStatus, PlayerSide, Side, VoteType } from "./types";
 import { UI } from "./messages";
 import { calculateMaterial } from "./materialCalc";
 import { shouldConfirmTeamAction } from "./confirmUtils";
@@ -26,35 +26,79 @@ import { PlayersPanel } from "./components/PlayersPanel";
 import { MovesPanel } from "./components/MovesPanel";
 import { ChatPanel } from "./components/ChatPanel";
 import { VoteBanner } from "./components/VoteBanner";
-import { sounds } from "./soundEngine";
+import { sounds, soundForMove } from "./soundEngine";
+
+/** Seconds left on a side's clock right now, extrapolated from the server's snapshot. */
+function secondsLeft(game: GameState, side: PlayerSide, now: number): number {
+  const base = side === "white" ? game.whiteTime : game.blackTime;
+  const current = game.turns[game.turns.length - 1];
+  if (game.turnStartedAt === null || current?.side !== side) return base;
+  // Clamped above too: `now` can lag the server's timestamp by up to one tick.
+  return Math.max(0, Math.min(base, base - (now - game.turnStartedAt) / 1000));
+}
+
+/** How many turns have been played — what a new selection bumps. */
+const playedCount = (game: GameState): number =>
+  game.turns.filter((t) => t.selection).length;
+
+const countdown = (endTime: number, now: number): number =>
+  Math.max(0, Math.ceil((endTime - now) / 1000));
 
 export default function App() {
-  const [chess] = useState(new Chess());
-
   const {
-    socket,
+    act,
     amDisconnected,
     myId,
     name,
-    nameInput,
-    setNameInput,
+    changeName,
+    game,
+    chat,
     side,
     rememberSide,
-    players,
-    leadId,
-    gameStatus,
-    pgn,
-    chatMessages,
-    turns,
-    position,
-    clocks,
-    lastMoveSquares,
-    drawOffer,
-    activeVote,
-    forfeitCountdown,
-  } = useSocket({ chess });
+  } = useSocket();
+  const { players, status, turns, vote, drawOffer, forfeit, gameOver } = game;
 
-  const amILead = !!myId && myId === leadId;
+  const amILead = !!myId && myId === game.leadId;
+
+  const chess = useMemo(() => new Chess(game.fen), [game.fen]);
+  const current = turns[turns.length - 1];
+  const lastSelection = useMemo(() => {
+    for (let i = turns.length - 1; i >= 0; i--) {
+      const selection = turns[i].selection;
+      if (selection) return selection;
+    }
+    return null;
+  }, [turns]);
+
+  // One ticker for everything that runs on a deadline: clocks, vote, forfeit.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Sounds are the difference between two snapshots.
+  const prevGame = useRef(game);
+  useEffect(() => {
+    const prev = prevGame.current;
+    prevGame.current = game;
+    if (prev === game) return;
+    if (prev.status === GameStatus.Setup && status !== GameStatus.Setup) {
+      sounds.play("start");
+    }
+    if (status === GameStatus.Setup && prev.status !== GameStatus.Setup) {
+      sounds.play("reset");
+    }
+    // The first move rides on the very submit that started the game, so its start
+    // chord is still sounding — staying silent keeps the two from landing together.
+    const played = playedCount(game);
+    if (played > playedCount(prev) && played > 1 && lastSelection) {
+      sounds.play(soundForMove(lastSelection.san));
+    }
+    if (status === GameStatus.Over && prev.status !== GameStatus.Over) {
+      sounds.play("end");
+    }
+  }, [game, status, lastSelection]);
 
   const [legalSquareStyles, setLegalSquareStyles] = useState<
     Record<string, CSSProperties>
@@ -65,14 +109,14 @@ export default function App() {
   } | null>(null);
   const movesRef = useRef<HTMLDivElement>(null);
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
+  const [nameInput, setNameInput] = useState("");
   const [pendingTeamVote, setPendingTeamVote] = useState<VoteType | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const [chatInput, setChatInput] = useState("");
-  const current = turns[turns.length - 1];
-  const orientation: "white" | "black" = side === "black" ? "black" : "white";
-  const isFinalizing = gameStatus === GameStatus.FinalizingTurn;
+  const orientation: PlayerSide = side === "black" ? "black" : "white";
+  const isFinalizing = status === GameStatus.FinalizingTurn;
   const [isMuted, setIsMuted] = useState(sounds.getMuted());
 
   const toggleMute = () => {
@@ -83,27 +127,22 @@ export default function App() {
 
   const kingInCheckSquare = useMemo(() => {
     if (!chess.isCheck()) return null;
-    const kingPiece = { type: "k", color: chess.turn() };
-    let square: string | null = null;
-    chess.board().forEach((row, rowIndex) => {
-      row.forEach((piece, colIndex) => {
-        if (
-          piece &&
-          piece.type === kingPiece.type &&
-          piece.color === kingPiece.color
-        ) {
-          square = `${"abcdefgh"[colIndex]}${8 - rowIndex}`;
+    const color = chess.turn();
+    const board = chess.board();
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = board[row][col];
+        if (piece && piece.type === "k" && piece.color === color) {
+          return `${"abcdefgh"[col]}${8 - row}`;
         }
-      });
-    });
-    return square;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [position, chess]);
+      }
+    }
+    return null;
+  }, [chess]);
 
   const { whiteMaterialDiff, blackMaterialDiff, materialBalance } = useMemo(
     () => calculateMaterial(chess.board()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [position, chess]
+    [chess]
   );
 
   useEffect(() => {
@@ -117,90 +156,60 @@ export default function App() {
     }
   }, [isNameModalOpen]);
 
-  const [voteNow, setVoteNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!activeVote) return;
-    const interval = setInterval(() => setVoteNow(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, [activeVote]);
-  const voteTimeLeft = Math.max(
-    0,
-    Math.ceil(((activeVote?.endTime ?? 0) - voteNow) / 1000)
-  );
-
-  const [forfeitNow, setForfeitNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!forfeitCountdown) return;
-    const interval = setInterval(() => setForfeitNow(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, [forfeitCountdown]);
-  const forfeitTimeLeft = Math.max(
-    0,
-    Math.ceil(((forfeitCountdown?.endTime ?? 0) - forfeitNow) / 1000)
-  );
-
-  /** The seat is the server's: its `players` broadcast is what moves us. */
-  const joinSide = (s: "white" | "black" | "spectator") => {
+  /** The seat is the server's: its next snapshot is what moves us. */
+  const joinSide = (s: Side) => {
     rememberSide(s);
-    socket?.emit("join_side", { side: s });
+    act({ type: "JOIN_SIDE", payload: { side: s } });
   };
 
   const autoAssign = () => {
     // An empty side wins the comparison outright, and it is also the one running a
     // forfeit countdown — auto-assign sends the newcomer to the seat that needs taking.
-    const whiteCount = players.whitePlayers.length;
-    const blackCount = players.blackPlayers.length;
-    let chosen: "white" | "black";
+    const whiteCount = players.filter((p) => p.side === "white").length;
+    const blackCount = players.filter((p) => p.side === "black").length;
+    let chosen: PlayerSide;
     if (whiteCount < blackCount) chosen = "white";
     else if (blackCount < whiteCount) chosen = "black";
     else chosen = Math.random() < 0.5 ? "white" : "black";
     joinSide(chosen);
   };
 
-  const doStartTeamVote = (type: VoteType) => {
-    socket?.emit("start_team_vote", type);
-  };
+  const doStartTeamVote = (type: VoteType) =>
+    act({ type: "START_TEAM_VOTE", payload: { voteType: type } });
 
+  /**
+   * Single gate for every team action: alone on the team, my own yes is the whole
+   * quorum and the vote passes the instant it opens, so the modal has to intercept
+   * the click first. It confirms via doStartTeamVote to avoid looping through here.
+   */
   const startTeamVote = (type: VoteType) => {
-    if (side === "white" || side === "black") {
-      const myTeamArray =
-        side === "white" ? players.whitePlayers : players.blackPlayers;
-      if (shouldConfirmTeamAction(myTeamArray)) {
-        setPendingTeamVote(type);
-        return;
-      }
+    if (
+      side !== "spectator" &&
+      shouldConfirmTeamAction(players.filter((p) => p.side === side))
+    ) {
+      setPendingTeamVote(type);
+      return;
     }
     doStartTeamVote(type);
   };
 
-  const castVote = (vote: "yes" | "no") => {
-    socket?.emit("cast_vote", vote);
-  };
+  const castVote = (v: "yes" | "no") =>
+    act({ type: "VOTE_TEAM", payload: { vote: v } });
 
   /** Lead power: takes effect immediately, hence the confirmation in the UI. */
-  const kickPlayer = (targetId: string) => {
-    socket?.emit("kick_player", targetId);
-  };
+  const kickPlayer = (targetId: string) =>
+    act({ type: "KICK_PLAYER", payload: { id: targetId } });
 
   /** Lead power: takes effect immediately, hence the confirmation in the UI. */
-  const doResetGame = () => {
-    socket?.emit("reset_game", (res: { success: boolean; error?: string }) => {
-      if (res.error) return toast.error(res.error);
-    });
-  };
+  const doResetGame = () => act({ type: "RESET_GAME", payload: null });
 
-  const submitMove = (lan: string) => {
-    if (!socket) return;
-    socket.emit("play_move", lan, (res: { error?: string }) => {
-      if (res?.error) toast.error(res.error);
-    });
-  };
+  const submitMove = (lan: string) =>
+    act({ type: "SUBMIT_MOVE", payload: { lan } });
 
   const onPromote = (promotionPiece: "q" | "r" | "b" | "n") => {
     if (!promotionMove) return;
     const { from, to } = promotionMove;
-    const lan = from + to + promotionPiece;
-    submitMove(lan);
+    submitMove(from + to + promotionPiece);
     setPromotionMove(null);
   };
 
@@ -211,13 +220,15 @@ export default function App() {
     return piece.color === "w" ? rank === "8" : rank === "1";
   }
 
-  const hasPlayed = (playerId: string, teamSide: "white" | "black") =>
-    current?.proposals.some((p) => p.id === playerId && p.side === teamSide);
+  const hasPlayed = (playerId: string, teamSide: PlayerSide) =>
+    !!current &&
+    current.side === teamSide &&
+    current.proposals.some((p) => p.id === playerId);
 
   const copyPgn = () => {
-    if (!pgn) return;
+    if (!gameOver?.pgn) return;
     const textArea = document.createElement("textarea");
-    textArea.value = pgn;
+    textArea.value = gameOver.pgn;
     textArea.style.position = "fixed";
     textArea.style.top = "-9999px";
     textArea.style.left = "-9999px";
@@ -241,15 +252,11 @@ export default function App() {
 
   const closeNameModal = () => {
     setIsNameModalOpen(false);
-    setNameInput(name);
   };
 
   const submitSave = () => {
     const newName = nameInput.trim();
-    if (newName && newName !== name) {
-      socket?.emit("set_name", newName);
-    }
-
+    if (newName && newName !== name) changeName(newName);
     setIsNameModalOpen(false);
   };
 
@@ -261,18 +268,16 @@ export default function App() {
     }
   };
 
-  const boardOptions = {
-    position,
-    boardOrientation: orientation,
-    viewOnly: isFinalizing,
-    arePiecesDraggable: side !== "spectator",
-    squareStyles: {
-      ...(lastMoveSquares
+  const squareStyles = useMemo(
+    () => ({
+      ...(lastSelection
         ? {
-            [lastMoveSquares.from]: {
+            [lastSelection.lan.slice(0, 2)]: {
               backgroundColor: "rgba(245,246,110,0.75)",
             },
-            [lastMoveSquares.to]: { backgroundColor: "rgba(245,246,110,0.75)" },
+            [lastSelection.lan.slice(2, 4)]: {
+              backgroundColor: "rgba(245,246,110,0.75)",
+            },
           }
         : {}),
       ...legalSquareStyles,
@@ -284,7 +289,16 @@ export default function App() {
             },
           }
         : {}),
-    },
+    }),
+    [lastSelection, legalSquareStyles, kingInCheckSquare]
+  );
+
+  const boardOptions = {
+    position: game.fen,
+    boardOrientation: orientation,
+    viewOnly: isFinalizing,
+    arePiecesDraggable: side !== "spectator",
+    squareStyles,
 
     // The drop lands on the square under the *cursor*, never under the dragged
     // piece: this ring is the only thing telling the player which one that is.
@@ -314,12 +328,12 @@ export default function App() {
       const to = targetSquare;
 
       if (!from || !to) return false;
-      if (gameStatus === GameStatus.Setup) {
+      if (status === GameStatus.Setup) {
         if (side !== "white") {
           toast.error(UI.toastOnlyWhiteStart);
           return false;
         }
-      } else if (gameStatus === GameStatus.AwaitingProposals) {
+      } else if (status === GameStatus.AwaitingProposals) {
         if (!current || side !== current.side) {
           return false;
         }
@@ -328,14 +342,13 @@ export default function App() {
       }
 
       const isPromotion = needsPromotion(from, to);
+      // Checked on a throwaway board: the one on screen is the server's position.
       try {
-        const move = chess.move({
+        new Chess(game.fen).move({
           from,
           to,
           promotion: isPromotion ? "q" : undefined,
         });
-        if (!move) return false;
-        chess.undo();
       } catch (_e) {
         toast.error(UI.toastIllegalMove);
         return false;
@@ -343,8 +356,7 @@ export default function App() {
       if (isPromotion) {
         setPromotionMove({ from, to });
       } else {
-        const lan = from + to;
-        submitMove(lan);
+        submitMove(from + to);
       }
       return true;
     },
@@ -361,41 +373,34 @@ export default function App() {
     </div>
   );
 
+  const clockRunning =
+    status !== GameStatus.Setup && status !== GameStatus.Over;
+  const topSide: PlayerSide = orientation === "white" ? "black" : "white";
+  const bottomSide: PlayerSide = orientation;
+
   const topPlayerInfoBox = (
     <PlayerInfoBox
-      clockTime={orientation === "white" ? clocks.blackTime : clocks.whiteTime}
-      lostPieces={
-        orientation === "white" ? blackMaterialDiff : whiteMaterialDiff
-      }
-      materialAdv={orientation === "white" ? -materialBalance : materialBalance}
-      isActive={
-        gameStatus !== GameStatus.Setup &&
-        gameStatus !== GameStatus.Over &&
-        current?.side === (orientation === "white" ? "black" : "white")
-      }
+      clockTime={Math.ceil(secondsLeft(game, topSide, now))}
+      lostPieces={topSide === "white" ? whiteMaterialDiff : blackMaterialDiff}
+      materialAdv={topSide === "white" ? materialBalance : -materialBalance}
+      isActive={clockRunning && current?.side === topSide}
     />
   );
 
   const renderBottomPlayerInfoBox = (actionSlot?: React.ReactNode) => (
     <PlayerInfoBox
-      clockTime={orientation === "white" ? clocks.whiteTime : clocks.blackTime}
+      clockTime={Math.ceil(secondsLeft(game, bottomSide, now))}
       lostPieces={
-        orientation === "white" ? whiteMaterialDiff : blackMaterialDiff
+        bottomSide === "white" ? whiteMaterialDiff : blackMaterialDiff
       }
-      materialAdv={orientation === "white" ? materialBalance : -materialBalance}
-      isActive={
-        gameStatus !== GameStatus.Setup &&
-        gameStatus !== GameStatus.Over &&
-        current?.side === (orientation === "white" ? "white" : "black")
-      }
+      materialAdv={bottomSide === "white" ? materialBalance : -materialBalance}
+      isActive={clockRunning && current?.side === bottomSide}
       actionSlot={actionSlot}
     />
   );
 
   const showBoardActions =
-    gameStatus === GameStatus.AwaitingProposals &&
-    (side === "white" || side === "black") &&
-    !activeVote;
+    status === GameStatus.AwaitingProposals && side !== "spectator" && !vote;
   const myTeamOfferedDraw = showBoardActions && drawOffer === side;
   const otherTeamOfferingDraw =
     showBoardActions && drawOffer !== null && drawOffer !== side;
@@ -437,7 +442,7 @@ export default function App() {
     <span className="vote-status-text">{UI.drawOfferPending}</span>
   ) : otherTeamOfferingDraw ? (
     <span className="vote-status-text">{UI.votingOnDraw}</span>
-  ) : pgn && gameStatus === GameStatus.Over ? (
+  ) : gameOver?.pgn ? (
     <button
       className="action-icon-btn"
       onClick={copyPgn}
@@ -452,20 +457,21 @@ export default function App() {
     offer_draw: UI.voteTypeOfferDraw,
     accept_draw: UI.voteTypeAcceptDraw,
   };
-  const voteBannerContent: React.ReactNode = activeVote ? (
+  const myBallot = vote?.voters.find((v) => v.id === myId);
+  const voteBannerContent: React.ReactNode = vote ? (
     <VoteBanner
-      title={`Vote: ${teamVoteTitleMap[activeVote.type]}`}
-      yesVotes={activeVote.yesVotes}
-      requiredVotes={activeVote.requiredVotes}
-      timeLeft={voteTimeLeft}
-      myVoteEligible={activeVote.myVoteEligible}
-      myCurrentVote={activeVote.myCurrentVote}
+      title={`Vote: ${teamVoteTitleMap[vote.type]}`}
+      yesVotes={vote.voters.filter((v) => v.yes).map((v) => v.name)}
+      requiredVotes={vote.voters.length}
+      timeLeft={countdown(vote.endTime, now)}
+      myVoteEligible={!!myBallot}
+      myCurrentVote={myBallot?.yes ? "yes" : null}
       onYes={() => castVote("yes")}
       onNo={() => castVote("no")}
     />
   ) : null;
 
-  const showResetIcon = amILead && gameStatus !== GameStatus.Setup;
+  const showResetIcon = amILead && status !== GameStatus.Setup;
   const headerActions = (
     <div className="header-actions">
       {showResetIcon && (
@@ -594,13 +600,13 @@ export default function App() {
                 players={players}
                 myId={myId}
                 amILead={amILead}
-                leadId={leadId}
+                leadId={game.leadId}
                 amDisconnected={amDisconnected}
                 openNameModal={openNameModal}
                 hasPlayed={hasPlayed}
                 onKickPlayer={kickPlayer}
                 side={side}
-                gameStatus={gameStatus}
+                gameStatus={status}
                 joinSide={joinSide}
                 autoAssign={autoAssign}
               />
@@ -613,12 +619,14 @@ export default function App() {
           <div className="side-right">
             <div className="side-inner">
               <ChatPanel
-                chatMessages={chatMessages}
+                chatMessages={chat}
                 myId={myId}
                 chatInput={chatInput}
                 setChatInput={setChatInput}
                 chatInputRef={chatInputRef}
-                socket={socket}
+                onSend={(message) =>
+                  act({ type: "SEND_CHAT", payload: { message } })
+                }
               />
             </div>
           </div>
@@ -626,19 +634,19 @@ export default function App() {
             {renderBottomPlayerInfoBox(bottomActionSlot)}
           </div>
           {/* One row for both banners, and the vote takes the top: see .vote-row. */}
-          {(voteBannerContent || forfeitCountdown) && (
+          {(voteBannerContent || forfeit) && (
             <div className="vote-row">
               {voteBannerContent}
-              {forfeitCountdown && (
+              {forfeit && (
                 <div className="forfeit-banner" role="status">
-                  {forfeitCountdown.side
+                  {forfeit.side
                     ? UI.forfeitCountdown(
-                        forfeitCountdown.side === "white"
+                        forfeit.side === "white"
                           ? UI.headingWhite
                           : UI.headingBlack,
-                        forfeitTimeLeft
+                        countdown(forfeit.endTime, now)
                       )
-                    : UI.forfeitCountdownBoth(forfeitTimeLeft)}
+                    : UI.forfeitCountdownBoth(countdown(forfeit.endTime, now))}
                 </div>
               )}
             </div>

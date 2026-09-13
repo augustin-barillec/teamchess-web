@@ -44,14 +44,15 @@ export const UI = {
 
   // Status
   noMovesYet: "No moves played yet.",
-  offlineBanner: "You\u2019re offline. Trying to reconnect\u2026",
+  offlineBanner: "You’re offline. Trying to reconnect…",
   forfeitCountdown: (team: string, seconds: number) =>
-    `${team} has nobody left \u2014 forfeits in ${seconds}s unless someone joins`,
+    `${team} has nobody left — forfeits in ${seconds}s unless someone joins`,
   forfeitCountdownBoth: (seconds: number) =>
-    `Nobody left on either side \u2014 draw in ${seconds}s unless someone joins`,
+    `Nobody left on either side — draw in ${seconds}s unless someone joins`,
 
   // Chat
   chatPlaceholder: "Type a message...",
+  welcomeMessage: `Welcome to TeamChess!\n\nHow it works:\n• Each player on a team proposes a move\n• Stockfish 18 picks the strongest proposal\n\nTime control:\n• 10 min per side\n• +10s added at the end of each turn when under 1 min\n\nJoin White or Black to play!`,
 
   // Confirmations
   confirmResign: "Resign the game?",

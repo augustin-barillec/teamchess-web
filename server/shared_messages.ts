@@ -37,19 +37,15 @@ export const MSG = {
     `❌ Vote to ${formatVoteType(type)} failed.`,
 
   playerKicked: (name: string) => `${name} has been kicked.`,
-  youHaveBeenKicked: "You have been kicked from the game.",
 
   gameReset: "🔄 Game has been reset.",
-
-  welcomeMessage: `Welcome to TeamChess!\n\nHow it works:\n• Each player on a team proposes a move\n• Stockfish 18 picks the strongest proposal\n\nTime control:\n• 10 min per side\n• +10s added at the end of each turn when under 1 min\n\nJoin White or Black to play!`,
 
   systemError:
     "⚠️ System error: move could not be processed. Please resubmit your moves.",
   engineFallback:
     "⚠️ Stockfish could not pick a move — a proposal was played at random.",
 
-  // Sent to one socket, never broadcast.
-  errorNotEligible: "You are not eligible to vote.",
+  // Sent to one player, never broadcast.
   errorTargetNotFound: "Target player not found.",
   errorVoteInProgress: "Another vote is already in progress.",
   errorLeadOnly: "Only the host can do that.",
@@ -59,6 +55,5 @@ export const MSG = {
   errorNotAccepting: "Not accepting moves right now.",
   errorNotYourTurn: "Not your turn.",
   errorAlreadyMoved: "Already moved.",
-  errorIllegalFormat: "Illegal move format.",
   errorIllegalMove: "Illegal move.",
 } as const;

@@ -61,12 +61,6 @@ describe("shared_messages", () => {
   });
 
   describe("MSG", () => {
-    it("has a welcome message", () => {
-      expect(MSG.welcomeMessage).toBeDefined();
-      expect(typeof MSG.welcomeMessage).toBe("string");
-      expect(MSG.welcomeMessage.length).toBeGreaterThan(0);
-    });
-
     it("generates team vote failed message", () => {
       const msg = MSG.teamVoteFailed("resign");
       expect(msg).toContain("resign");

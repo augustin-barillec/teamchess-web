@@ -5,6 +5,7 @@ import type { Player } from "./types";
 const player = (): Player => ({
   id: Math.random().toString(),
   name: "Player",
+  side: "white",
 });
 
 describe("shouldConfirmTeamAction", () => {
@@ -12,7 +13,7 @@ describe("shouldConfirmTeamAction", () => {
     expect(shouldConfirmTeamAction([player()])).toBe(true);
   });
 
-  it("returns false with a teammate, since the server opens a vote instead", () => {
+  it("returns false with a teammate, since the vote then waits for them", () => {
     expect(shouldConfirmTeamAction([player(), player()])).toBe(false);
   });
 

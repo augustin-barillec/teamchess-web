@@ -1,5 +1,4 @@
 import { RefObject } from "react";
-import { Socket } from "socket.io-client";
 import { ChatMessage } from "../types";
 import { UI } from "../messages";
 import { colorForPlayer } from "../playerColors";
@@ -10,7 +9,7 @@ interface ChatPanelProps {
   chatInput: string;
   setChatInput: (value: string) => void;
   chatInputRef: RefObject<HTMLInputElement | null>;
-  socket: Socket | null;
+  onSend: (message: string) => void;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -19,14 +18,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   chatInput,
   setChatInput,
   chatInputRef,
-  socket,
+  onSend,
 }) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
       const message = chatInput.trim();
       if (message) {
-        socket?.emit("chat_message", message);
+        onSend(message);
         setChatInput("");
       }
     }

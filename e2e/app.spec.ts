@@ -33,8 +33,8 @@ test.beforeEach(async () => {
   await new Promise((resolve) => setTimeout(resolve, 2000));
 });
 
-// eslint-disable-next-line no-empty-pattern
-test.afterEach(async ({}, testInfo) => {
+test.afterEach(async () => {
+  const testInfo = test.info();
   const safeName = testInfo.title
     .replace(/\s+/g, "_")
     .replace(/[^a-zA-Z0-9_]/g, "");
