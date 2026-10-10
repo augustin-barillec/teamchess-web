@@ -35,12 +35,11 @@
 }
 /* Sized for fullscreen: the full set (♛ ♜♜ ♝♝ ♞♞ and eight pawns, +39) fits
    beside the clock and ⚑ ½ down to a 1080p display scaled 125%, where the board
-   is 504px wide, with 5px to spare. A smaller window clips it, see below. */
+   is 504px wide, with 13px to spare. A smaller window clips it, see below. */
 .material-display {
   font-size: 1.125rem;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
   flex-grow: 1;
   min-width: 0;
   color: var(--color-material-piece);
@@ -60,10 +59,11 @@
   align-items: center;
 }
 /* As on lichess: one figurine per piece, each repeat covering half of the one
-   before, and no gap between groups. The box is sized in em rather than left to
-   the glyph, whose advance varies from font to font, so the strip is as wide on
-   every machine. The shadow, in the row's own background, draws the edge where
-   a figurine sits on its neighbour: without it two of them melt into one shape. */
+   before, no gap between groups nor before the +N. The box is sized in em
+   rather than left to the glyph, whose advance varies from font to font, so
+   the strip is as wide on every machine. The shadow, in the row's own
+   background, draws the edge where a figurine sits on its neighbour: without
+   it two of them melt into one shape. */
 .piece-figurine {
   width: 1em;
   text-align: center;
@@ -74,11 +74,9 @@
 }
 .material-adv-label {
   display: inline-block;
-  min-width: 3ch;
   flex-shrink: 0;
   margin-right: var(--space-2);
   font-size: 0.75em;
-  text-align: right;
 }
 .player-info-actions {
   display: flex;
