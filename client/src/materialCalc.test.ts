@@ -1,47 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { groupPiecesToStrings, calculateMaterial } from "./materialCalc.js";
+import { calculateMaterial } from "./materialCalc.js";
 
 describe("materialCalc", () => {
-  describe("groupPiecesToStrings", () => {
-    it("returns empty array for empty input", () => {
-      expect(groupPiecesToStrings([])).toEqual([]);
-    });
-
-    it("returns single piece without count", () => {
-      const pieces = [{ type: "q", figurine: "♕" }];
-      expect(groupPiecesToStrings(pieces)).toEqual(["♕"]);
-    });
-
-    it("groups consecutive same pieces with count", () => {
-      const pieces = [
-        { type: "q", figurine: "♕" },
-        { type: "q", figurine: "♕" },
-      ];
-      expect(groupPiecesToStrings(pieces)).toEqual(["♕x2"]);
-    });
-
-    it("handles multiple different pieces", () => {
-      const pieces = [
-        { type: "q", figurine: "♕" },
-        { type: "r", figurine: "♖" },
-        { type: "n", figurine: "♘" },
-      ];
-      expect(groupPiecesToStrings(pieces)).toEqual(["♕", "♖", "♘"]);
-    });
-
-    it("groups consecutive pieces and separates different ones", () => {
-      const pieces = [
-        { type: "r", figurine: "♖" },
-        { type: "r", figurine: "♖" },
-        { type: "n", figurine: "♘" },
-        { type: "p", figurine: "♙" },
-        { type: "p", figurine: "♙" },
-        { type: "p", figurine: "♙" },
-      ];
-      expect(groupPiecesToStrings(pieces)).toEqual(["♖x2", "♘", "♙x3"]);
-    });
-  });
-
   describe("calculateMaterial", () => {
     const wp = (type: string) => ({ type, color: "w" as const });
     const bp = (type: string) => ({ type, color: "b" as const });
@@ -115,7 +75,7 @@ describe("materialCalc", () => {
 
       const result = calculateMaterial(board);
       expect(result.materialBalance).toBe(9); // Queen = 9
-      expect(result.whiteMaterialDiff).toEqual(["♛"]);
+      expect(result.whiteMaterialDiff).toEqual([{ figurine: "♛", count: 1 }]);
       expect(result.blackMaterialDiff).toEqual([]);
     });
 
@@ -134,7 +94,7 @@ describe("materialCalc", () => {
       const result = calculateMaterial(board);
       expect(result.materialBalance).toBe(-10); // 2 rooks = -10
       expect(result.whiteMaterialDiff).toEqual([]);
-      expect(result.blackMaterialDiff).toEqual(["♜x2"]);
+      expect(result.blackMaterialDiff).toEqual([{ figurine: "♜", count: 2 }]);
     });
 
     it("shows piece differences in correct order (q, r, b, n, p)", () => {
@@ -153,7 +113,11 @@ describe("materialCalc", () => {
       // White has: Q(9) + N(3) + P(1) = 13
       expect(result.materialBalance).toBe(13);
       // Order should be: q, r, b, n, p (but only pieces with diff shown)
-      expect(result.whiteMaterialDiff).toEqual(["♛", "♞", "♟"]);
+      expect(result.whiteMaterialDiff).toEqual([
+        { figurine: "♛", count: 1 },
+        { figurine: "♞", count: 1 },
+        { figurine: "♟", count: 1 },
+      ]);
     });
 
     it("handles complex material imbalance", () => {
@@ -173,8 +137,14 @@ describe("materialCalc", () => {
 
       const result = calculateMaterial(board);
       expect(result.materialBalance).toBe(2);
-      expect(result.whiteMaterialDiff).toEqual(["♛", "♜"]);
-      expect(result.blackMaterialDiff).toEqual(["♝x2", "♞x2"]);
+      expect(result.whiteMaterialDiff).toEqual([
+        { figurine: "♛", count: 1 },
+        { figurine: "♜", count: 1 },
+      ]);
+      expect(result.blackMaterialDiff).toEqual([
+        { figurine: "♝", count: 2 },
+        { figurine: "♞", count: 2 },
+      ]);
     });
 
     it("handles empty board with just kings", () => {
@@ -209,7 +179,7 @@ describe("materialCalc", () => {
 
       const result = calculateMaterial(board);
       expect(result.materialBalance).toBe(2); // 3 - 1 = 2 pawns
-      expect(result.whiteMaterialDiff).toEqual(["♟x2"]);
+      expect(result.whiteMaterialDiff).toEqual([{ figurine: "♟", count: 2 }]);
       expect(result.blackMaterialDiff).toEqual([]);
     });
   });

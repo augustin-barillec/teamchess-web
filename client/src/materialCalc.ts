@@ -13,46 +13,21 @@ const PIECE_VALUES: Record<string, number> = {
 
 const PIECE_ORDER = ["q", "r", "b", "n", "p"];
 
+/** A piece type one side has more of, and how many more. */
+export interface MaterialGroup {
+  figurine: string;
+  count: number;
+}
+
 export interface MaterialResult {
-  whiteMaterialDiff: string[];
-  blackMaterialDiff: string[];
+  whiteMaterialDiff: MaterialGroup[];
+  blackMaterialDiff: MaterialGroup[];
   materialBalance: number;
 }
 
 /**
- * Groups consecutive pieces of the same type into display strings.
- * e.g., [♕, ♕, ♖] -> ["♕x2", "♖"]
- */
-export function groupPiecesToStrings(
-  pieces: { type: string; figurine: string }[]
-): string[] {
-  if (pieces.length === 0) return [];
-
-  const groupedStrings: string[] = [];
-  let currentFigurine = pieces[0].figurine;
-  let currentCount = 0;
-
-  for (const piece of pieces) {
-    if (piece.figurine === currentFigurine) {
-      currentCount++;
-    } else {
-      groupedStrings.push(
-        `${currentFigurine}${currentCount > 1 ? `x${currentCount}` : ""}`
-      );
-      currentFigurine = piece.figurine;
-      currentCount = 1;
-    }
-  }
-  groupedStrings.push(
-    `${currentFigurine}${currentCount > 1 ? `x${currentCount}` : ""}`
-  );
-
-  return groupedStrings;
-}
-
-/**
  * Calculates material difference between white and black pieces.
- * Returns display strings for captured pieces and the numeric balance.
+ * Returns, for each side, the piece types it is up on, and the numeric balance.
  */
 export function calculateMaterial(board: Piece[][]): MaterialResult {
   const wCounts: Record<string, number> = {
@@ -87,26 +62,22 @@ export function calculateMaterial(board: Piece[][]): MaterialResult {
   }
   const balance = wScore - bScore;
 
-  const whiteDiff: { type: string; figurine: string }[] = [];
-  const blackDiff: { type: string; figurine: string }[] = [];
+  const whiteDiff: MaterialGroup[] = [];
+  const blackDiff: MaterialGroup[] = [];
 
   for (const type of PIECE_ORDER) {
     const diff = wCounts[type] - bCounts[type];
-    const absDiff = Math.abs(diff);
     const figurine = pieceToFigurine[type.toUpperCase()];
 
     if (diff !== 0) {
       const targetList = diff > 0 ? whiteDiff : blackDiff;
-
-      for (let i = 0; i < absDiff; i++) {
-        targetList.push({ type, figurine });
-      }
+      targetList.push({ figurine, count: Math.abs(diff) });
     }
   }
 
   return {
-    whiteMaterialDiff: groupPiecesToStrings(whiteDiff),
-    blackMaterialDiff: groupPiecesToStrings(blackDiff),
+    whiteMaterialDiff: whiteDiff,
+    blackMaterialDiff: blackDiff,
     materialBalance: balance,
   };
 }

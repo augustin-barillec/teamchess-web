@@ -33,8 +33,11 @@
 .clock-box.active.low-time {
   background-color: var(--color-danger-strong);
 }
+/* Sized for fullscreen: the full set (♛ ♜♜ ♝♝ ♞♞ and eight pawns, +39) fits
+   beside the clock and ⚑ ½ down to a 1080p display scaled 125%, where the board
+   is 504px wide, with 5px to spare. A smaller window clips it, see below. */
 .material-display {
-  font-size: 2rem;
+  font-size: 1.125rem;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -50,16 +53,24 @@
   align-items: center;
   min-width: 0;
   overflow: hidden;
-  gap: var(--space-2);
   line-height: 1;
 }
 .piece-group {
   display: inline-flex;
   align-items: center;
 }
-.piece-count {
-  font-size: 0.75em;
-  line-height: 1;
+/* As on lichess: one figurine per piece, each repeat covering half of the one
+   before, and no gap between groups. The box is sized in em rather than left to
+   the glyph, whose advance varies from font to font, so the strip is as wide on
+   every machine. The shadow, in the row's own background, draws the edge where
+   a figurine sits on its neighbour: without it two of them melt into one shape. */
+.piece-figurine {
+  width: 1em;
+  text-align: center;
+  text-shadow: -1px 0 var(--color-bg-surface);
+}
+.piece-figurine + .piece-figurine {
+  margin-left: -0.5em;
 }
 .material-adv-label {
   display: inline-block;
