@@ -601,7 +601,6 @@ export default function App() {
                 myId={myId}
                 amILead={amILead}
                 leadId={game.leadId}
-                amDisconnected={amDisconnected}
                 openNameModal={openNameModal}
                 hasPlayed={hasPlayed}
                 onKickPlayer={kickPlayer}

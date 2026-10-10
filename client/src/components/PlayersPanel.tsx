@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Player, PlayerSide, Side, GameStatus } from "../types";
-import { DisconnectedIcon } from "../DisconnectedIcon";
 import { DEFAULT_PLAYER_NAME, UI } from "../messages";
 import { colorForPlayer } from "../playerColors";
 import { ConfirmModal } from "./ConfirmModal";
@@ -11,7 +10,6 @@ interface PlayersPanelProps {
   /** The lead kicks players and resets the game; everyone else sees neither. */
   amILead: boolean;
   leadId: string | null;
-  amDisconnected: boolean;
   openNameModal: () => void;
   hasPlayed: (playerId: string, teamSide: PlayerSide) => boolean;
   onKickPlayer: (targetId: string) => void;
@@ -63,7 +61,6 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
   myId,
   amILead,
   leadId,
-  amDisconnected,
   openNameModal,
   hasPlayed,
   onKickPlayer,
@@ -93,7 +90,6 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
   const renderPlayerEntry = (p: Player, teamSide?: PlayerSide) => {
     const isMe = p.id === myId;
     const isLead = p.id === leadId;
-    const disconnected = isMe && amDisconnected;
     const showKickButton = amILead && !isMe;
     const played = teamSide ? hasPlayed(p.id, teamSide) : false;
     const nameStyle = { color: colorForPlayer(p.id) };
@@ -126,11 +122,6 @@ export const PlayersPanel: React.FC<PlayersPanelProps> = ({
           {isLead && (
             <span className="player-icon-slot">
               <LeadCrown />
-            </span>
-          )}
-          {disconnected && (
-            <span className="player-icon-slot">
-              <DisconnectedIcon />
             </span>
           )}
           {showKickButton && (

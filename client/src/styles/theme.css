@@ -37,10 +37,6 @@
      to read as the lightest thing on screen (the clock above all). */
   --color-text-bright: #ffffff;
 
-  /* Icons drawn as filled shapes rather than strokes (the disconnected marker).
-     Muted on purpose: they annotate a player, they are not the player. */
-  --color-icon-fill: var(--color-text-secondary);
-
   /* Borders */
   --color-border-subtle: #333;
   --color-border-1: #444;
