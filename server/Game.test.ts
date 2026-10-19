@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi, type Mock } from "vitest";
-import { Game } from "./Game.js";
+import { Game, normalizeName } from "./Game.js";
 import type { Engine } from "./types.js";
 import { MSG } from "./shared_messages.js";
 import {
@@ -13,6 +13,8 @@ import {
 import {
   DEFAULT_CLOCK_TIME,
   ENGINE_MOVE_TIMEOUT_MS,
+  MAX_ACTIONS_PER_SECOND,
+  MAX_PLAYER_NAME_LENGTH,
   TEAM_EMPTY_FORFEIT_MS,
   TEAM_VOTE_DURATION_MS,
 } from "./constants.js";
@@ -168,16 +170,24 @@ describe("membership", () => {
     ]);
   });
 
-  it("renames a player on SET_NAME, trimmed and capped at 30 characters", () => {
+  it("trims and caps the name a connection comes with", () => {
+    expect(normalizeName("  " + "x".repeat(40) + "  ")).toBe(
+      "x".repeat(MAX_PLAYER_NAME_LENGTH)
+    );
+    expect(normalizeName("   ")).toBeNull();
+    expect(normalizeName(42)).toBeNull();
+  });
+
+  it("renames a player on SET_NAME, trimmed", () => {
     const ctx = track(setupGame());
     ctx.join("A", "Alice");
 
     ctx.game.processAction("A", {
       type: "SET_NAME",
-      payload: { name: "  " + "x".repeat(40) + "  " },
+      payload: { name: "  Alicia  " },
     });
 
-    expect(ctx.state().players[0].name).toBe("x".repeat(30));
+    expect(ctx.state().players[0].name).toBe("Alicia");
   });
 
   it("ignores an empty name", () => {
@@ -375,19 +385,164 @@ describe("chat", () => {
   });
 
   it("ignores an empty or whitespace-only message", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const ctx = track(setupGame());
+      ctx.join("A", "Alice");
+
+      ctx.game.processAction("A", {
+        type: "SEND_CHAT",
+        payload: { message: "" },
+      });
+      ctx.game.processAction("A", {
+        type: "SEND_CHAT",
+        payload: { message: "   \t  \n " },
+      });
+
+      expect(ctx.chats()).toEqual([]);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+/**
+ * Everything a client sends is whatever a browser chose to put on the socket. The
+ * type says ClientAction; the game checks before believing it, and what fails the
+ * check changes nothing — not the players everyone sees, not the game, not even
+ * the published state.
+ */
+describe("input validation", () => {
+  it("drops a malformed action without touching the game or publishing", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const ctx = track(setupGame());
+      ctx.join("A", "Alice");
+      const before = ctx.states().length;
+
+      // trim() on a number throws, and a throw in a socket handler takes the
+      // whole server down, and the game of everyone on it.
+      ctx.game.processAction("A", {
+        type: "SEND_CHAT",
+        payload: { message: 42 },
+      });
+      ctx.game.processAction("A", {
+        type: "SET_NAME",
+        payload: { name: { evil: true } },
+      });
+      ctx.game.processAction("A", "not even an object");
+
+      expect(ctx.states().length).toBe(before);
+      expect(ctx.chats()).toEqual([]);
+      expect(ctx.state().players[0].name).toBe("Alice");
+      expect(warn).toHaveBeenCalledTimes(3);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("refuses a vote type nobody declared, which would otherwise agree a draw", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      // Carol is black alone: her own yes is the whole quorum.
+      const ctx = track(setupTwoOnOneGame());
+
+      ctx.game.processAction("C", {
+        type: "START_TEAM_VOTE",
+        payload: { voteType: "end_it" },
+      });
+
+      expect(ctx.state().vote).toBeNull();
+      expect(isOver(ctx)).toBe(false);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("keeps anything but plain long algebraic notation away from the engine", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const ctx = track(setupFourPlayerGame());
+
+      // d2d4 as far as chess.js is concerned, with an engine command riding along.
+      ctx.propose("B", "d2d4\nsetoption name Hash value 8192");
+
+      expect(ctx.state().turns[0].proposals.map((p) => p.lan)).toEqual([
+        "e2e4",
+      ]);
+      expect(ctx.engines.live().sent.join("\n")).not.toContain("setoption");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("stores a proposal as chess.js spells it, not as the client sent it", () => {
     const ctx = track(setupGame());
     ctx.join("A", "Alice");
+    ctx.join("B", "Bob");
+    ctx.joinSide("A", "white");
+    ctx.joinSide("B", "black");
 
-    ctx.game.processAction("A", {
+    // chess.js ignores a promotion piece on a move that promotes nothing; the
+    // server keeps chess.js's spelling, which is also what the engine is told.
+    ctx.propose("A", "e2e4q");
+
+    expect(ctx.state().turns[0].proposals[0].lan).toBe("e2e4");
+  });
+});
+
+/**
+ * Every action costs a snapshot to every player, so a client that sends them by
+ * the thousand is a flood by definition. The limit is per player: one flooder
+ * must not cost anyone else their turn.
+ */
+describe("rate limit", () => {
+  const chat = (ctx: Ctx, pid: string, text: string): void =>
+    ctx.game.processAction(pid, {
       type: "SEND_CHAT",
-      payload: { message: "" },
-    });
-    ctx.game.processAction("A", {
-      type: "SEND_CHAT",
-      payload: { message: "   \t  \n " },
+      payload: { message: text },
     });
 
-    expect(ctx.chats()).toEqual([]);
+  it("drops a player’s actions past the per-second limit, then lets them back in", () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const ctx = track(setupGame());
+      ctx.join("A", "Alice");
+
+      for (let i = 0; i < MAX_ACTIONS_PER_SECOND + 5; i++) {
+        chat(ctx, "A", `m${i}`);
+      }
+
+      expect(ctx.chats()).toHaveLength(MAX_ACTIONS_PER_SECOND);
+      // One line for the whole flood, not one per dropped packet.
+      expect(warn).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(1000);
+      chat(ctx, "A", "later");
+      expect(ctx.chats()).toContain("later");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("limits each player on their own", () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const ctx = track(setupGame());
+      ctx.join("A", "Alice");
+      ctx.join("B", "Bob");
+
+      for (let i = 0; i < MAX_ACTIONS_PER_SECOND * 2; i++) {
+        chat(ctx, "A", `flood${i}`);
+      }
+      chat(ctx, "B", "still here");
+
+      expect(ctx.chats()).toContain("still here");
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 

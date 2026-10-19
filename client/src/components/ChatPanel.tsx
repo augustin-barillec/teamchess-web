@@ -1,5 +1,6 @@
 import { RefObject } from "react";
 import { ChatMessage } from "../types";
+import { MAX_CHAT_MESSAGE_LENGTH } from "../../../server/shared_constants";
 import { UI } from "../messages";
 import { colorForPlayer } from "../playerColors";
 
@@ -87,6 +88,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck="false"
+              maxLength={MAX_CHAT_MESSAGE_LENGTH}
               placeholder={UI.chatPlaceholder}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}

@@ -1,4 +1,5 @@
 import type { ChangeEvent, RefObject, KeyboardEvent } from "react";
+import { MAX_PLAYER_NAME_LENGTH } from "../../../server/shared_constants";
 import { UI } from "../messages";
 
 interface NameChangeModalProps {
@@ -34,7 +35,7 @@ export const NameChangeModal: React.FC<NameChangeModalProps> = ({
           onKeyDown={onKeyDown}
           placeholder={UI.nameModalPlaceholder}
           aria-label={UI.nameModalAriaLabel}
-          maxLength={30}
+          maxLength={MAX_PLAYER_NAME_LENGTH}
         />
 
         <div className="name-modal-buttons">

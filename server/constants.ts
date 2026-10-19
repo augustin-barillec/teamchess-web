@@ -13,6 +13,8 @@ export const STOCKFISH_SEARCH_DEPTH = 15;
 /** How long a search may run before the engine is considered unusable for this turn. */
 export const ENGINE_MOVE_TIMEOUT_MS = 10000;
 export const TEAM_VOTE_DURATION_MS = 20000;
+/** Actions the server takes from one player per second; the rest are dropped unanswered. */
+export const MAX_ACTIONS_PER_SECOND = 10;
 
 // Re-exported so server code has a single constants module to import from; the
 // definitions live next door where the browser client can reach them too.
@@ -20,6 +22,8 @@ export {
   DEFAULT_CLOCK_TIME,
   INCREMENT_THRESHOLD,
   TIME_INCREMENT,
+  MAX_PLAYER_NAME_LENGTH,
+  MAX_CHAT_MESSAGE_LENGTH,
 } from "./shared_constants.js";
 
 export const stockfishPath = path.join(

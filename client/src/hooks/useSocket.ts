@@ -30,6 +30,9 @@ const EMPTY_STATE: GameState = {
   gameOver: null,
 };
 
+// Bounded: a flood of chat costs memory and render time only up to here.
+const MAX_CHAT_HISTORY = 200;
+
 const welcome = (): ChatMessage => ({
   sender: "System",
   senderId: "system",
@@ -115,7 +118,7 @@ export function useSocket(): UseSocketReturn {
           setGame(event.payload);
           break;
         case "CHAT":
-          setChat((prev) => [...prev, event.payload]);
+          setChat((prev) => [...prev, event.payload].slice(-MAX_CHAT_HISTORY));
           break;
         case "ERROR":
           toast.error(event.payload.message);

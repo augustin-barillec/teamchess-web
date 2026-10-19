@@ -2,7 +2,10 @@ import type { Server, Socket } from "socket.io";
 import { nanoid } from "nanoid";
 import { Game, normalizeName, type GameHooks } from "../Game.js";
 import { DEFAULT_PLAYER_NAME } from "../shared_messages.js";
-import type { ClientAction, ServerEvent } from "../shared_types.js";
+import type { ServerEvent } from "../shared_types.js";
+
+/** What nanoid() hands out: its alphabet, at its default size. */
+const PID = /^[\w-]{21}$/;
 
 /**
  * The transport, and nothing else: sockets in, actions to the game, events out.
@@ -15,8 +18,11 @@ export function attach(io: Server, game: Game): void {
       pid?: string;
       name?: string;
     };
-    // A returning client says who it is; a new one is given an id to keep.
-    const pid = typeof auth.pid === "string" && auth.pid ? auth.pid : nanoid();
+    // A returning client says who it is; a new one is given an id to keep. The id
+    // goes out in every snapshot, so only one this server could have handed out is
+    // taken back — any other would let a client choose how much everyone downloads.
+    const pid =
+      typeof auth.pid === "string" && PID.test(auth.pid) ? auth.pid : nanoid();
 
     // A kick outlives the socket it was served on: the ban is what keeps the
     // kicked player out when they come back with the same id.
@@ -31,9 +37,9 @@ export function attach(io: Server, game: Game): void {
     emit(socket, { type: "SESSION", payload: { id: pid, name } });
     game.join(pid, name);
 
-    socket.on("action", (action: ClientAction) =>
-      game.processAction(pid, action)
-    );
+    // Whatever the browser sent, unverified: the game reads an action out of it
+    // before anything counts.
+    socket.on("action", (raw: unknown) => game.processAction(pid, raw));
     socket.on("disconnect", () => game.leave(pid));
   });
 }

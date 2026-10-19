@@ -3,7 +3,6 @@ import type { Engine } from "./types.js";
 import {
   GameStatus,
   EndReason,
-  type ClientAction,
   type ForfeitCountdown,
   type GameOver,
   type GameState,
@@ -21,20 +20,21 @@ import {
   detectGameOver,
   resolveSelectedMove,
 } from "./core/turnLogic.js";
+import { parseClientAction } from "./core/clientAction.js";
 import { getCleanPgn } from "./utils/pgn.js";
 import { chooseBestMove } from "./engine/stockfish.js";
 import {
   DEFAULT_CLOCK_TIME,
+  MAX_ACTIONS_PER_SECOND,
+  MAX_PLAYER_NAME_LENGTH,
   TEAM_EMPTY_FORFEIT_MS,
   TEAM_VOTE_DURATION_MS,
 } from "./constants.js";
 
-const MAX_NAME_LENGTH = 30;
-
 /** Trims and caps a display name; null when nothing usable is left. */
 export function normalizeName(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
-  const name = raw.trim().slice(0, MAX_NAME_LENGTH);
+  const name = raw.trim().slice(0, MAX_PLAYER_NAME_LENGTH);
   return name || null;
 }
 
@@ -44,6 +44,15 @@ export interface GameHooks {
   broadcast(event: ServerEvent): void;
   /** Delivers an event to one player. */
   send(pid: string, event: ServerEvent): void;
+}
+
+/** A seat at the table: who sits in it, and how fast they have been talking. */
+interface Seat {
+  name: string;
+  side: Side;
+  /** When the current one-second window opened, and the actions seen in it. */
+  windowStart: number;
+  actionsInWindow: number;
 }
 
 /**
@@ -70,7 +79,7 @@ export class Game {
    * the next longest-present player takes over, with no bookkeeping to keep in sync.
    * Being in the map is being here — there is no other state.
    */
-  private players = new Map<string, { name: string; side: Side }>();
+  private players = new Map<string, Seat>();
   /** Kicked players. A kick outlives the socket it was served on. */
   private banned = new Set<string>();
 
@@ -115,7 +124,13 @@ export class Game {
   public join(pid: string, name: string): void {
     const player = this.players.get(pid);
     if (player) player.name = name;
-    else this.players.set(pid, { name, side: "spectator" });
+    else
+      this.players.set(pid, {
+        name,
+        side: "spectator",
+        windowStart: 0,
+        actionsInWindow: 0,
+      });
     this.publish();
   }
 
@@ -145,10 +160,28 @@ export class Game {
 
   // ─── Actions ──────────────────────────────────────────────────────────────
 
-  public processAction(pid: string, action: ClientAction): void {
+  /**
+   * The game's one entry point for players. `raw` is whatever the socket carried,
+   * and is trusted for nothing until parseClientAction has read an action out of it.
+   */
+  public processAction(pid: string, raw: unknown): void {
     const player = this.players.get(pid);
     if (!player) {
-      console.warn(`Ignoring ${action.type} from ${pid}: not in the game`);
+      console.warn(`Ignoring action from ${pid}: not in the game`);
+      return;
+    }
+    if (!this.admits(player)) {
+      // One line per window, not one per packet: a flood of actions must not
+      // turn into a flood of synchronous log writes.
+      if (player.actionsInWindow === MAX_ACTIONS_PER_SECOND + 1) {
+        console.warn(`Rate limit: dropping actions from ${pid}`);
+      }
+      return;
+    }
+    const action = parseClientAction(raw);
+    if (!action) {
+      // Not echoed: the payload is the one thing here we know nothing about.
+      console.warn(`Ignoring malformed action from ${pid}`);
       return;
     }
     const isLead = pid === this.leadId();
@@ -201,6 +234,20 @@ export class Game {
     this.publish();
   }
 
+  /**
+   * Counts an action against its sender's one-second window. Ten a second is
+   * beyond any human, and each one costs a snapshot to every player: past the
+   * limit the client is flooding, and its actions are dropped without an answer.
+   */
+  private admits(player: Seat): boolean {
+    const now = Date.now();
+    if (now - player.windowStart >= 1000) {
+      player.windowStart = now;
+      player.actionsInWindow = 0;
+    }
+    return ++player.actionsInWindow <= MAX_ACTIONS_PER_SECOND;
+  }
+
   private handleSubmitMove(pid: string, lan: string): void {
     const player = this.players.get(pid)!;
 
@@ -225,14 +272,21 @@ export class Game {
     }
 
     // Validated on a throwaway board: a rejected proposal must not touch the game.
-    let san: string;
+    let move;
     try {
-      san = new Chess(this.chess.fen()).move(moveFromLan(lan)).san;
+      move = new Chess(this.chess.fen()).move(moveFromLan(lan));
     } catch {
       return this.error(pid, MSG.errorIllegalMove);
     }
 
-    turn.proposals.push({ id: pid, name: player.name, lan, san });
+    // Kept in chess.js's spelling, not the client's: what is stored here is what
+    // the engine is told and what every client matches the selection against.
+    turn.proposals.push({
+      id: pid,
+      name: player.name,
+      lan: move.lan,
+      san: move.san,
+    });
     this.tryFinalizeTurn();
   }
 
