@@ -169,3 +169,21 @@ export async function makeMove(
   });
   await page.mouse.up();
 }
+
+/**
+ * Picks a piece in the promotion dialog (1 = queen). The dialog opens on a drop,
+ * and the drag library swallows every click for 50ms after one — dnd-kit keeps its
+ * click-stopping listener on the document that long. A click sent the instant the
+ * dialog shows lands 50 to 70ms after the drop: sometimes inside that window, where
+ * it does nothing at all. No player is that fast, a test is — so click until the
+ * dialog has actually gone.
+ */
+export async function choosePromotion(page: Page, nth = 1): Promise<void> {
+  const dialog = page.locator(".promotion-dialog");
+  await expect(async () => {
+    await dialog
+      .locator(`.promotion-choices button:nth-child(${nth})`)
+      .click({ timeout: 1_000 });
+    await expect(dialog).toBeHidden({ timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
+}

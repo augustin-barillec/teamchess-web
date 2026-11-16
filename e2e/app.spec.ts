@@ -14,6 +14,7 @@ import {
   joinTeam,
   joinSpectators,
   makeMove,
+  choosePromotion,
   waitForMovePlayed,
   waitForMyTurn,
   waitForProposals,
@@ -321,8 +322,7 @@ test.describe("Gameplay Mechanics", () => {
 
     await makeMove(player1, "g7", "h8");
 
-    // Select Queen in promotion dialog (first button)
-    await player1.click(".promotion-choices button:first-child");
+    await choosePromotion(player1); // the queen
     await waitForMovePlayed(player1, "gxh8=Q");
 
     await expect(
