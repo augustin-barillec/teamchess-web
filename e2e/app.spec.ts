@@ -978,3 +978,30 @@ test.describe("Draw Offers", () => {
     );
   });
 });
+
+test.describe("Layout", () => {
+  test("side_columns_keep_their_width_on_tall_screens", async ({
+    browser,
+  }, testInfo) => {
+    const [player] = await setupPlayers(browser, testInfo, 1);
+
+    // The board is sized off the viewport height, so the page has to widen with it.
+    // Under a fixed page width, every step past 1080p took the bigger board out of
+    // the side columns: ~500px each at 1080p, ~320 at 1440p, nothing left at 4K.
+    for (const [width, height] of [
+      [1920, 1080],
+      [2560, 1440],
+      [3072, 1728], // 4K at 125%
+      [3840, 2160],
+    ]) {
+      await player.setViewportSize({ width, height });
+      for (const column of [".side-left", ".side-right"]) {
+        const box = await player.locator(column).boundingBox();
+        expect(
+          box?.width,
+          `${column} at ${width}x${height}`
+        ).toBeGreaterThanOrEqual(500);
+      }
+    }
+  });
+});
